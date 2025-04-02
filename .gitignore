@@ -1,3 +1,37 @@
-# Log files
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.sum
+/io/io
+/cpu/cpu
+/memoria/memoria
+/kernel/kernel
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work.sum
+
+# env file
+.env
+
+# log files
 *.log
 
+*.tar.gz
+
+# debug files
+__debug_bin*
+
+# idea files
+**/.idea
