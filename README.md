@@ -1,3 +1,7 @@
+# Enunciado
+
+[The Rise of Gopher](https://docs.google.com/document/d/1zoFRoBn9QAfYSr0tITsL3PD6DtPzO2sq9AtvE8NGrkc/edit?tab=t.0)
+
 ## Checkpoint
 
 Para cada checkpoint de control obligatorio, se debe crear un tag en el
