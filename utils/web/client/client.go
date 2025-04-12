@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-// DoRequest: es una función genérica para realizar peticiones HTTP (GET, POST, PUT, DELETE, etc.) desde un cliente.
+// DoRequest es una función genérica para realizar peticiones HTTP (GET, POST, PUT, DELETE, etc.) desde un cliente.
 // Retorna la respuesta del servidor. En caso que se produzca un error va a retornar el error que se produjo.
 //
 // Parámetros:

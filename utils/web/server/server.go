@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-// InitServer: inicializa el servidor, en caso de no poder levantarlo retorna un error
+// InitServer inicializa el servidor, en caso de no poder levantarlo retorna un error
 //
 // Parámetros:
 //   - port: puerto donde se iniciará el servidor
@@ -32,7 +32,7 @@ func InitServer(port int) error {
 	return err
 }
 
-// SendJsonResponse: retorna la respues del servidor en formato JSON
+// SendJsonResponse retorna la respues del servidor en formato JSON
 //
 // Parámetros:
 //   - writer: el http.ResponseWriter con el que se escribe la respuesta HTTP

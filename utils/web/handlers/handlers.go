@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-// HandshakeHandler: se usa para chequear la conexión al servidor
+// HandshakeHandler se usa para chequear la conexión al servidor
 //
 // Parámetros:
 //   - message: el mensaje que querés devolver en la respuesta

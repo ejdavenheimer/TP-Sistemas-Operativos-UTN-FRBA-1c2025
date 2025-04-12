@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-// InitLogger: permite loguear tanto en consola como en archivo según el nivel que se le pase.
+// InitLogger permite loguear tanto en consola como en archivo según el nivel que se le pase.
 //
 // Parámetros:
 //   - logPath: la ubicación donde se va encontrar el archivo
@@ -48,7 +48,7 @@ func InitLogger(logPath string, logLevel string) {
 	slog.Debug("Se ha configurado correctamente el logger y el archivo de configuración. ")
 }
 
-// convertStringToLogLevel: seterar dinámicamente el nivel de log que deseamos tener en el sistema.
+// convertStringToLogLevel modifica dinámicamente el nivel de log que deseamos tener en el sistema.
 func convertStringToLogLevel(levelStr string) (slog.Level, error) {
 	switch levelStr {
 	case "DEBUG":

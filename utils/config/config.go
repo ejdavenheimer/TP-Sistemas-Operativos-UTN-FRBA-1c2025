@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-// InitConfig: lee el archivo de configuración y retorna sus valores en la variable config. En caso de error no se crea el archivo
+// InitConfig lee el archivo de configuración y retorna sus valores en la variable config. En caso de error no se crea el archivo
 //
 // Parámetros:
 //   - filePath: ubicacion donde se encuentra el archivo de configuracion
@@ -25,7 +25,7 @@ import (
 func InitConfig(filePath string, config interface{}) {
 	err := setupConfig(filePath, &config)
 	if err != nil {
-		fmt.Errorf("Error al configurar el archivo: %v", err)
+		_ = fmt.Errorf("error al configurar el archivo %v", err)
 		panic(err)
 	}
 }

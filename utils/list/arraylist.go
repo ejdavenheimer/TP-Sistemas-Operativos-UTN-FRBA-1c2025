@@ -21,7 +21,7 @@ type ArrayList[T any] struct {
 	items []T
 }
 
-// Add: Inserta un elemento al final de la lista.
+// Add inserta un elemento al final de la lista.
 //
 // Parámetros:
 //   - item: Elemento a insertar.
@@ -37,7 +37,7 @@ func (list *ArrayList[T]) Add(item T) {
 	list.items = append(list.items, item)
 }
 
-// Dequeue: Elimina y devuelve el primer elemento de la cola.
+// Dequeue elimina y devuelve el primer elemento de la cola.
 // En caso que la lista se encuentre vacío retorna el valor "cero" del tipo T y un error indicando que esta vacía.
 //
 // Ejemplo:
@@ -53,14 +53,14 @@ func (list *ArrayList[T]) Add(item T) {
 func (list *ArrayList[T]) Dequeue() (T, error) {
 	if len(list.items) == 0 {
 		var zero T // Devuelve el valor "cero" del tipo T
-		return zero, fmt.Errorf("La cola está vacía")
+		return zero, fmt.Errorf("se encuentra vacía")
 	}
 	valor := list.items[0]
 	list.items = list.items[1:]
 	return valor, nil
 }
 
-// Filter: Filtra elementos de la lista en base a un predicado.
+// Filter filtra elementos de la lista en base a un predicado.
 //
 // Parámetros:
 //   - value: Valor a comparar.
@@ -92,7 +92,7 @@ func (list *ArrayList[T]) Filter(value T, predicate func(a, b T) bool) List[T] {
 	return filteredList
 }
 
-// Get: Devuelve el elemento en el índice proporcionado.
+// Get devuelve el elemento en el índice proporcionado.
 //
 // Parámetros:
 //   - index: Índice del elemento a obtener.
@@ -118,7 +118,7 @@ func (list *ArrayList[T]) Get(index int) (T, error) {
 	return list.items[index], nil
 }
 
-// Insert: Inserta un elemento en la lista en el índice proporcionado.
+// Insert inserta un elemento en la lista en el índice proporcionado.
 //
 // Parámetros:
 //   - index: Índice donde se va a ingresar el elemento.
@@ -141,7 +141,7 @@ func (list *ArrayList[T]) Insert(index int, item T) error {
 	return nil
 }
 
-// Pop: Remueve el último elemento de la lista y lo devuelve.
+// Pop remueve el último elemento de la lista y lo devuelve.
 //
 // Parámetros:
 //   - value: Valor a comparar.
@@ -169,7 +169,7 @@ func (list *ArrayList[T]) Pop() (T, error) {
 	return item, nil
 }
 
-// Remove: Remueve un elemento de la lista en base a su índice.
+// Remove remueve un elemento de la lista en base a su índice.
 //
 // Parámetros:
 //   - list: lista de cualquier tipo.
@@ -191,7 +191,7 @@ func (list *ArrayList[T]) Remove(index int) {
 	}
 }
 
-// Size: Devuelve el tamaño de la lista.
+// Size devuelve el tamaño de la lista.
 //
 // Ejemplo
 //
@@ -209,7 +209,7 @@ func (list *ArrayList[T]) Size() int {
 	return len(list.items)
 }
 
-// Sort: Ordena una lista de acuerdo a un criterio.
+// Sort ordena una lista de acuerdo a un criterio.
 //
 // Parámetros:
 //   - value: Valor a comparar.
@@ -242,7 +242,7 @@ func (list *ArrayList[T]) Sort(less func(a, b T) bool) {
 	}
 }
 
-// ForEach: a cada elemento de la lista se le va aplicar la función que le pase.
+// ForEach a cada elemento de la lista se le va aplicar la función que le pase.
 //
 // Parámetros:
 //   - callback: es una función que se ejecuta para cada elemento de la lista.
