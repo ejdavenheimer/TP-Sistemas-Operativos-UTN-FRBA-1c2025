@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/sisoputnfrba/tp-golang/utils/web/server"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 	"net/http"
 )
 
