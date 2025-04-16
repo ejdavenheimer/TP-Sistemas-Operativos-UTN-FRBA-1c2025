@@ -22,7 +22,8 @@ func main() {
 
 	slog.Debug(fmt.Sprintf("Port Memory: %d", models.MemoryConfig.PortMemory))
 
-	http.HandleFunc("/memoria", handlers.HandshakeHandler("Memoria en funcionamiento 🚀"))
+	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Memoria"))
+	http.HandleFunc("GET /memoria", handlers.HandshakeHandler("Memoria en funcionamiento 🚀"))
 
 	err := server.InitServer(models.MemoryConfig.PortMemory)
 	if err != nil {

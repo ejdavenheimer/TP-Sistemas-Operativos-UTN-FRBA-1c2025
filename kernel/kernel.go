@@ -22,7 +22,8 @@ func main() {
 
 	slog.Debug(fmt.Sprintf("Port Kernel: %d", models.KernelConfig.PortKernel))
 
-	http.HandleFunc("/kernel", handlers.HandshakeHandler("Kernel en funcionamiento 🚀"))
+	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Kernel"))
+	http.HandleFunc("GET /kernel", handlers.HandshakeHandler("Kernel en funcionamiento 🚀"))
 
 	err := server.InitServer(models.KernelConfig.PortKernel)
 	if err != nil {

@@ -22,7 +22,10 @@ func main() {
 
 	slog.Debug(fmt.Sprintf("Port IO: %d", models.IoConfig.PortIo))
 
-	http.HandleFunc("/io", handlers.HandshakeHandler("IO en funcionamiento 🚀"))
+	var ioName string = "TEST" //TODO: lo recibe por parámetro cuando inicia el proceso
+
+	http.HandleFunc("GET /", handlers.HandshakeHandler(fmt.Sprintf("Bienvenido al módulo de IO - Dispositivo: %s", ioName)))
+	http.HandleFunc("GET /io", handlers.HandshakeHandler("IO en funcionamiento 🚀"))
 
 	err := server.InitServer(models.IoConfig.PortIo)
 	if err != nil {
