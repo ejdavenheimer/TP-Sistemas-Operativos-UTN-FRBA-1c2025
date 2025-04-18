@@ -1,5 +1,7 @@
 package models
 
+import "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
+
 type Config struct {
 	PortMemory     int    `json:"port_memory"`
 	MemorySize     int    `json:"memory_size"`
@@ -13,4 +15,9 @@ type Config struct {
 	DumpPath       string `json:"dump_path"`
 }
 
+type InstructionResponse struct {
+	Instruction string
+}
+
 var MemoryConfig *Config
+var Instructions list.ArrayList[string]

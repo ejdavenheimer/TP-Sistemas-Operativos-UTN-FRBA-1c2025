@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	cpuHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
@@ -26,6 +27,7 @@ func main() {
 
 	http.HandleFunc("GET /", handlers.HandshakeHandler(fmt.Sprintf("Bienvenido al módulo de CPU%d", cpuNumber)))
 	http.HandleFunc("GET /cpu", handlers.HandshakeHandler("Cpu en funcionamiento 🚀"))
+	http.HandleFunc("POST /cpu/exec", cpuHandler.ExecuteHandler(models.CpuConfig))
 
 	err := server.InitServer(models.CpuConfig.PortCpu)
 	if err != nil {

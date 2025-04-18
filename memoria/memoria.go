@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	memoryHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
@@ -24,6 +25,7 @@ func main() {
 
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Memoria"))
 	http.HandleFunc("GET /memoria", handlers.HandshakeHandler("Memoria en funcionamiento 🚀"))
+	http.HandleFunc("GET /memoria/instrucciones", memoryHandler.GetInstructionsHandler())
 
 	err := server.InitServer(models.MemoryConfig.PortMemory)
 	if err != nil {

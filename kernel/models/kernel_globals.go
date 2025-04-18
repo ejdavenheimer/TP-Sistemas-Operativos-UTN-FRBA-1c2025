@@ -12,3 +12,13 @@ type Config struct {
 }
 
 var KernelConfig *Config
+
+type DeviceRequest struct {
+	Pid            int
+	SuspensionTime int
+}
+
+type SyscallRequest struct {
+	Type   string
+	Values []string
+}
