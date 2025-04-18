@@ -1,0 +1,24 @@
+package models
+
+type Config struct {
+	IpMemory           string  `json:"ip_memory"`
+	PortMemory         int     `json:"port_memory"`
+	PortKernel         int     `json:"port_kernel"`
+	SchedulerAlgorithm string  `json:"scheduler_algorithm"`
+	NewAlgorithm       string  `json:"new_algorithm"`
+	Alpha              float64 `json:"alpha"`
+	SuspensionTime     int     `json:"suspension_time"`
+	LogLevel           string  `json:"log_level"`
+}
+
+var KernelConfig *Config
+
+type DeviceRequest struct {
+	Pid            int
+	SuspensionTime int
+}
+
+type SyscallRequest struct {
+	Type   string
+	Values []string
+}
