@@ -16,16 +16,16 @@ func ConnectToKernel(ioName string, ioConfig *models.Config) {
 	body, err := json.Marshal(request)
 
 	if err != nil {
-		slog.Error("error:", err)
-		return
+		slog.Error(fmt.Sprintf("error: %v", err))
+		panic(err)
 	}
 
 	//Envia la request de conexion a Kernel
 	_, err = client.DoRequest(ioConfig.PortKernel, ioConfig.IpKernel, "POST", "kernel/dispositivos", body)
 
 	if err != nil {
-		slog.Error("error:", err)
-		return
+		slog.Error(fmt.Sprintf("error: %v", err))
+		panic(err)
 	}
 }
 

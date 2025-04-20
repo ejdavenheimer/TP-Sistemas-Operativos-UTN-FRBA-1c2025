@@ -29,7 +29,7 @@ func main() {
 
 	err := server.InitServer(models.MemoryConfig.PortMemory)
 	if err != nil {
-		slog.Error("error initializing server: %v", err)
+		slog.Error(fmt.Sprintf("error initializing server: %v", err))
 		panic(err)
 	}
 }
