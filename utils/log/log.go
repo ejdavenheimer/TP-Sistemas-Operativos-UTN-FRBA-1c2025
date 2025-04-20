@@ -63,3 +63,13 @@ func convertStringToLogLevel(levelStr string) (slog.Level, error) {
 		return slog.LevelInfo, fmt.Errorf("No existe %s, se coloca INFO por defecto. ", levelStr)
 	}
 }
+
+// BuildLogPath crea archivo log en función del modulo
+func BuildLogPath(module string, args ...interface{}) (string, error) {
+	err := os.MkdirAll("./logs", os.ModePerm)
+	if err != nil {
+		return "", fmt.Errorf("error al crear el directorio de logs: %w", err)
+	}
+	fileName := fmt.Sprintf(module, args...)
+	return fmt.Sprintf("./logs/%s.log", fileName), nil
+}
