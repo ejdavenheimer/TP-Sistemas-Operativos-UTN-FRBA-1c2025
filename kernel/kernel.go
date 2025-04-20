@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	ConfigPath = "./configs/kernel.json"
+	ConfigPath = "kernel/configs/kernel.json"
 	LogPath    = "kernel.log"
 )
 

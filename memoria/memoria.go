@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	ConfigPath = "./configs/memoria.json"
+	ConfigPath = "memoria/configs/memoria.json"
 	LogPath    = "memoria.log"
 )
 
