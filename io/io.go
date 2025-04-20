@@ -15,22 +15,28 @@ import (
 )
 
 const (
-	ConfigPath = "./configs/io.json"
-	LogPath    = "io.log"
+	ConfigPath = "io/configs/io.json"
+//	LogPath    = "io.log"
 )
 
 func main() {
-	config.InitConfig(ConfigPath, &models.IoConfig)
-	log.InitLogger(LogPath, models.IoConfig.LogLevel)
-
-	slog.Debug(fmt.Sprintf("Port IO: %d", models.IoConfig.PortIo))
-
-	ioName := os.Args[1]
-
 	if len(os.Args) < 2 {
 		slog.Error("no se indicó el nombre del dispositivo")
 		return
+	}	
+	ioName := os.Args[1]	
+
+	config.InitConfig(ConfigPath, &models.IoConfig)
+
+	logPath, err := log.BuildLogPath("io_%s", ioName)
+	if err != nil {
+		slog.Error("No se pudo construir el log path", "err", err)
+		return
 	}
+
+	log.InitLogger(logPath, models.IoConfig.LogLevel)
+
+	slog.Debug(fmt.Sprintf("Port IO: %d", models.IoConfig.PortIo))
 
 	services.ConnectToKernel(ioName, models.IoConfig)
 
@@ -38,7 +44,7 @@ func main() {
 	http.HandleFunc("GET /io", handlers.HandshakeHandler("IO en funcionamiento 🚀"))
 	http.HandleFunc("POST /io", ioHandler.SleepHandler())
 
-	err := server.InitServer(models.IoConfig.PortIo)
+	err = server.InitServer(models.IoConfig.PortIo)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error initializing server: %v", err))
 		panic(err)
