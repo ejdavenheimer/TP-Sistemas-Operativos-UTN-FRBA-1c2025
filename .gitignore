@@ -9,6 +9,7 @@
 /cpu/cpu
 /memoria/memoria
 /kernel/kernel
+/bin/
 
 # Test binary, built with `go test -c`
 *.test
