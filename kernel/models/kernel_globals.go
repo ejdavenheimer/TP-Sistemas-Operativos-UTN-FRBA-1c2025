@@ -24,6 +24,7 @@ type DeviceRequest struct {
 }
 
 type SyscallRequest struct {
+	Pid    int
 	Type   string
 	Values []string
 }

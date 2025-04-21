@@ -40,9 +40,9 @@ func ExecuteSyscallHandler() func(http.ResponseWriter, *http.Request) {
 
 		deviceRequested, exists := models.ConnectedDevicesMap.Get(syscallRequest.Type)
 		if !exists || deviceRequested.Name == "" {
-			//TODO: ver que hace cuando no encuentra la interfaz
 			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
-			http.Error(writer, "Interfaz no conectada.", http.StatusNotFound)
+			http.Error(writer, "Dispositivo no conectado.", http.StatusNotFound)
+			services.EndProcess(ioModel.DeviceResponse{Pid: syscallRequest.Pid, Reason: fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type)})
 			return
 		}
 

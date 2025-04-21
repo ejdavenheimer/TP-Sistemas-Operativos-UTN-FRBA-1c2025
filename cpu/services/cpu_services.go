@@ -36,12 +36,8 @@ func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.C
 	return instruction
 }
 
-func ExecuteIO(ioName string, values []string, cpuConfig *models.Config) {
+func ExecuteIO(syscallRequest kernelModel.SyscallRequest, cpuConfig *models.Config) {
 	//Crea y codifica la request de conexion a Kernel
-	syscallRequest := kernelModel.SyscallRequest{
-		Type:   ioName,
-		Values: values,
-	}
 	body, err := json.Marshal(syscallRequest)
 
 	if err != nil {

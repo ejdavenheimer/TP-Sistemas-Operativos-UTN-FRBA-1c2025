@@ -24,14 +24,20 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) {
 
 	//Envia la request de conexion a Kernel
 	response, err := client.DoRequest(device.Port, device.Ip, "POST", "io", body)
+	var deviceResponse ioModel.DeviceResponse
 
 	if err != nil {
-		slog.Error("error:", err)
+		deviceResponse := ioModel.DeviceResponse{
+			Pid:    pid,
+			Reason: "Dispositivo desconectado",
+		}
+		EndProcess(deviceResponse)
+		models.ConnectedDevicesMap.Delete(device.Name)
+
 		return
 	}
 
 	responseBody, _ := io.ReadAll(response.Body)
-	var deviceResponse ioModel.DeviceResponse
 	slog.Debug(fmt.Sprintf("Response: %s", string(responseBody)))
 
 	err = json.Unmarshal(responseBody, &deviceResponse)
@@ -53,4 +59,10 @@ func ExecuteSyscall(device ioModel.Device, values []string) {
 		slog.Error("Invalid syscall type:", ioName)
 		panic(fmt.Sprintf("Invalid syscall type: %s", ioName))
 	}
+}
+
+func EndProcess(response ioModel.DeviceResponse) {
+	slog.Debug(fmt.Sprintf("[%d] Finaliza el proceso - Motivo: %s", response.Pid, response.Reason))
+	//TODO: implementar lógica para finalizar proceso
+	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", response.Pid))
 }

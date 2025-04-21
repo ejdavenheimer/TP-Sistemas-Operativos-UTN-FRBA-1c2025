@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/services"
+	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"log/slog"
 	"net/http"
@@ -23,10 +24,16 @@ func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Re
 
 		instruction := services.GetInstruction(instructionRequest, cpuConfig)
 		value := strings.Split(instruction.Instruction, " ")
+		var syscallRequest kernelModel.SyscallRequest
 
 		switch value[0] {
 		case "IO":
-			services.ExecuteIO(value[1], value[0:], cpuConfig)
+			syscallRequest = kernelModel.SyscallRequest{
+				Pid:    instructionRequest.Pid,
+				Type:   value[1],
+				Values: value[0:],
+			}
+			services.ExecuteIO(syscallRequest, cpuConfig)
 		default:
 			slog.Error("error: instrucción inválida")
 		}

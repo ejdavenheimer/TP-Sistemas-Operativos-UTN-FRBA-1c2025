@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 )
 
@@ -45,7 +46,7 @@ func DoRequest(port int, ip string, metodo string, query string, bodies ...[]byt
 
 	// Error Handler de la construcción de la request
 	if err != nil {
-		fmt.Printf("error creando request a ip: %s puerto: %d\n", ip, port)
+		slog.Error(fmt.Sprintf("error creando request a ip: %s puerto: %d", ip, port))
 		return nil, err
 	}
 
@@ -57,13 +58,14 @@ func DoRequest(port int, ip string, metodo string, query string, bodies ...[]byt
 
 	// Error handler de la request
 	if err != nil {
-		fmt.Printf("error enviando request a ip: %s puerto: %d\n", ip, port)
+		errorMsg := fmt.Errorf("error enviando request a ip: %s puerto: %d - %v", ip, port, err)
+		slog.Error(errorMsg.Error())
 		return nil, err
 	}
 
 	// Verificar el código de estado de la respuesta del servidor a nuestra request (de no ser OK)
 	if respuesta.StatusCode != http.StatusOK {
-		fmt.Printf("Status Error: %d\n", respuesta.StatusCode)
+		slog.Error(fmt.Sprintf("Status Error: %d", respuesta.StatusCode))
 		return nil, err
 	}
 	return respuesta, err
