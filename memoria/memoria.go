@@ -26,7 +26,7 @@ func main() {
 
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Memoria"))
 	http.HandleFunc("GET /memoria", handlers.HandshakeHandler("Memoria en funcionamiento 🚀"))
-	http.HandleFunc("GET /memoria/instrucciones", memoryHandler.GetInstructionsHandler())
+	http.HandleFunc("GET /memoria/instrucciones", memoryHandler.GetInstructionsHandler(models.MemoryConfig.PathInstructions))
 
 	err := server.InitServer(models.MemoryConfig.PortMemory)
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-func GetInstructionsHandler() func(http.ResponseWriter, *http.Request) {
+func GetInstructionsHandler(configPath string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		queryParams := r.URL.Query()
 		pidStr := queryParams.Get("pid")
@@ -16,7 +16,7 @@ func GetInstructionsHandler() func(http.ResponseWriter, *http.Request) {
 
 		pid, _ := strconv.ParseInt(pidStr, 10, 64)
 
-		path := models.InstructionPath + pathName
+		path := configPath + pathName
 		instruction := models.InstructionResponse{
 			Instruction: services.GetIoInstruction(uint(pid), path),
 		}
