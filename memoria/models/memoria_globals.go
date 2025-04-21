@@ -19,5 +19,13 @@ type InstructionResponse struct {
 	Instruction string
 }
 
+type InstructionRequest struct {
+	Pid      int
+	PathName string
+}
+
 var MemoryConfig *Config
 var Instructions list.ArrayList[string]
+var InstructionsMap map[uint][]string
+
+const InstructionPath string = "./scripts/"

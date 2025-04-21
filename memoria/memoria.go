@@ -22,6 +22,7 @@ func main() {
 	log.InitLogger(LogPath, models.MemoryConfig.LogLevel)
 
 	slog.Debug(fmt.Sprintf("Port Memory: %d", models.MemoryConfig.PortMemory))
+	models.InstructionsMap = make(map[uint][]string)
 
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Memoria"))
 	http.HandleFunc("GET /memoria", handlers.HandshakeHandler("Memoria en funcionamiento 🚀"))

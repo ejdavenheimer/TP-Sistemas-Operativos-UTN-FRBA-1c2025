@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
@@ -11,9 +12,10 @@ import (
 )
 
 // este servicio realiza la conexión con kernel.
-func GetInstruction(cpuConfig *models.Config) memoriaModel.InstructionResponse {
+func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionResponse {
 	//Envia la request de conexion a Kernel
-	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", "memoria/instrucciones", nil)
+	query := fmt.Sprintf("memoria/instrucciones?pid=%d&pathName=%s", request.Pid, request.PathName)
+	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", query, nil)
 
 	if err != nil {
 		slog.Error("error:", err)
@@ -21,7 +23,7 @@ func GetInstruction(cpuConfig *models.Config) memoriaModel.InstructionResponse {
 	}
 
 	responseBody, _ := io.ReadAll(response.Body)
-	slog.Info("Response: %s", string(responseBody))
+	slog.Debug(fmt.Sprintf("Response: %s", string(responseBody)))
 
 	var instruction memoriaModel.InstructionResponse
 	err = json.Unmarshal(responseBody, &instruction)
@@ -29,7 +31,7 @@ func GetInstruction(cpuConfig *models.Config) memoriaModel.InstructionResponse {
 		slog.Error("error parseando el JSON: %v", err)
 	}
 
-	slog.Info("Instrucción recibida:", instruction.Instruction)
+	slog.Debug(fmt.Sprintf("Instrucción recibida: %s", instruction.Instruction))
 
 	return instruction
 }
