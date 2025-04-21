@@ -14,7 +14,7 @@ import (
 
 const (
 	ConfigPath = "memoria/configs/memoria.json"
-	LogPath    = "memoria.log"
+	LogPath    = "./logs/memoria.log"
 )
 
 func main() {

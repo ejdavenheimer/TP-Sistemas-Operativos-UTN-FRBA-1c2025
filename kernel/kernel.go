@@ -14,7 +14,7 @@ import (
 
 const (
 	ConfigPath = "kernel/configs/kernel.json"
-	LogPath    = "kernel.log"
+	LogPath    = "./logs/kernel.log"
 )
 
 func main() {
