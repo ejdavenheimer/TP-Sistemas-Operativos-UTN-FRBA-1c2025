@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	cpuHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
@@ -11,6 +10,7 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 	"log/slog"
 	"net/http"
+	"os"
 )
 
 const (
