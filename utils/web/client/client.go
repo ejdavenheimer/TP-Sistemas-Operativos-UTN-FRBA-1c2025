@@ -13,7 +13,7 @@ import (
 // Parámetros:
 //   - port: el puerto al que se hará la petición
 //   - ip: la IP o dominio del servidor
-//   - metodo: método HTTP
+//   - metodo: metodo HTTP
 //   - query: parte final de la URL
 //   - bodies ...[]byte: (opcional) body del request (usado por ejemplo en un POST/PUT), puede pasarse vacío.
 //

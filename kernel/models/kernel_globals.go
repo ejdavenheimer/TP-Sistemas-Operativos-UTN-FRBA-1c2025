@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
-	"sync"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 )
 
 type Config struct {
@@ -28,33 +28,4 @@ type SyscallRequest struct {
 	Values []string
 }
 
-var ConnectedDevicesMap = DeviceMap{m: make(map[string]models.Device)}
-
-type DeviceMap struct {
-	mx sync.Mutex
-	m  map[string]models.Device
-}
-
-// TODO: remover las funciones a un helper
-func (sMap *DeviceMap) Set(key string, value models.Device) {
-	sMap.mx.Lock()
-	sMap.m[key] = value
-	sMap.mx.Unlock()
-}
-
-func (sMap *DeviceMap) Delete(key string) models.Device {
-	sMap.mx.Lock()
-	var pcb = sMap.m[key]
-	delete(sMap.m, key)
-	sMap.mx.Unlock()
-
-	return pcb
-}
-
-func (sMap *DeviceMap) Get(key string) (models.Device, bool) {
-	sMap.mx.Lock()
-	var device, find = sMap.m[key]
-	sMap.mx.Unlock()
-
-	return device, find
-}
+var ConnectedDevicesMap = helpers.DeviceMap{M: make(map[string]models.Device)}
