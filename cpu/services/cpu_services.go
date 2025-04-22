@@ -53,3 +53,23 @@ func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models
 		return
 	}
 }
+
+func ExecuteNoop(request models.ExecuteInstructionRequest) {
+	slog.Debug(fmt.Sprintf("[%d] Instrucción %s", request.Pid, request.Values[0]))
+	//TODO: implementar lógica para NOOP
+}
+
+func ExecuteWrite(request models.ExecuteInstructionRequest) {
+	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%d, %d)", request.Pid, request.Values[0] ,request.Values[1], request.Values[2]))
+	//TODO: implementar lógica para WRITE
+}
+
+func ExecuteRead(request models.ExecuteInstructionRequest) {
+	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%d, %d)", request.Pid, request.Values[0] ,request.Values[1], request.Values[2]))
+	//TODO: implementar lógica para READ
+}
+
+func ExecuteGoto(request models.ExecuteInstructionRequest) {
+	slog.Debug(fmt.Sprintf("[%d] Instrucción %s", request.Pid, request.Values[0]))
+	//TODO: implementar lógica para NOOP
+}

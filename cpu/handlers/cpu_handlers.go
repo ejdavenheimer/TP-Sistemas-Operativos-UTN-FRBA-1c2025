@@ -24,9 +24,22 @@ func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Re
 
 		instruction := services.GetInstruction(instructionRequest, cpuConfig)
 		value := strings.Split(instruction.Instruction, " ")
+
 		var syscallRequest kernelModel.SyscallRequest
+		executeInstructionRequest := models.ExecuteInstructionRequest {
+			Pid: instructionRequest.Pid,
+			Values: value[0:],
+		}
 
 		switch value[0] {
+		case "NOOP": 
+			services.ExecuteNoop(executeInstructionRequest)
+		case "WRITE":
+			services.ExecuteWrite(executeInstructionRequest)
+		case "READ": 
+			services.ExecuteRead(executeInstructionRequest)
+		case "GOTO":
+			services.ExecuteGoto(executeInstructionRequest)
 		case "IO":
 			syscallRequest = kernelModel.SyscallRequest{
 				Pid:    instructionRequest.Pid,
