@@ -8,6 +8,7 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 	"io"
 	"log/slog"
+	"net/http"
 	"strconv"
 )
 
@@ -48,13 +49,26 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) {
 	slog.Debug(fmt.Sprintf("Response: %s", deviceResponse.Reason))
 }
 
-func ExecuteSyscall(device ioModel.Device, values []string) {
-	ioName := values[0]
+func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWriter) {
+	ioName := syscallRequest.Values[0]
 	switch ioName {
 	case "IO":
-		device := ioModel.Device{Ip: device.Ip, Port: device.Port, Name: values[1]}
-		sleepTime, _ := strconv.Atoi(values[2])
-		SleepDevice(0, sleepTime, device)
+		deviceRequested, exists := models.ConnectedDevicesMap.Get(syscallRequest.Type)
+		if !exists || deviceRequested.Name == "" {
+			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
+			http.Error(writer, "Dispositivo no conectado.", http.StatusNotFound)
+			EndProcess(ioModel.DeviceResponse{Pid: syscallRequest.Pid, Reason: fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type)})
+			return
+		}
+		device := ioModel.Device{Ip: deviceRequested.Ip, Port: deviceRequested.Port, Name: syscallRequest.Values[1]}
+		sleepTime, _ := strconv.Atoi(syscallRequest.Values[2])
+		SleepDevice(syscallRequest.Pid, sleepTime, device)
+	case "INIT_PROC":
+		slog.Warn("INIT_PROC") //TODO: implementar
+	case "DUMP_MEMORY":
+		slog.Warn("DUMP_MEMORY") //TODO: implementar
+	case "EXIT":
+		slog.Warn("EXIT") //TODO: implementar
 	default:
 		slog.Error("Invalid syscall type:", ioName)
 		panic(fmt.Sprintf("Invalid syscall type: %s", ioName))

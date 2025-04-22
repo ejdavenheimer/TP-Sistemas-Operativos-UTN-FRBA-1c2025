@@ -33,7 +33,15 @@ func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Re
 				Type:   value[1],
 				Values: value[0:],
 			}
-			services.ExecuteIO(syscallRequest, cpuConfig)
+			services.ExecuteSyscall(syscallRequest, cpuConfig)
+		case "INIT_PROC":
+		case "DUMP_MEMORY":
+		case "EXIT":
+			syscallRequest = kernelModel.SyscallRequest{
+				Pid:    instructionRequest.Pid,
+				Values: value[0:],
+			}
+			services.ExecuteSyscall(syscallRequest, cpuConfig)
 		default:
 			slog.Error("error: instrucción inválida")
 		}
