@@ -29,6 +29,7 @@ func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.C
 	err = json.Unmarshal(responseBody, &instruction)
 	if err != nil {
 		slog.Error("error parseando el JSON: %v", err)
+		return memoriaModel.InstructionResponse{}
 	}
 
 	slog.Debug(fmt.Sprintf("Instrucción recibida: %s", instruction.Instruction))
@@ -60,12 +61,12 @@ func ExecuteNoop(request models.ExecuteInstructionRequest) {
 }
 
 func ExecuteWrite(request models.ExecuteInstructionRequest) {
-	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%d, %d)", request.Pid, request.Values[0] ,request.Values[1], request.Values[2]))
+	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
 	//TODO: implementar lógica para WRITE
 }
 
 func ExecuteRead(request models.ExecuteInstructionRequest) {
-	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%d, %d)", request.Pid, request.Values[0] ,request.Values[1], request.Values[2]))
+	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
 	//TODO: implementar lógica para READ
 }
 

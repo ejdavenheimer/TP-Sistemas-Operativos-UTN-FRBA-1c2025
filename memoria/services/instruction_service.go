@@ -43,6 +43,11 @@ func ExtractInstructions(path string) []byte {
 func InsertData(pid uint, instructionsMap map[uint][]string, data []byte) {
 	// Separar las instrucciones por medio de tokens
 	instructions := strings.Split(string(data), "\n")
+	cleaned := make([]string, 0, len(instructions))
+	for _, instr := range instructions {
+		instr = strings.TrimSpace(instr) // elimina \r y espacios sobrantes
+		cleaned = append(cleaned, instr)
+	}
 	// Insertar las instrucciones en la memoria de instrucciones
-	instructionsMap[pid] = instructions
+	instructionsMap[pid] = cleaned
 }

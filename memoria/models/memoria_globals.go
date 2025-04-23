@@ -15,7 +15,7 @@ type Config struct {
 }
 
 type InstructionResponse struct {
-	Instruction string
+	Instruction map[uint][]string
 }
 
 type InstructionRequest struct {

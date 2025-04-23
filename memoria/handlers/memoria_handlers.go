@@ -17,8 +17,9 @@ func GetInstructionsHandler(configPath string) func(http.ResponseWriter, *http.R
 		pid, _ := strconv.ParseInt(pidStr, 10, 64)
 
 		path := configPath + pathName
+		services.GetInstructions(uint(pid), path, models.InstructionsMap)
 		instruction := models.InstructionResponse{
-			Instruction: services.GetIoInstruction(uint(pid), path),
+			Instruction: models.InstructionsMap,
 		}
 		server.SendJsonResponse(w, instruction)
 	}

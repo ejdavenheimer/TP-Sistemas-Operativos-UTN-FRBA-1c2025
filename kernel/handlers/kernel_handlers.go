@@ -39,6 +39,7 @@ func ExecuteSyscallHandler() func(http.ResponseWriter, *http.Request) {
 		}
 
 		services.ExecuteSyscall(syscallRequest, writer)
+		writer.WriteHeader(http.StatusOK)
 	}
 }
 
