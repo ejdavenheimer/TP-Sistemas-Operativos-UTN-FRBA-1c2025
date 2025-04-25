@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
+	"net/http"
+
 	kernelHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
-	"log/slog"
-	"net/http"
 )
 
 const (
@@ -18,6 +19,9 @@ const (
 )
 
 func main() {
+	//Test de funciones
+	// services.TestQueueNew()
+
 	config.InitConfig(ConfigPath, &models.KernelConfig)
 	log.InitLogger(LogPath, models.KernelConfig.LogLevel)
 
