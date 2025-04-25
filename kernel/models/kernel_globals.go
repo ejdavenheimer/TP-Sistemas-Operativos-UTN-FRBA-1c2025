@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type Config struct {
 	IpMemory           string  `json:"ip_memory"`
 	PortMemory         int     `json:"port_memory"`
@@ -21,4 +23,14 @@ type DeviceRequest struct {
 type SyscallRequest struct {
 	Type   string
 	Values []string
+}
+
+type Estado string
+type PCB struct {
+	PID          int                      // Identificador único del proceso
+	PC           int                      // Program Counter
+	ME           map[Estado]int           // Métricas de Estado: cuántas veces pasó por cada estado
+	MT           map[Estado]time.Duration // Métricas de Tiempo por Estado
+	EstadoActual Estado                   // Para saber en qué estado está actualmente
+	UltimoCambio time.Time                // Para medir el tiempo que pasa en cada estado
 }
