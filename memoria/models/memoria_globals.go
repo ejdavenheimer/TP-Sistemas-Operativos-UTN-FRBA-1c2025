@@ -18,6 +18,12 @@ type InstructionResponse struct {
 	Instruction map[uint][]string
 }
 
+type MemoryRequest struct {
+	PID            uint   `json:"pid"`
+	Size           int    `json:"size"`
+	Path           string `json:"path"`
+}
+
 type InstructionRequest struct {
 	Pid      int
 	PathName string
