@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 const (
@@ -20,13 +21,16 @@ const (
 )
 
 func main() {
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		slog.Error("no se indicó el nombre del dispositivo")
 		return
-	}	
-	ioName := os.Args[1]	
+	}
+
+	ioName := os.Args[1]
+	ioPort := os.Args[2]
 
 	config.InitConfig(ConfigPath, &models.IoConfig)
+	models.IoConfig.PortIo, _ = strconv.Atoi(ioPort)
 
 	logPath, err := log.BuildLogPath("io_%s", ioName)
 	if err != nil {

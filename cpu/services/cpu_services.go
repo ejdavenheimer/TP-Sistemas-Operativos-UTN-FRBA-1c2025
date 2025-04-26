@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
@@ -11,9 +12,10 @@ import (
 )
 
 // este servicio realiza la conexión con kernel.
-func GetInstruction(cpuConfig *models.Config) memoriaModel.InstructionResponse {
+func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionResponse {
 	//Envia la request de conexion a Kernel
-	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", "memoria/instrucciones", nil)
+	query := fmt.Sprintf("memoria/instrucciones?pid=%d&pathName=%s", request.Pid, request.PathName)
+	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", query, nil)
 
 	if err != nil {
 		slog.Error("error:", err)
@@ -21,25 +23,22 @@ func GetInstruction(cpuConfig *models.Config) memoriaModel.InstructionResponse {
 	}
 
 	responseBody, _ := io.ReadAll(response.Body)
-	slog.Info("Response: %s", string(responseBody))
+	slog.Debug(fmt.Sprintf("Response: %s", string(responseBody)))
 
 	var instruction memoriaModel.InstructionResponse
 	err = json.Unmarshal(responseBody, &instruction)
 	if err != nil {
 		slog.Error("error parseando el JSON: %v", err)
+		return memoriaModel.InstructionResponse{}
 	}
 
-	slog.Info("Instrucción recibida:", instruction.Instruction)
+	slog.Debug(fmt.Sprintf("Instrucción recibida: %v", instruction.Instruction))
 
 	return instruction
 }
 
-func ExecuteIO(ioName string, values []string, cpuConfig *models.Config) {
+func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models.Config) {
 	//Crea y codifica la request de conexion a Kernel
-	syscallRequest := kernelModel.SyscallRequest{
-		Type:   ioName,
-		Values: values,
-	}
 	body, err := json.Marshal(syscallRequest)
 
 	if err != nil {
@@ -54,4 +53,24 @@ func ExecuteIO(ioName string, values []string, cpuConfig *models.Config) {
 		slog.Error("error:", err)
 		return
 	}
+}
+
+func ExecuteNoop(request models.ExecuteInstructionRequest) {
+	slog.Debug(fmt.Sprintf("[%d] Instrucción %s", request.Pid, request.Values[0]))
+	//TODO: implementar lógica para NOOP
+}
+
+func ExecuteWrite(request models.ExecuteInstructionRequest) {
+	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
+	//TODO: implementar lógica para WRITE
+}
+
+func ExecuteRead(request models.ExecuteInstructionRequest) {
+	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
+	//TODO: implementar lógica para READ
+}
+
+func ExecuteGoto(request models.ExecuteInstructionRequest) {
+	slog.Debug(fmt.Sprintf("[%d] Instrucción %s", request.Pid, request.Values[0]))
+	//TODO: implementar lógica para NOOP
 }

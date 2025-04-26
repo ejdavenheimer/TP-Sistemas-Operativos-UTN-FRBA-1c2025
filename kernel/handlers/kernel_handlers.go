@@ -23,7 +23,7 @@ func ConnectIoHandler() func(http.ResponseWriter, *http.Request) {
 		slog.Debug(fmt.Sprintf("Dispositivo conectado: %v", device))
 
 		//Guarda el dispositivo en el map de dispositivos conectados
-		//funciones.InterfacesConectadas.Set(device.NombreInterfaz, device.Interfaz)
+		models.ConnectedDevicesMap.Set(device.Name, device)
 		writer.WriteHeader(http.StatusOK)
 	}
 }
@@ -32,12 +32,20 @@ func ExecuteSyscallHandler() func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		var syscallRequest models.SyscallRequest
 		err := json.NewDecoder(request.Body).Decode(&syscallRequest)
-		slog.Debug("BODY: %v\n", syscallRequest)
+		slog.Debug(fmt.Sprintf("BODY: %v", syscallRequest))
 		if err != nil {
 			http.Error(writer, "Error al decodificar el cuerpo de la solicitud", http.StatusBadRequest)
 			return
 		}
 
-		services.ExecuteSyscall(syscallRequest.Type, syscallRequest.Values)
+		services.ExecuteSyscall(syscallRequest, writer)
+		writer.WriteHeader(http.StatusOK)
+	}
+}
+
+func GetDevicesMapHandlers() func(http.ResponseWriter, *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		models.ConnectedDevicesMap.GetAll()
+		writer.WriteHeader(http.StatusOK)
 	}
 }

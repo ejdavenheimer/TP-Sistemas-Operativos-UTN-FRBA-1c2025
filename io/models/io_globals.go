@@ -15,3 +15,8 @@ type Device struct {
 	Ip   string
 	Port int
 }
+
+type DeviceResponse struct {
+	Pid    int
+	Reason string
+}

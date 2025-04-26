@@ -9,17 +9,32 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+test_obtener_dispositivos_conectado() {
+    echo -e "${VERDE}Obtener dispositivos conectados${NC}"
+    curl --location --request GET "http://localhost:8001/kernel/dispositivos-conectados" \
+        --header 'Content-Type: application/json'
+}
+
 test_obtener_instruccion_io() {
     echo -e "${VERDE}Obtener instrucción IO${NC}"
-    curl --location --request GET http://localhost:8002/memoria/instrucciones \
+    curl --location --request GET "http://localhost:8002/memoria/instrucciones?pid=0&pathName=example1" \
         --header 'Content-Type: application/json'
 }
 
 test_ejecutar_cpu() {
     echo -e "${VERDE}Ejecutando instrucción IO desde CPU${NC}"
+    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    read -p "$(echo -e ${AMARILLO}Path:${NC} )" pathName
+    echo -e "${VERDE}El Pid ingresado es:${NC} $pid"
+    echo -e "${VERDE}El Path ingresado es:${NC} $pathName"
     curl --location --request POST http://localhost:8004/cpu/exec \
-        --header 'Content-Type: application/json'
+        --header 'Content-Type: application/json' \
+        --data "{\"pid\": $pid, \"pathName\": \"$pathName\"}"
 }
+# {
+#     "pid": 1,
+#     "pathName": "example1"
+# }
 
 test_ejercutar_syscall_io() {
     echo -e "${VERDE}Ejecutando syscall IO${NC}"
@@ -32,11 +47,16 @@ test_ejercutar_syscall_io() {
         --header 'Content-Type: application/json' \
         --data "{\"type\": \"$type\", \"values\": [$formatted_values]}"
 }
+# {
+#     "type": "impresora10",
+#     "values": ["IO", "impresora1", "25000"]
+# }
 
 while true; do
     echo -e "${AMARILLO}1.${NC} Obtener intrucción IO"
     echo -e "${AMARILLO}2.${NC} Ejecutando instrucción IO desde CPU"
     echo -e "${AMARILLO}3.${NC} Ejecutando syscall IO"
+    echo -e "${AMARILLO}4.${NC} Obtener dispositivos conectados"
     echo -e "${ROJO}s.${NC} Salir"
     echo
     read -p "$(echo -e ${AMARILLO}Opción:${NC} )" opcion
@@ -45,6 +65,7 @@ while true; do
         1) test_obtener_instruccion_io ;;
         2) test_ejecutar_cpu ;;
         3) test_ejercutar_syscall_io ;;
+        4) test_obtener_dispositivos_conectado ;;
         s) echo -e "${ROJO}Saliendo...${NC}"; break ;;
         *) echo -e "${ROJO}Opción no válida${NC}" ;;
     esac

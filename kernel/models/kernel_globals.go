@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
+	"time"
+)
 
 type Config struct {
 	IpMemory           string  `json:"ip_memory"`
@@ -21,9 +25,12 @@ type DeviceRequest struct {
 }
 
 type SyscallRequest struct {
+	Pid    int
 	Type   string
 	Values []string
 }
+
+var ConnectedDevicesMap = helpers.DeviceMap{M: make(map[string]models.Device)}
 
 type Estado string
 type PCB struct {

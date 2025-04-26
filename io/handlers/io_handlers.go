@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/services"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 	"net/http"
 )
 
@@ -27,7 +29,12 @@ func SleepHandler() func(http.ResponseWriter, *http.Request) {
 
 		//--------- RESPUESTA ---------
 
-		writer.WriteHeader(http.StatusOK)
+		response := ioModel.DeviceResponse{
+			Pid:    deviceRequest.Pid,
+			Reason: "Fin de IO",
+		}
+
+		server.SendJsonResponse(writer, response)
 		//mx_interfaz.Unlock()
 	}
 }

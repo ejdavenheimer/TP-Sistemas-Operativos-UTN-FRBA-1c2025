@@ -15,3 +15,8 @@ type Config struct {
 }
 
 var CpuConfig *Config
+
+type ExecuteInstructionRequest struct {
+	Pid    int
+	Values []string
+}
