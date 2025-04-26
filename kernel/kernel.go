@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/services"
 	"log/slog"
 	"net/http"
 
@@ -21,22 +20,29 @@ const (
 
 func main() {
 	//Test de funciones
-	services.TestQueueNew()
+	//services.TestQueueNew()
+	//services.TestFinalizarProceso()
 
 	config.InitConfig(ConfigPath, &models.KernelConfig)
 	log.InitLogger(LogPath, models.KernelConfig.LogLevel)
 
 	slog.Debug(fmt.Sprintf("Port Kernel: %d", models.KernelConfig.PortKernel))
 
+	//TODO: borrar esto
 	//device := models2.Device{Ip: "127.0.0.1", Port: 8003, Name: "Test"}
 	//services.SleepDevice(0, 25000, device)
 
+	/* ----------> ENDPOINTS <----------*/
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Kernel"))
 	http.HandleFunc("GET /kernel", handlers.HandshakeHandler("Kernel en funcionamiento 🚀"))
 	http.HandleFunc("GET /kernel/dispositivos-conectados", kernelHandler.GetDevicesMapHandlers())
 	http.HandleFunc("POST /kernel/dispositivos", kernelHandler.ConnectIoHandler())
 	http.HandleFunc("POST /kernel/syscall", kernelHandler.ExecuteSyscallHandler())
 
+	//Planificador de larzo plazo
+	http.HandleFunc("POST /kernel/finalizarProceso", kernelHandler.FinishProcessHandler)
+
+	//Iniciacialización del servidor
 	err := server.InitServer(models.KernelConfig.PortKernel)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error initializing server: %v", err))
