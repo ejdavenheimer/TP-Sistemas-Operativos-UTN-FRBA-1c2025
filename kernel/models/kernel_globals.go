@@ -3,6 +3,7 @@ package models
 import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
+	"time"
 )
 
 type Config struct {
@@ -30,3 +31,13 @@ type SyscallRequest struct {
 }
 
 var ConnectedDevicesMap = helpers.DeviceMap{M: make(map[string]models.Device)}
+
+type Estado string
+type PCB struct {
+	PID          int                      // Identificador único del proceso
+	PC           int                      // Program Counter
+	ME           map[Estado]int           // Métricas de Estado: cuántas veces pasó por cada estado
+	MT           map[Estado]time.Duration // Métricas de Tiempo por Estado
+	EstadoActual Estado                   // Para saber en qué estado está actualmente
+	UltimoCambio time.Time                // Para medir el tiempo que pasa en cada estado
+}

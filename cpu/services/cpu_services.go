@@ -32,7 +32,7 @@ func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.C
 		return memoriaModel.InstructionResponse{}
 	}
 
-	slog.Debug(fmt.Sprintf("Instrucción recibida: %s", instruction.Instruction))
+	slog.Debug(fmt.Sprintf("Instrucción recibida: %v", instruction.Instruction))
 
 	return instruction
 }

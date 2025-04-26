@@ -43,7 +43,7 @@ func ExecuteSyscallHandler() func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func GetDevicesMap() func(http.ResponseWriter, *http.Request) {
+func GetDevicesMapHandlers() func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		models.ConnectedDevicesMap.GetAll()
 		writer.WriteHeader(http.StatusOK)
