@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
+	"log/slog"
 	"net/http"
 	"strconv"
 )
@@ -21,6 +23,7 @@ func GetInstructionsHandler(configPath string) func(http.ResponseWriter, *http.R
 		instruction := models.InstructionResponse{
 			Instruction: models.InstructionsMap,
 		}
+		slog.Debug(fmt.Sprintf("Se envierán %d instrucciones para ejecutar.", len(instruction.Instruction[uint(pid)])))
 		server.SendJsonResponse(w, instruction)
 	}
 }
