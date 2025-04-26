@@ -8,6 +8,7 @@ import (
 	kernelHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
+
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
@@ -20,7 +21,8 @@ const (
 
 func main() {
 	//Test de funciones
-	// services.TestQueueNew()
+	//services.TestQueueNew()
+	//services.TestFinalizarProceso()
 
 	config.InitConfig(ConfigPath, &models.KernelConfig)
 	log.InitLogger(LogPath, models.KernelConfig.LogLevel)
@@ -30,11 +32,16 @@ func main() {
 	//device := models2.Device{Ip: "127.0.0.1", Port: 8003, Name: "Test"}
 	//services.SleepDevice(0, 25000, device)
 
+	/* ----------> ENDPOINTS <----------*/
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Kernel"))
 	http.HandleFunc("GET /kernel", handlers.HandshakeHandler("Kernel en funcionamiento 🚀"))
 	http.HandleFunc("POST /kernel/dispositivos", kernelHandler.ConnectIoHandler())
 	http.HandleFunc("POST /kernel/syscall", kernelHandler.ExecuteSyscallHandler())
 
+	//Planificador de larzo plazo
+	http.HandleFunc("POST /kernel/finalizarProceso", kernelHandler.FinishProcessHandler)
+
+	//Iniciacialización del servidor
 	err := server.InitServer(models.KernelConfig.PortKernel)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error initializing server: %v", err))

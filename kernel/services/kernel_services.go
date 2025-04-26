@@ -3,11 +3,12 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"strconv"
+
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
-	"log/slog"
-	"strconv"
 )
 
 // este servicio le solicita al dispositivo que duerme por el tiempo que le pasemos.
