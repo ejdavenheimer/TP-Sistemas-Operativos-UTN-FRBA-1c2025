@@ -2,15 +2,44 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/services"
-	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
-	"log/slog"
 	"net/http"
-	"strings"
 )
+
+func ExecuteHandlerV2(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var instructionRequest memoriaModel.InstructionRequest
+
+		// Decodifica el request (codificado en formato json).
+		err := json.NewDecoder(r.Body).Decode(&instructionRequest)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		request := memoriaModel.InstructionRequest{
+			Pid:      instructionRequest.Pid,
+			PC:       instructionRequest.PC,
+			PathName: instructionRequest.PathName,
+		}
+		models.CpuRegisters.PC = uint(request.PC)
+		var isFinished bool = false
+		for !models.InterruptPending && !isFinished {
+			fetchResult := services.Fetch(request, cpuConfig)
+			if fetchResult == "" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			services.DecodeAndExecute(instructionRequest.Pid, fetchResult, cpuConfig, &isFinished)
+			request.PC = int(models.CpuRegisters.PC)
+		}
+
+		models.InterruptPending = false
+		//w.WriteHeader(http.StatusOK)
+	}
+}
 
 func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -30,41 +59,10 @@ func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Re
 		}
 
 		instructions, _ := instructionResponse.Instruction[1]
-		var value []string
+		models.CpuRegisters.PC = 0
+		var isFinished bool = false
 		for _, instr := range instructions {
-			value = strings.Split(instr, " ")
-
-			var syscallRequest kernelModel.SyscallRequest
-			executeInstructionRequest := models.ExecuteInstructionRequest{
-				Pid:    instructionRequest.Pid,
-				Values: value[0:],
-			}
-
-			switch value[0] {
-			case "NOOP":
-				services.ExecuteNoop(executeInstructionRequest)
-			case "WRITE":
-				services.ExecuteWrite(executeInstructionRequest)
-			case "READ":
-				services.ExecuteRead(executeInstructionRequest)
-			case "GOTO":
-				services.ExecuteGoto(executeInstructionRequest)
-			case "IO":
-				syscallRequest = kernelModel.SyscallRequest{
-					Pid:    instructionRequest.Pid,
-					Type:   value[1],
-					Values: value[0:],
-				}
-				services.ExecuteSyscall(syscallRequest, cpuConfig)
-			case "INIT_PROC", "DUMP_MEMORY", "EXIT":
-				syscallRequest = kernelModel.SyscallRequest{
-					Pid:    instructionRequest.Pid,
-					Values: value[0:],
-				}
-				services.ExecuteSyscall(syscallRequest, cpuConfig)
-			default:
-				slog.Error(fmt.Sprintf("Unknown instruction type %s", value[0]))
-			}
+			services.DecodeAndExecute(instructionRequest.Pid, instr, cpuConfig, &isFinished)
 		}
 	}
 }

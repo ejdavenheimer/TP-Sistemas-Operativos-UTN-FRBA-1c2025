@@ -20,3 +20,11 @@ type ExecuteInstructionRequest struct {
 	Pid    int
 	Values []string
 }
+
+// TODO: agregar los registros que consideremos necesarios
+type Registers struct {
+	PC uint
+}
+
+var CpuRegisters Registers
+var InterruptPending bool = false
