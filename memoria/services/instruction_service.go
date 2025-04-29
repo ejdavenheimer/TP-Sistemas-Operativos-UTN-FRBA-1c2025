@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"log/slog"
@@ -8,16 +9,14 @@ import (
 	"strings"
 )
 
-// TODO: lo dejo por el momento pero entiendo que no se va usar mpás
-func GetIoInstruction(pid uint, path string) string {
+func GeInstruction(pid uint, pc uint, path string) (string, error) {
 	GetInstructions(pid, path, models.InstructionsMap)
-	var result string = ""
-	for _, instruction := range models.InstructionsMap[pid] {
-		if strings.HasPrefix(instruction, "IO ") {
-			result = strings.TrimSpace(instruction)
-		}
+	instructions, exists := models.InstructionsMap[pid]
+	if !exists || uint32(pc) >= uint32(len(instructions)) {
+		return "", errors.New("instruction not found")
 	}
-	return result
+	instruction := instructions[pc]
+	return instruction, nil
 }
 
 // Toma de a un archivo a la vez y guarda las instrucciones en un map l
