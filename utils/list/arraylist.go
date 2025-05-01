@@ -7,6 +7,7 @@ type List[T any] interface {
 	Add(item T)                                          // Añadir un elemento al final de la lista
 	Dequeue() (T, error)                                 // Eliminar y devolver el primer elemento de la lista
 	Filter(value T, predicate func(a, b T) bool) List[T] // Filtra elementos de la lista
+	Find(predicate func(T) bool) (T, bool)               // Permite buscar un elemento de la lista dado un predicado.
 	ForEach(callback func(T))                            // A cada elemento de la lista se le va aplicar la función que le pase
 	Get(index int) (T, error)                            // Obtener un elemento a partir de un índice dado
 	Insert(index int, item T) error                      // Insertar un elemento en el índice dado
@@ -90,6 +91,34 @@ func (list *ArrayList[T]) Filter(value T, predicate func(a, b T) bool) List[T] {
 	}
 
 	return filteredList
+}
+
+// Find permite buscar un elemento de la lista dado un predicado.
+//
+// Parámetros:
+//   - predicate: Función que permite identificar el elemento buscado.
+//
+// Ejemplo:
+//
+//	func main() {
+//		list := &ArrayList[int]{}
+//
+//		list.Add(10)
+//		list.Add(20)
+//		list.Add(30)
+//
+//		number, found := list.Find(func(number int) bool {
+//			return number == 20
+//		})
+//	}
+func (list *ArrayList[T]) Find(predicate func(T) bool) (T, bool) {
+	for _, item := range list.items {
+		if predicate(item) {
+			return item, true
+		}
+	}
+	var zero T
+	return zero, false
 }
 
 // Get devuelve el elemento en el índice proporcionado.

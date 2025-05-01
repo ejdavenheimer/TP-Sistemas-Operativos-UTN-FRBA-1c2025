@@ -34,6 +34,16 @@ func TestArrayList(t *testing.T) {
 	if err != nil || value.id != 2 {
 		t.Errorf("Expected id 2 at index 0, got %d", value.id)
 	}
+
+	persons.Add(Person{id: 1, name: "Jack", mail: "jack@mail.com"})
+
+	value, isFound := persons.Find(func(person Person) bool {
+		return person.name == "Jack"
+	})
+
+	if !isFound || value.id != 1 {
+		t.Errorf("Expected id 1 at index 1, got %d", value.id)
+	}
 }
 
 func setupPersons() {
