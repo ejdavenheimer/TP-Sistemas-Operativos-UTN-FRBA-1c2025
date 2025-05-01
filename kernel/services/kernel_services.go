@@ -20,7 +20,7 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) {
 	body, err := json.Marshal(request)
 
 	if err != nil {
-		slog.Error("error:", err)
+		slog.Error("error", slog.String("message", err.Error()))
 		return
 	}
 
@@ -71,8 +71,8 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 	case "EXIT":
 		slog.Warn("EXIT") //TODO: implementar
 	default:
-		slog.Error("Invalid syscall type:", ioName)
-		panic(fmt.Sprintf("Invalid syscall type: %s", ioName))
+		slog.Error("Invalid syscall type", slog.String("type", ioName))
+        panic(fmt.Sprintf("Invalid syscall type: %s", ioName))
 	}
 }
 
