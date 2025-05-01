@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 	"time"
+	"os"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 )
@@ -13,35 +13,34 @@ import (
 var nextPID int
 
 func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string) (*models.PCB, error) {
-	pid := generatePID()
-	absPath, err := filepath.Abs(pseudocodeFile)
-    if err != nil {
-        slog.Error("Error al obtener ruta absoluta", "err", err)
-        return nil, fmt.Errorf("Error al obtener ruta absoluta: %v", err)
-    }
-
-    err = requestMemorySpace(pid, processSize, absPath)
+	_, err := os.Stat(pseudocodeFile)
 	if err != nil {
-		slog.Error("Error al solicitar espacio en memoria", "err", err)
-		return nil, fmt.Errorf("Error al solicitar espacio en memoria: %v", err)
+		if os.IsNotExist(err) {
+			slog.Error("El archivo pseudocódigo no existe", "path", pseudocodeFile)
+			return nil, fmt.Errorf("El archivo pseudocódigo no existe: %v", err)
+		}
+		slog.Error("Error al verificar archivo pseudocódigo", "path", pseudocodeFile, "err", err)
+		return nil, fmt.Errorf("Error al verificar archivo pseudocódigo: %v", err)
 	}
+
+	pid := generatePID()
 
 	pcb := &models.PCB{
-		PID:          pid,
-		PC:           0,
-		ME:           make(map[models.Estado]int),
-		MT:           make(map[models.Estado]time.Duration),
-		EstadoActual: models.EstadoNew,
-		UltimoCambio: time.Now(),
+		PID:           pid,
+		PC:            0,
+		ME:            make(map[models.Estado]int),
+		MT:            make(map[models.Estado]time.Duration),
+		EstadoActual:  models.EstadoNew,
+		UltimoCambio:  time.Now(),
+		PseudocodePath: pseudocodeFile,
+		Size:          processSize,
 	}
 
-	updateStateMetrics(pcb, models.EstadoNew)
-	slog.Info("##",
-	"PID", pcb.PID,
-	"Se crea el proceso - Estado", string(pcb.EstadoActual))
+	models.QueueNew.Add(*pcb)
+	slog.Info("Proceso agregado a cola NEW", "PID", pid)
+
 	return pcb, nil
 }
-
 // Envía una solicitud a Memoria para asignar espacio y cargar instrucciones
 func requestMemorySpace(pid int, processSize int, pseudocodePath string) error {
     request := models.MemoryRequest{
