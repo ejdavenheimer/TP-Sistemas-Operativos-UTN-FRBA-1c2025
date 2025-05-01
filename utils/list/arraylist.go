@@ -7,7 +7,7 @@ type List[T any] interface {
 	Add(item T)                                          // Añadir un elemento al final de la lista
 	Dequeue() (T, error)                                 // Eliminar y devolver el primer elemento de la lista
 	Filter(value T, predicate func(a, b T) bool) List[T] // Filtra elementos de la lista
-	Find(predicate func(T) bool) (T, bool)               // Permite buscar un elemento de la lista dado un predicado.
+	Find(predicate func(T) bool) (T, int, bool)          // Permite buscar un elemento de la lista dado un predicado.
 	ForEach(callback func(T))                            // A cada elemento de la lista se le va aplicar la función que le pase
 	Get(index int) (T, error)                            // Obtener un elemento a partir de un índice dado
 	Insert(index int, item T) error                      // Insertar un elemento en el índice dado
@@ -39,7 +39,7 @@ func (list *ArrayList[T]) Add(item T) {
 }
 
 // Dequeue elimina y devuelve el primer elemento de la cola.
-// En caso que la lista se encuentre vacío retorna el valor "cero" del tipo T y un error indicando que esta vacía.
+// En caso de que la lista se encuentre vacío retorna el valor "cero" del tipo T y un error indicando que está vacía.
 //
 // Ejemplo:
 //
@@ -61,7 +61,7 @@ func (list *ArrayList[T]) Dequeue() (T, error) {
 	return valor, nil
 }
 
-// Filter filtra elementos de la lista en base a un predicado.
+// Filter filtra elementos de la lista a partir de un predicado.
 //
 // Parámetros:
 //   - value: Valor a comparar.
@@ -78,7 +78,7 @@ func (list *ArrayList[T]) Dequeue() (T, error) {
 //		predicate := func(a int, b int) bool {
 //			return b > a
 //		}
-//		//en este caso devuelva una nueva lista con aquellos que que son mayores que 20
+//		//en este caso devuelva una nueva lista con aquellos que son mayores que 20
 //		filtered := list.Filter(20, predicate)
 //	}
 func (list *ArrayList[T]) Filter(value T, predicate func(a, b T) bool) List[T] {
@@ -111,14 +111,14 @@ func (list *ArrayList[T]) Filter(value T, predicate func(a, b T) bool) List[T] {
 //			return number == 20
 //		})
 //	}
-func (list *ArrayList[T]) Find(predicate func(T) bool) (T, bool) {
-	for _, item := range list.items {
+func (list *ArrayList[T]) Find(predicate func(T) bool) (T, int, bool) {
+	for i, item := range list.items {
 		if predicate(item) {
-			return item, true
+			return item, i, true
 		}
 	}
 	var zero T
-	return zero, false
+	return zero, -1, false
 }
 
 // Get devuelve el elemento en el índice proporcionado.
@@ -151,7 +151,7 @@ func (list *ArrayList[T]) Get(index int) (T, error) {
 //
 // Parámetros:
 //   - index: Índice donde se va a ingresar el elemento.
-//   - item:  Elemento a ingresar.
+//   - item: Elemento a ingresar.
 //
 // Ejemplo:
 //
@@ -198,7 +198,7 @@ func (list *ArrayList[T]) Pop() (T, error) {
 	return item, nil
 }
 
-// Remove remueve un elemento de la lista en base a su índice.
+// Remove remueve un elemento de la lista a partir de su índice.
 //
 // Parámetros:
 //   - list: lista de cualquier tipo.
@@ -271,7 +271,7 @@ func (list *ArrayList[T]) Sort(less func(a, b T) bool) {
 	}
 }
 
-// ForEach a cada elemento de la lista se le va aplicar la función que le pase.
+// ForEach a cada elemento de la lista se va a aplicar la función que le pase.
 //
 // Parámetros:
 //   - callback: es una función que se ejecuta para cada elemento de la lista.

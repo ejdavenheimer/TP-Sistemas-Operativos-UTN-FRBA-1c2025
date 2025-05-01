@@ -37,12 +37,12 @@ func TestArrayList(t *testing.T) {
 
 	persons.Add(Person{id: 1, name: "Jack", mail: "jack@mail.com"})
 
-	value, isFound := persons.Find(func(person Person) bool {
+	value, index, isFound := persons.Find(func(person Person) bool {
 		return person.name == "Jack"
 	})
 
 	if !isFound || value.id != 1 {
-		t.Errorf("Expected id 1 at index 1, got %d", value.id)
+		t.Errorf("Expected id 1 at index %d, got %d", index, value.id)
 	}
 }
 

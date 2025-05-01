@@ -219,7 +219,7 @@ func TestArrayList_Find(t *testing.T) {
 	list.Add(20)
 	list.Add(30)
 
-	number, found := list.Find(func(number int) bool {
+	number, index, found := list.Find(func(number int) bool {
 		return number == 20
 	})
 
@@ -228,6 +228,6 @@ func TestArrayList_Find(t *testing.T) {
 	}
 
 	if number != 20 {
-		t.Errorf("Expected to find 20 at index 0, got %d", number)
+		t.Errorf("Expected to find 20 at index %d, got %d", index, number)
 	}
 }
