@@ -46,11 +46,14 @@ func main() {
 	log.InitLogger(LogPath, models.KernelConfig.LogLevel)
 
 	slog.Debug(fmt.Sprintf("Port Kernel: %d", models.KernelConfig.PortKernel))
-
-	//Iniciar proceso
+    
+	go services.StartScheduler()
+	
+	// Iniciar el proceso
 	pcb, err = services.InitProcess(pseudocodeFile, processSize, additionalArgs)
-	if err != nil{
+	if err != nil {
 		slog.Error("Error al iniciar proceso", "err", err)
+		return
 	}
 
 	//TODO: borrar esto
