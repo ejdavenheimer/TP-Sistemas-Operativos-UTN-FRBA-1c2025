@@ -47,6 +47,8 @@ type PCB struct {
 	MT         map[Estado]time.Duration // Métricas de Tiempo por Estado
 	EstadoActual Estado          // Para saber en qué estado está actualmente
 	UltimoCambio time.Time       // Para medir el tiempo que pasa en cada estado
+	PseudocodePath string     
+    Size  int
 }
 
 type MemoryRequest struct {
@@ -54,3 +56,9 @@ type MemoryRequest struct {
     Size           int    `json:"size"`
     Path           string `json:"path"`
 }
+
+type EstadoPlanificador string
+const (
+	EstadoPlanificadorDetenido EstadoPlanificador = "STOP"
+	EstadoPlanificadorActivo   EstadoPlanificador = "START"
+)
