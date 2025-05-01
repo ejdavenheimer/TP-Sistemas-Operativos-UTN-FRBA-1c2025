@@ -58,7 +58,7 @@ func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Re
 			return
 		}
 
-		instructions, _ := instructionResponse.Instruction[1]
+		instructions, _ := instructionResponse.Instruction[uint(instructionRequest.Pid)]
 		models.CpuRegisters.PC = 0
 		var isFinished bool = false
 		for _, instr := range instructions {
