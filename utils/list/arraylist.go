@@ -13,6 +13,7 @@ type List[T any] interface {
 	Insert(index int, item T) error                      // Insertar un elemento en el índice dado
 	Pop() (T, error)                                     // Remover el último elemento de la lista
 	Remove(index int)                                    // Eliminar un elemento en el índice dado
+	Set(index int, newValue T) error                     // Modifica el valor de un elemento de la lista a partir de su índice.
 	Size() int                                           // Retornar el tamaño de la lista
 	Sort(less func(a, b T) bool)                         // Ordena una Lista de acuerdo al criterio
 }
@@ -54,7 +55,7 @@ func (list *ArrayList[T]) Add(item T) {
 func (list *ArrayList[T]) Dequeue() (T, error) {
 	if len(list.items) == 0 {
 		var zero T // Devuelve el valor "cero" del tipo T
-		return zero, fmt.Errorf("se encuentra vacía")
+		return zero, fmt.Errorf("list is empty")
 	}
 	valor := list.items[0]
 	list.items = list.items[1:]
@@ -218,6 +219,34 @@ func (list *ArrayList[T]) Remove(index int) {
 	if index >= 0 && index < len(list.items) {
 		list.items = append(list.items[:index], list.items[index+1:]...)
 	}
+}
+
+// Set modifica el valor de un elemento de la lista a partir de su índice.
+//
+// Parámetros:
+//   - list: lista de cualquier tipo.
+//   - index: Índice del elemento a remover.
+//
+// Ejemplo:
+//
+//	type Person struct {
+//		id   int
+//		name string
+//		mail string
+//	}
+//	func main() {
+//		persons = ArrayList[Person]{}
+//		persons.Add(Person{id: 1, name: "pepe", mail: "pepe@mail.com"})
+//
+//		person.name = "test"
+//		_ = persons.Set(index, person) //Person{id: 1, name: "test", mail: "pepe@mail.com"}
+//	}
+func (list *ArrayList[T]) Set(index int, newValue T) error {
+	if index < 0 || index >= len(list.items) {
+		return fmt.Errorf("index out of range:  %d", index)
+	}
+	list.items[index] = newValue
+	return nil
 }
 
 // Size devuelve el tamaño de la lista.

@@ -20,9 +20,9 @@ func TestArrayList(t *testing.T) {
 		t.Errorf("Expected size 3, got %d", persons.Size())
 	}
 
-	value, err := persons.Dequeue()
-	if err != nil || value.id != 1 {
-		t.Errorf("Expected id 1 at index 0, got %d", value.id)
+	person, err := persons.Dequeue()
+	if err != nil || person.id != 1 {
+		t.Errorf("Expected id 1 at index 0, got %d", person.id)
 	}
 
 	size := persons.Size()
@@ -30,19 +30,26 @@ func TestArrayList(t *testing.T) {
 		t.Errorf("Expected size 2, got %d", size)
 	}
 
-	value, err = persons.Get(0)
-	if err != nil || value.id != 2 {
-		t.Errorf("Expected id 2 at index 0, got %d", value.id)
+	person, err = persons.Get(0)
+	if err != nil || person.id != 2 {
+		t.Errorf("Expected id 2 at index 0, got %d", person.id)
 	}
 
 	persons.Add(Person{id: 1, name: "Jack", mail: "jack@mail.com"})
 
-	value, index, isFound := persons.Find(func(person Person) bool {
+	person, index, isFound := persons.Find(func(person Person) bool {
 		return person.name == "Jack"
 	})
 
-	if !isFound || value.id != 1 {
-		t.Errorf("Expected id 1 at index %d, got %d", index, value.id)
+	if !isFound || person.id != 1 {
+		t.Errorf("Expected id 1 at index %d, got %d", index, person.id)
+	}
+
+	person.name = "Pepe"
+	err = persons.Set(index, person)
+
+	if err != nil || person.name != "Pepe" {
+		t.Errorf("Expected Pepe, got %s", person.name)
 	}
 }
 
