@@ -14,8 +14,10 @@ import (
 )
 
 const (
-	ConfigPath = "memoria/configs/memoria.json"
-	LogPath    = "./logs/memoria.log"
+	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
+	//NO borrar el comentario de ConfigPath
+	ConfigPath = "./configs/memoria.json" //"memoria/configs/memoria.json"
+	LogPath    = "./memoria.log" //"./logs/memoria.log"
 )
 
 func main() {
@@ -29,6 +31,8 @@ func main() {
 	http.HandleFunc("GET /memoria", handlers.HandshakeHandler("Memoria en funcionamiento 🚀"))
 	http.HandleFunc("GET /memoria/instrucciones", memoryHandler.GetInstructionsHandler(models.MemoryConfig.PathInstructions))
 	http.HandleFunc("GET /memoria/instruccion", memoryHandler.GetInstructionHandler(models.MemoryConfig.PathInstructions))
+
+	http.HandleFunc("POST /memoria/cargarpcb", memoryHandler.ReserveMemoryHandler)
 
 	//Liberar espacio de memoria de un PCB
 	http.HandleFunc("POST /memoria/liberarpcb", memoryHandler.DeleteContextHandler)

@@ -16,7 +16,9 @@ import (
 )
 
 const (
-	ConfigPath = "io/configs/io.json"
+	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
+	//NO borrar el comentario de ConfigPath
+	ConfigPath = "io/configs/io.json"//"./configs/io.json"
 //	LogPath    = "io.log"
 )
 

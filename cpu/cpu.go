@@ -11,10 +11,13 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 const (
-	ConfigPath = "cpu/configs/cpu.json"
+	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
+	//NO borrar el comentario de ConfigPath
+	ConfigPath = "cpu/configs/cpu.json"//"./configs/cpu.json"
 //	LogPath    = "cpu.log"
 )
 
@@ -24,8 +27,16 @@ func main() {
 		return
 	}
 	idCpu := os.Args[1]
+	portCpu, err := strconv.Atoi(os.Args[2])
+    if err != nil {
+        fmt.Println("Puerto inválido:", os.Args[2])
+        os.Exit(1)
+    }
 
 	config.InitConfig(ConfigPath, &models.CpuConfig)
+
+    // Sobrescribimos el valor en el config
+    models.CpuConfig.PortCpu = portCpu
 
 	logPath, err := log.BuildLogPath("cpu_%s", idCpu)
 	if err != nil {

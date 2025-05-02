@@ -22,6 +22,12 @@ type InstructionResponse struct {
 	Instruction string
 }
 
+type MemoryRequest struct {
+	PID            uint   `json:"pid"`
+	Size           int    `json:"size"`
+	Path           string `json:"path"`
+}
+
 type InstructionRequest struct {
 	Pid      int
 	PC       int
