@@ -47,7 +47,7 @@ test_ejecutar_cpu_process() {
     echo -e "${VERDE}El Pid ingresado es:${NC} $pid"
     echo -e "${VERDE}El PC ingresado es:${NC} $pc"
     echo -e "${VERDE}El Path ingresado es:${NC} $pathName"
-    curl --location --request POST http://localhost:8004/cpu/exec \
+    curl --location --request POST http://localhost:8004/cpu/process \
         --header 'Content-Type: application/json' \
         --data "{\"pid\": $pid, \"pc\": $pc, \"pathName\": \"$pathName\"}"
 }
