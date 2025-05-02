@@ -20,10 +20,12 @@ func ConnectIoHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
+		device.IsFree = true
+
 		slog.Debug(fmt.Sprintf("Dispositivo conectado: %v", device))
 
 		//Guarda el dispositivo en el map de dispositivos conectados
-		models.ConnectedDevicesMap.Set(device.Name, device)
+		models.ConnectedDeviceList.Add(device)
 		writer.WriteHeader(http.StatusOK)
 	}
 }
@@ -45,7 +47,9 @@ func ExecuteSyscallHandler() func(http.ResponseWriter, *http.Request) {
 
 func GetDevicesMapHandlers() func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		models.ConnectedDevicesMap.GetAll()
+		models.ConnectedDeviceList.ForEach(func(device ioModel.Device) {
+			slog.Debug(fmt.Sprintf("Device: %v", device))
+		})
 		writer.WriteHeader(http.StatusOK)
 	}
 }

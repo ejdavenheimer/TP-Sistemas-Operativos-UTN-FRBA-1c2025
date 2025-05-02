@@ -3,6 +3,7 @@ package models
 import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
 	"time"
 )
 
@@ -30,7 +31,8 @@ type SyscallRequest struct {
 	Values []string
 }
 
-var ConnectedDevicesMap = helpers.DeviceMap{M: make(map[string]models.Device)}
+var ConnectedDevicesMap = helpers.DeviceMap{M: make(map[string]models.Device)} //TODO: borrar despues
+var ConnectedDeviceList list.ArrayList[models.Device]
 
 type Estado string
 type PCB struct {

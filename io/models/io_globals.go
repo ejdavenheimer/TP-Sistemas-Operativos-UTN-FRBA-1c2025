@@ -14,9 +14,10 @@ var IoConfig *Config
 var DeviceMutex sync.Mutex
 
 type Device struct {
-	Name string
-	Ip   string
-	Port int
+	Name   string
+	Ip     string
+	Port   int
+	IsFree bool
 }
 
 type DeviceResponse struct {

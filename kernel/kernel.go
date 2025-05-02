@@ -19,7 +19,7 @@ const (
 )
 
 func main() {
-	//Test de funciones
+	//TODO: Test de funciones, despues se deben borrar
 	//services.TestQueueNew()
 	//services.TestFinalizarProceso()
 
@@ -27,10 +27,6 @@ func main() {
 	log.InitLogger(LogPath, models.KernelConfig.LogLevel)
 
 	slog.Debug(fmt.Sprintf("Port Kernel: %d", models.KernelConfig.PortKernel))
-
-	//TODO: borrar esto
-	//device := models2.Device{Ip: "127.0.0.1", Port: 8003, Name: "Test"}
-	//services.SleepDevice(0, 25000, device)
 
 	/* ----------> ENDPOINTS <----------*/
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Kernel"))
