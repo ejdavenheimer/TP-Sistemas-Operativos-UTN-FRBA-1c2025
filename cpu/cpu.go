@@ -15,7 +15,9 @@ import (
 )
 
 const (
-	ConfigPath = "cpu/configs/cpu.json"
+	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
+	//NO borrar el comentario de ConfigPath
+	ConfigPath = "cpu/configs/cpu.json"//"./configs/cpu.json"
 //	LogPath    = "cpu.log"
 )
 
@@ -51,6 +53,7 @@ func main() {
 	http.HandleFunc("GET /", handlers.HandshakeHandler(fmt.Sprintf("Bienvenido al módulo de CPU%s", idCpu)))
 	http.HandleFunc("GET /cpu", handlers.HandshakeHandler("Cpu en funcionamiento 🚀"))
 	http.HandleFunc("POST /cpu/exec", cpuHandler.ExecuteHandler(models.CpuConfig))
+	http.HandleFunc("POST /cpu/process", cpuHandler.ExecuteHandlerV2(models.CpuConfig))
 
 	err = server.InitServer(models.CpuConfig.PortCpu)
 	if err != nil {

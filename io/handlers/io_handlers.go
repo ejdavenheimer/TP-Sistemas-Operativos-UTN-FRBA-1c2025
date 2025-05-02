@@ -4,18 +4,18 @@ import (
 	"encoding/json"
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/services"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
+	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 	"net/http"
 )
 
 func SleepHandler() func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		//mx_interfaz.Lock()
+		ioModel.DeviceMutex.Lock()
 
 		//--------- RECIBE ---------
 
-		var deviceRequest models.DeviceRequest
+		var deviceRequest kernelModel.DeviceRequest
 
 		// Decodifica el request (codificado en formato json).
 		err := json.NewDecoder(request.Body).Decode(&deviceRequest)
@@ -35,6 +35,6 @@ func SleepHandler() func(http.ResponseWriter, *http.Request) {
 		}
 
 		server.SendJsonResponse(writer, response)
-		//mx_interfaz.Unlock()
+		ioModel.DeviceMutex.Unlock()
 	}
 }

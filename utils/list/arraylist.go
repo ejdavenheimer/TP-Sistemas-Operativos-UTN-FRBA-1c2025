@@ -7,11 +7,13 @@ type List[T any] interface {
 	Add(item T)                                          // Añadir un elemento al final de la lista
 	Dequeue() (T, error)                                 // Eliminar y devolver el primer elemento de la lista
 	Filter(value T, predicate func(a, b T) bool) List[T] // Filtra elementos de la lista
+	Find(predicate func(T) bool) (T, int, bool)          // Permite buscar un elemento de la lista dado un predicado.
 	ForEach(callback func(T))                            // A cada elemento de la lista se le va aplicar la función que le pase
 	Get(index int) (T, error)                            // Obtener un elemento a partir de un índice dado
 	Insert(index int, item T) error                      // Insertar un elemento en el índice dado
 	Pop() (T, error)                                     // Remover el último elemento de la lista
 	Remove(index int)                                    // Eliminar un elemento en el índice dado
+	Set(index int, newValue T) error                     // Modifica el valor de un elemento de la lista a partir de su índice.
 	Size() int                                           // Retornar el tamaño de la lista
 	Sort(less func(a, b T) bool)                         // Ordena una Lista de acuerdo al criterio
 }
@@ -38,7 +40,7 @@ func (list *ArrayList[T]) Add(item T) {
 }
 
 // Dequeue elimina y devuelve el primer elemento de la cola.
-// En caso que la lista se encuentre vacío retorna el valor "cero" del tipo T y un error indicando que esta vacía.
+// En caso de que la lista se encuentre vacío retorna el valor "cero" del tipo T y un error indicando que está vacía.
 //
 // Ejemplo:
 //
@@ -53,14 +55,14 @@ func (list *ArrayList[T]) Add(item T) {
 func (list *ArrayList[T]) Dequeue() (T, error) {
 	if len(list.items) == 0 {
 		var zero T // Devuelve el valor "cero" del tipo T
-		return zero, fmt.Errorf("se encuentra vacía")
+		return zero, fmt.Errorf("list is empty")
 	}
 	valor := list.items[0]
 	list.items = list.items[1:]
 	return valor, nil
 }
 
-// Filter filtra elementos de la lista en base a un predicado.
+// Filter filtra elementos de la lista a partir de un predicado.
 //
 // Parámetros:
 //   - value: Valor a comparar.
@@ -77,7 +79,7 @@ func (list *ArrayList[T]) Dequeue() (T, error) {
 //		predicate := func(a int, b int) bool {
 //			return b > a
 //		}
-//		//en este caso devuelva una nueva lista con aquellos que que son mayores que 20
+//		//en este caso devuelva una nueva lista con aquellos que son mayores que 20
 //		filtered := list.Filter(20, predicate)
 //	}
 func (list *ArrayList[T]) Filter(value T, predicate func(a, b T) bool) List[T] {
@@ -90,6 +92,34 @@ func (list *ArrayList[T]) Filter(value T, predicate func(a, b T) bool) List[T] {
 	}
 
 	return filteredList
+}
+
+// Find permite buscar un elemento de la lista dado un predicado.
+//
+// Parámetros:
+//   - predicate: Función que permite identificar el elemento buscado.
+//
+// Ejemplo:
+//
+//	func main() {
+//		list := &ArrayList[int]{}
+//
+//		list.Add(10)
+//		list.Add(20)
+//		list.Add(30)
+//
+//		number, found := list.Find(func(number int) bool {
+//			return number == 20
+//		})
+//	}
+func (list *ArrayList[T]) Find(predicate func(T) bool) (T, int, bool) {
+	for i, item := range list.items {
+		if predicate(item) {
+			return item, i, true
+		}
+	}
+	var zero T
+	return zero, -1, false
 }
 
 // Get devuelve el elemento en el índice proporcionado.
@@ -122,7 +152,7 @@ func (list *ArrayList[T]) Get(index int) (T, error) {
 //
 // Parámetros:
 //   - index: Índice donde se va a ingresar el elemento.
-//   - item:  Elemento a ingresar.
+//   - item: Elemento a ingresar.
 //
 // Ejemplo:
 //
@@ -169,7 +199,7 @@ func (list *ArrayList[T]) Pop() (T, error) {
 	return item, nil
 }
 
-// Remove remueve un elemento de la lista en base a su índice.
+// Remove remueve un elemento de la lista a partir de su índice.
 //
 // Parámetros:
 //   - list: lista de cualquier tipo.
@@ -189,6 +219,34 @@ func (list *ArrayList[T]) Remove(index int) {
 	if index >= 0 && index < len(list.items) {
 		list.items = append(list.items[:index], list.items[index+1:]...)
 	}
+}
+
+// Set modifica el valor de un elemento de la lista a partir de su índice.
+//
+// Parámetros:
+//   - list: lista de cualquier tipo.
+//   - index: Índice del elemento a remover.
+//
+// Ejemplo:
+//
+//	type Person struct {
+//		id   int
+//		name string
+//		mail string
+//	}
+//	func main() {
+//		persons = ArrayList[Person]{}
+//		persons.Add(Person{id: 1, name: "pepe", mail: "pepe@mail.com"})
+//
+//		person.name = "test"
+//		_ = persons.Set(index, person) //Person{id: 1, name: "test", mail: "pepe@mail.com"}
+//	}
+func (list *ArrayList[T]) Set(index int, newValue T) error {
+	if index < 0 || index >= len(list.items) {
+		return fmt.Errorf("index out of range:  %d", index)
+	}
+	list.items[index] = newValue
+	return nil
 }
 
 // Size devuelve el tamaño de la lista.
@@ -242,7 +300,7 @@ func (list *ArrayList[T]) Sort(less func(a, b T) bool) {
 	}
 }
 
-// ForEach a cada elemento de la lista se le va aplicar la función que le pase.
+// ForEach a cada elemento de la lista se va a aplicar la función que le pase.
 //
 // Parámetros:
 //   - callback: es una función que se ejecuta para cada elemento de la lista.

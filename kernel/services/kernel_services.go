@@ -3,14 +3,13 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
-
-	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 )
 
 // este servicio le solicita al dispositivo que duerme por el tiempo que le pasemos.
@@ -34,7 +33,11 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) {
 			Reason: "Dispositivo desconectado",
 		}
 		EndProcess(deviceResponse)
-		models.ConnectedDevicesMap.Delete(device.Name)
+		result, index, _ := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
+			return device.Port == d.Port
+		})
+		slog.Debug(fmt.Sprintf("Se va a desconectar el dispositivo %s.", result.Name))
+		models.ConnectedDeviceList.Remove(index)
 
 		return
 	}
@@ -54,16 +57,40 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 	ioName := syscallRequest.Values[0]
 	switch ioName {
 	case "IO":
-		deviceRequested, exists := models.ConnectedDevicesMap.Get(syscallRequest.Type)
+		deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
+			return syscallRequest.Type == d.Name && d.IsFree
+		})
+
+		if index == -1 {
+			slog.Debug("El dispositivo se encuentra ocupado...")
+			//TODO: revisar que pasa en este caso, entiendo que se bloqueo
+			BlokedProcess(ioModel.DeviceResponse{Pid: syscallRequest.Pid, Reason: fmt.Sprintf("El dispositivo %s no se encuentra disponible", syscallRequest.Type)})
+			return
+		}
+
 		if !exists || deviceRequested.Name == "" {
 			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
 			http.Error(writer, "Dispositivo no conectado.", http.StatusNotFound)
 			EndProcess(ioModel.DeviceResponse{Pid: syscallRequest.Pid, Reason: fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type)})
 			return
 		}
+
+		deviceRequested.IsFree = false
+		err := models.ConnectedDeviceList.Set(index, deviceRequested)
+		if err != nil {
+			slog.Error(fmt.Sprintf("error: %v", err))
+			return
+		}
+
 		device := ioModel.Device{Ip: deviceRequested.Ip, Port: deviceRequested.Port, Name: syscallRequest.Values[1]}
 		sleepTime, _ := strconv.Atoi(syscallRequest.Values[2])
 		SleepDevice(syscallRequest.Pid, sleepTime, device)
+		deviceRequested.IsFree = true
+		err = models.ConnectedDeviceList.Set(index, deviceRequested)
+		if err != nil {
+			slog.Error(fmt.Sprintf("error: %v", err))
+			return
+		}
 	case "INIT_PROC":
 		slog.Warn("INIT_PROC") //TODO: implementar
 	case "DUMP_MEMORY":
@@ -80,4 +107,9 @@ func EndProcess(response ioModel.DeviceResponse) {
 	slog.Debug(fmt.Sprintf("[%d] Finaliza el proceso - Motivo: %s", response.Pid, response.Reason))
 	//TODO: implementar lógica para finalizar proceso
 	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", response.Pid))
+}
+
+func BlokedProcess(response ioModel.DeviceResponse) {
+	slog.Debug(fmt.Sprintf("[%d] Se bloquea el proceso el proceso - Motivo: %s", response.Pid, response.Reason))
+	//TODO: implementar lógica para bloquear proceso
 }

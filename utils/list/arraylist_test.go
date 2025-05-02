@@ -211,3 +211,23 @@ func TestArrayList_Insert_ThrowError(t *testing.T) {
 		t.Errorf("Expected error, got nil")
 	}
 }
+
+func TestArrayList_Find(t *testing.T) {
+	list := &ArrayList[int]{}
+
+	list.Add(10)
+	list.Add(20)
+	list.Add(30)
+
+	number, index, found := list.Find(func(number int) bool {
+		return number == 20
+	})
+
+	if !found {
+		t.Errorf("Expected true, got %v", found)
+	}
+
+	if number != 20 {
+		t.Errorf("Expected to find 20 at index %d, got %d", index, number)
+	}
+}

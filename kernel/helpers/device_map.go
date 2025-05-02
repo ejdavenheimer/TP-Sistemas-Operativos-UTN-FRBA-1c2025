@@ -46,6 +46,6 @@ func (sMap *DeviceMap) GetAll() {
 
 	slog.Debug("Dispositivos conectados:")
 	for key, device := range sMap.M {
-		slog.Debug(fmt.Sprintf("- Key: %s, Device: %+v\n", key, device))
+		slog.Debug(fmt.Sprintf("- Key: %s, Device: %+v", key, device))
 	}
 }

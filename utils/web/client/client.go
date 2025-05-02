@@ -66,7 +66,7 @@ func DoRequest(port int, ip string, metodo string, query string, bodies ...[]byt
 	// Verificar el código de estado de la respuesta del servidor a nuestra request (de no ser OK)
 	if respuesta.StatusCode != http.StatusOK {
 		slog.Error(fmt.Sprintf("Status Error: %d", respuesta.StatusCode))
-		return nil, err
+		return respuesta, err
 	}
 	return respuesta, err
 }

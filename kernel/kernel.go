@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	ConfigPath = "kernel/configs/kernel.json"
-	LogPath    = "./logs/kernel.log"
+	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
+	//NO borrar el comentario de ConfigPath
+	ConfigPath = "kernel/configs/kernel.json"//"./configs/kernel.json"
+	LogPath    = "./logs/kernel.log" //"./kernel.log"
 )
 
 var pcb *models.PCB
@@ -38,10 +40,6 @@ func main() {
 	}
 	additionalArgs := os.Args[3:]
 
-	//Test de funciones
-	//services.TestQueueNew()
-	//services.TestFinalizarProceso()
-
 	config.InitConfig(ConfigPath, &models.KernelConfig)
 	log.InitLogger(LogPath, models.KernelConfig.LogLevel)
 
@@ -55,10 +53,6 @@ func main() {
 		slog.Error("Error al iniciar proceso", "err", err)
 		return
 	}
-
-	//TODO: borrar esto
-	//device := models2.Device{Ip: "127.0.0.1", Port: 8003, Name: "Test"}
-	//services.SleepDevice(0, 25000, device)
 
 	/* ----------> ENDPOINTS <----------*/
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Kernel"))

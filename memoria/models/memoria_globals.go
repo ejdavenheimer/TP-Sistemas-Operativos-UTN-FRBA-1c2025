@@ -14,8 +14,12 @@ type Config struct {
 	PathInstructions string `json:"path_instructions"` //TODO: chequear el nombre cuando actualicen el enunciado
 }
 
-type InstructionResponse struct {
+type InstructionsResponse struct {
 	Instruction map[uint][]string
+}
+
+type InstructionResponse struct {
+	Instruction string
 }
 
 type MemoryRequest struct {
@@ -26,6 +30,7 @@ type MemoryRequest struct {
 
 type InstructionRequest struct {
 	Pid      int
+	PC       int
 	PathName string
 }
 
