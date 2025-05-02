@@ -76,8 +76,20 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 func ExecuteGoto(request models.ExecuteInstructionRequest) {
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s %s", request.Pid, request.Values[0], request.Values[1]))
 	slog.Debug(fmt.Sprintf("Valor anterior de PC: %d", models.CpuRegisters.PC))
-	value, _ := strconv.ParseUint(request.Values[1], 10, 32)
-	models.CpuRegisters.PC = uint(value)
+	
+	value, _ := strconv.Atoi(request.Values[1])
+	result := value - 1
+	
+	if value < 0 {
+		slog.Error(fmt.Sprintf("El valor de parámetros de GOTO no puede ser negativo"))
+		return
+	}
+
+	if value == 0 {
+		result = 0
+	}
+
+	models.CpuRegisters.PC = uint(result)
 	slog.Debug(fmt.Sprintf("Valor actual de PC: %d", models.CpuRegisters.PC))
 }
 
