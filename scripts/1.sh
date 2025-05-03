@@ -9,6 +9,12 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+test_obtener_cpus_conectadas() {
+    echo -e "${VERDE}Obtener CPUs conectadas${NC}"
+    curl --location --request GET "http://localhost:8001/kernel/cpus-conectadas" \
+        --header 'Content-Type: application/json'
+}
+
 test_obtener_dispositivos_conectado() {
     echo -e "${VERDE}Obtener dispositivos conectados${NC}"
     curl --location --request GET "http://localhost:8001/kernel/dispositivos-conectados" \
@@ -78,7 +84,8 @@ while true; do
     echo -e "${AMARILLO}2.${NC} Ejecutando instrucción IO desde CPU (EXEC)"
     echo -e "${AMARILLO}3.${NC} Ejecutando syscall IO"
     echo -e "${AMARILLO}4.${NC} Obtener dispositivos conectados"
-    echo -e "${AMARILLO}5.${NC} Ejecutando instrucción IO desde CPU (PROCESS)"
+    echo -e "${AMARILLO}5.${NC} Obtener CPUs conectadas"
+    echo -e "${AMARILLO}6.${NC} Ejecutando instrucción IO desde CPU (PROCESS)"
     echo -e "${ROJO}s.${NC} Salir"
     echo
     read -p "$(echo -e ${AMARILLO}Opción:${NC} )" opcion
@@ -88,7 +95,8 @@ while true; do
         2) test_ejecutar_cpu_exec ;;
         3) test_ejercutar_syscall_io ;;
         4) test_obtener_dispositivos_conectado ;;
-        5) test_ejecutar_cpu_process ;;
+        5) test_obtener_cpus_conectadas ;;
+        6) test_ejecutar_cpu_process ;;
         s) echo -e "${ROJO}Saliendo...${NC}"; break ;;
         *) echo -e "${ROJO}Opción no válida${NC}" ;;
     esac

@@ -2,6 +2,7 @@ package models
 
 type Config struct {
 	PortCpu          int    `json:"port_cpu"`
+	IpCpu            string `json:"ip_cpu"`
 	IpMemory         string `json:"ip_memory"`
 	PortMemory       int    `json:"port_memory"`
 	IpKernel         string `json:"ip_kernel"`
@@ -28,3 +29,10 @@ type Registers struct {
 
 var CpuRegisters Registers
 var InterruptPending bool = false
+
+type CpuN struct {
+	Port   int
+	Ip     string
+	Id     int
+	IsFree bool
+}

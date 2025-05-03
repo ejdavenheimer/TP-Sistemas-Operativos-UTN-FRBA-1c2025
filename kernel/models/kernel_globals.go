@@ -1,10 +1,12 @@
 package models
 
 import (
+	"time"
+
+	cpuModels "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
-	"time"
 )
 
 type Config struct {
@@ -34,7 +36,11 @@ type SyscallRequest struct {
 var ConnectedDevicesMap = helpers.DeviceMap{M: make(map[string]models.Device)} //TODO: borrar despues
 var ConnectedDeviceList list.ArrayList[models.Device]
 
-type Estado string 
+var ConnectedCpuMap = helpers.CpuMap{M: make(map[string]cpuModels.CpuN)}
+var ConnectedCpuList list.ArrayList[cpuModels.CpuN]
+
+type Estado string
+
 const (
 	EstadoNew       Estado = "NEW"
 	EstadoReady     Estado = "READY"
@@ -44,24 +50,30 @@ const (
 )
 
 type PCB struct {
-	PID        int               // Identificador único del proceso
-	PC         int               // Program Counter
-	ME         map[Estado]int    // Métricas de Estado: cuántas veces pasó por cada estado
-	MT         map[Estado]time.Duration // Métricas de Tiempo por Estado
-	EstadoActual Estado          // Para saber en qué estado está actualmente
-	UltimoCambio time.Time       // Para medir el tiempo que pasa en cada estado
-	PseudocodePath string     
-    Size  int
+	PID            int                      // Identificador único del proceso
+	PC             int                      // Program Counter
+	ME             map[Estado]int           // Métricas de Estado: cuántas veces pasó por cada estado
+	MT             map[Estado]time.Duration // Métricas de Tiempo por Estado
+	EstadoActual   Estado                   // Para saber en qué estado está actualmente
+	UltimoCambio   time.Time                // Para medir el tiempo que pasa en cada estado
+	PseudocodePath string
+	Size           int
 }
 
 type MemoryRequest struct {
-    PID            int    `json:"pid"`
-    Size           int    `json:"size"`
-    Path           string `json:"path"`
+	PID  int    `json:"pid"`
+	Size int    `json:"size"`
+	Path string `json:"path"`
 }
 
 type EstadoPlanificador string
+
 const (
 	EstadoPlanificadorDetenido EstadoPlanificador = "STOP"
 	EstadoPlanificadorActivo   EstadoPlanificador = "START"
 )
+
+type ExecuteRequest struct {
+	PID int
+	PC  int
+}

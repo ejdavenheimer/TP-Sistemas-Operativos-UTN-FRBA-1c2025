@@ -2,23 +2,25 @@ package main
 
 import (
 	"fmt"
-	cpuHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/handlers"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/handlers"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
+
+	cpuHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/handlers"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/services"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/handlers"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 )
 
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-	ConfigPath = "cpu/configs/cpu.json"//"./configs/cpu.json"
-//	LogPath    = "cpu.log"
+	ConfigPath = "cpu/configs/cpu.json" //"./configs/cpu.json"
+// LogPath    = "cpu.log"
 )
 
 func main() {
@@ -28,15 +30,15 @@ func main() {
 	}
 	idCpu := os.Args[1]
 	portCpu, err := strconv.Atoi(os.Args[2])
-    if err != nil {
-        fmt.Println("Puerto inválido:", os.Args[2])
-        os.Exit(1)
-    }
+	if err != nil {
+		fmt.Println("Puerto inválido:", os.Args[2])
+		os.Exit(1)
+	}
 
 	config.InitConfig(ConfigPath, &models.CpuConfig)
 
-    // Sobrescribimos el valor en el config
-    models.CpuConfig.PortCpu = portCpu
+	// Sobrescribimos el valor en el config
+	models.CpuConfig.PortCpu = portCpu
 
 	logPath, err := log.BuildLogPath("cpu_%s", idCpu)
 	if err != nil {
@@ -49,6 +51,14 @@ func main() {
 	slog.Debug(fmt.Sprintf("Port cpu: %d", models.CpuConfig.PortCpu))
 
 	//var cpuNumber int = 1 //TODO: revisar de donde sacamos el número de CPU => nombre de archivo de config?
+
+	//CPU debe avisar que está disponible al Kernel, así se arma una lista para ver cuál usará
+	cpuId, err := strconv.Atoi(idCpu) //Pasa a entero
+	if err != nil {
+		fmt.Println("Error al convertir a int:", err)
+		return
+	}
+	services.ConnectToKernel(cpuId, models.CpuConfig)
 
 	http.HandleFunc("GET /", handlers.HandshakeHandler(fmt.Sprintf("Bienvenido al módulo de CPU%s", idCpu)))
 	http.HandleFunc("GET /cpu", handlers.HandshakeHandler("Cpu en funcionamiento 🚀"))
