@@ -46,10 +46,10 @@ func longTermScheduler() {
 			}
 		}
 
-		switch models.KernelConfig.SchedulerAlgorithm {
+		switch models.KernelConfig.NewAlgorithm {
 		case "FIFO":
 			scheduleFIFO()
-		case "ShortFirst":
+		case "PMCP":
 			scheduleShortestFirst()
 		default:
 			slog.Warn("Algoritmo no reconocido, utilizando FIFO por defecto")
