@@ -19,8 +19,8 @@ import (
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-	ConfigPath = "kernel/configs/kernel.json" //"./configs/kernel.json"
-	LogPath    = "./logs/kernel.log"          //"./kernel.log"
+	ConfigPath = "./configs/kernel.json" //"kernel/configs/kernel.json"
+	LogPath    = "./kernel.log"          //"./logs/kernel.log"
 )
 
 var pcb *models.PCB

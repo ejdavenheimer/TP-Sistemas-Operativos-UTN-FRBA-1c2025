@@ -19,7 +19,7 @@ import (
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-	ConfigPath = "cpu/configs/cpu.json" //"./configs/cpu.json"
+	ConfigPath = "./configs/cpu.json" //"cpu/configs/cpu.json"
 // LogPath    = "cpu.log"
 )
 
