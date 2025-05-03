@@ -3,11 +3,13 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"net/http"
+
+	cpuModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/services"
-	"log/slog"
-	"net/http"
 )
 
 func ConnectIoHandler() func(http.ResponseWriter, *http.Request) {
@@ -51,5 +53,23 @@ func GetDevicesMapHandlers() func(http.ResponseWriter, *http.Request) {
 			slog.Debug(fmt.Sprintf("Device: %v", device))
 		})
 		writer.WriteHeader(http.StatusOK)
+	}
+}
+
+func GetCpuMapHandlers() func(http.ResponseWriter, *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		var cpus []cpuModel.CpuN
+		models.ConnectedCpuList.ForEach(func(cpu cpuModel.CpuN) {
+			cpus = append(cpus, cpu)
+			slog.Debug(fmt.Sprintf("CPU: %v", cpu))
+		})
+
+		writer.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(writer).Encode(cpus)
+		if err != nil {
+			slog.Error("No se pudo codificar la lista de CPUs", "error", err)
+			http.Error(writer, "Error interno", http.StatusInternalServerError)
+			return
+		}
 	}
 }
