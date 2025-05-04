@@ -126,7 +126,8 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 	var syscallRequest kernelModel.SyscallRequest
 	executeInstructionRequest := models.ExecuteInstructionRequest{
 		Pid:    pid,
-		Values: value[0:],
+		Values: value[1:],
+		
 	}
 
 	switch value[0] {
@@ -149,7 +150,8 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 	case "INIT_PROC", "DUMP_MEMORY", "EXIT":
 		syscallRequest = kernelModel.SyscallRequest{
 			Pid:    pid,
-			Values: value[0:],
+			Type:   value[0],
+			Values: value[1:],
 		}
 		*isFinished = true
 		ExecuteSyscall(syscallRequest, cpuConfig)
