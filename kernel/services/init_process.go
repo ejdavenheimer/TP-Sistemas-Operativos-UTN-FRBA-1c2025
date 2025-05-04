@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 	"os"
+	"strconv"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 )
@@ -23,10 +24,24 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 		return nil, fmt.Errorf("Error al verificar archivo pseudocódigo: %v", err)
 	}
 
+	parentPID := -1 // Valor por defecto (para el primer proceso o proceso raíz)
+    
+    if len(additionalArgs) > 0 {
+        // El primer argumento adicional es el ParentPID
+        parentPIDVal, err := strconv.Atoi(additionalArgs[0]) // Convertir el primer argumento a int
+        if err != nil {
+            slog.Warn("No se pudo parsear ParentPID, utilizando valor por defecto -1")
+            parentPID = -1 // Si el parseo falla, mantenemos el valor por defecto
+        } else {
+            parentPID = parentPIDVal // Si es válido, asignamos el ParentPID
+        }
+    }
+
 	pid := generatePID()
 
 	pcb := &models.PCB{
 		PID:           pid,
+		ParentPID:     parentPID,
 		PC:            0,
 		ME:            make(map[models.Estado]int),
 		MT:            make(map[models.Estado]time.Duration),
