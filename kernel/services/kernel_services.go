@@ -6,6 +6,7 @@ import (
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 	"io"
 	"log/slog"
 	"net/http"
@@ -54,8 +55,8 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) {
 }
 
 func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWriter) {
-	ioName := syscallRequest.Values[0]
-	switch ioName {
+	syscallName := syscallRequest.Type
+	switch syscallName {
 	case "IO":
 		deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
 			return syscallRequest.Type == d.Name && d.IsFree
@@ -92,14 +93,45 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 	case "INIT_PROC":
-		slog.Warn("INIT_PROC") //TODO: implementar
+		if(len(syscallRequest.Values)< 2){
+			slog.Error("INIT_PROC necesita 2 parametros: path y tamaño")
+			http.Error(writer, "Parametros insuficientes", http.StatusBadRequest)
+			return
+		}
+	
+		parentPID := syscallRequest.Pid
+	
+		pseudocodeFile := syscallRequest.Values[0]
+		processSize, err := strconv.Atoi(syscallRequest.Values[1])
+		if err != nil {
+			slog.Error("Tamaño de proceso inválido", "valor", syscallRequest.Values[1])
+			http.Error(writer, "Tamaño de proceso inválido", http.StatusBadRequest)
+			return
+		}
+	
+		// Paso en pid del padre como primer argumento
+		additionalArgs := []string{strconv.Itoa(parentPID)}
+		pcb, err := InitProcess(pseudocodeFile, processSize, additionalArgs)
+		if err != nil {
+			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	
+		slog.Info("Proceso inicializado correctamente", "PID", pcb.PID)
+	
+		// No se requiere enviar una respuesta a la CPU
+		server.SendJsonResponse(writer, map[string]interface{}{
+			"message": "Proceso inicializado",
+			"pid":     pcb.PID,
+			"parent pid":   pcb.ParentPID,
+		})
 	case "DUMP_MEMORY":
 		slog.Warn("DUMP_MEMORY") //TODO: implementar
 	case "EXIT":
 		slog.Warn("EXIT") //TODO: implementar
 	default:
-		slog.Error("Invalid syscall type", slog.String("type", ioName))
-        panic(fmt.Sprintf("Invalid syscall type: %s", ioName))
+		slog.Error("Invalid syscall type", slog.String("type", syscallName))
+        panic(fmt.Sprintf("Invalid syscall type: %s", syscallName))
 	}
 }
 
