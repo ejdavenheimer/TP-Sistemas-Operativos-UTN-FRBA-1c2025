@@ -78,6 +78,28 @@ test_ejercutar_syscall_io() {
 #     "type": "impresora10",
 #     "values": ["IO", "impresora1", "25000"]
 # }
+test_ejecutar_syscall_init_proc() {
+    echo -e "${VERDE}Ejecutando syscall INIT_PROC${NC}"
+
+    # Solicitar datos al usuario
+    read -p "$(echo -e ${AMARILLO}Pseudocode File:${NC} )" pseudocodeFile
+    read -p "$(echo -e "${AMARILLO}Process Size (en bytes):${NC} ")" processSize
+    read -p "$(echo -e ${AMARILLO}Parent PID:${NC} )" parentPID
+
+    # Mostrar los datos ingresados
+    echo -e "${VERDE}El archivo pseudocódigo ingresado es:${NC} $pseudocodeFile"
+    echo -e "${VERDE}El tamaño del proceso ingresado es:${NC} $processSize"
+    echo -e "${VERDE}El Parent PID ingresado es:${NC} $parentPID"
+    
+    # Realizar la llamada al servidor para ejecutar la syscall INIT_PROC
+    response=$(curl --silent --location --request POST http://localhost:8001/kernel/syscall \
+        --header 'Content-Type: application/json' \
+        --data "{\"type\": \"INIT_PROC\", \"values\": [\"$pseudocodeFile\", \"$processSize\"], \"pid\": $parentPID}")
+
+    # Mostrar la respuesta del servidor
+    echo -e "${VERDE}Respuesta del servidor:${NC} $response"
+}
+
 
 while true; do
     echo -e "${AMARILLO}1.${NC} Obtener intrucción IO"
@@ -86,6 +108,7 @@ while true; do
     echo -e "${AMARILLO}4.${NC} Obtener dispositivos conectados"
     echo -e "${AMARILLO}5.${NC} Obtener CPUs conectadas"
     echo -e "${AMARILLO}6.${NC} Ejecutando instrucción IO desde CPU (PROCESS)"
+    echo -e "${AMARULLI}7.${NC} Ejecutando instrucción INIT_PROC desde CPU"
     echo -e "${ROJO}s.${NC} Salir"
     echo
     read -p "$(echo -e ${AMARILLO}Opción:${NC} )" opcion
@@ -97,6 +120,7 @@ while true; do
         4) test_obtener_dispositivos_conectado ;;
         5) test_obtener_cpus_conectadas ;;
         6) test_ejecutar_cpu_process ;;
+        7) test_ejecutar_syscall_init_proc ;;
         s) echo -e "${ROJO}Saliendo...${NC}"; break ;;
         *) echo -e "${ROJO}Opción no válida${NC}" ;;
     esac
