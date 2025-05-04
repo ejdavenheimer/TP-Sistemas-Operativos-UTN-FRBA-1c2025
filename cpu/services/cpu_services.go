@@ -76,10 +76,10 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 func ExecuteGoto(request models.ExecuteInstructionRequest) {
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s %s", request.Pid, request.Values[0], request.Values[1]))
 	slog.Debug(fmt.Sprintf("Valor anterior de PC: %d", models.CpuRegisters.PC))
-	
+
 	value, _ := strconv.Atoi(request.Values[1])
 	result := value - 1
-	
+
 	if value < 0 {
 		slog.Error(fmt.Sprintf("El valor de parámetros de GOTO no puede ser negativo"))
 		return
@@ -127,7 +127,6 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 	executeInstructionRequest := models.ExecuteInstructionRequest{
 		Pid:    pid,
 		Values: value[1:],
-		
 	}
 
 	switch value[0] {
@@ -142,8 +141,8 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 	case "IO":
 		syscallRequest = kernelModel.SyscallRequest{
 			Pid:    pid,
-			Type:   value[1],
-			Values: value[0:],
+			Type:   value[0],
+			Values: value[1:],
 		}
 		*isFinished = true
 		ExecuteSyscall(syscallRequest, cpuConfig)

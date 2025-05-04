@@ -10,7 +10,10 @@ import (
 )
 
 func GeInstruction(pid uint, pc uint, path string) (string, error) {
-	GetInstructions(pid, path, models.InstructionsMap)
+	err := GetInstructions(pid, path, models.InstructionsMap)
+	if err != nil {
+		return "", errors.New("instruction not found")
+	}
 	instructions, exists := models.InstructionsMap[pid]
 	if !exists || uint32(pc) >= uint32(len(instructions)) {
 		return "", errors.New("instruction not found")
@@ -20,14 +23,14 @@ func GeInstruction(pid uint, pc uint, path string) (string, error) {
 }
 
 // Toma de a un archivo a la vez y guarda las instrucciones en un map l
-func GetInstructions(pid uint, path string, instructionsMap map[uint][]string) error{
-    data := ExtractInstructions(path)
-    if data == nil {
-        return fmt.Errorf("No se pudieron cargar las instrucciones desde el archivo")
-    }
+func GetInstructions(pid uint, path string, instructionsMap map[uint][]string) error {
+	data := ExtractInstructions(path)
+	if data == nil {
+		return fmt.Errorf("No se pudieron cargar las instrucciones desde el archivo")
+	}
 
-    InsertData(pid, instructionsMap, data)
-    return nil
+	InsertData(pid, instructionsMap, data)
+	return nil
 }
 
 // Abre el archivo especificado por la ruta 'path' y guarda su contenido en un slice de bytes.

@@ -59,7 +59,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 	switch syscallName {
 	case "IO":
 		deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
-			return syscallRequest.Type == d.Name && d.IsFree
+			return syscallRequest.Values[0] == d.Name && d.IsFree
 		})
 
 		if index == -1 {
@@ -83,9 +83,10 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 
-		device := ioModel.Device{Ip: deviceRequested.Ip, Port: deviceRequested.Port, Name: syscallRequest.Values[1]}
-		sleepTime, _ := strconv.Atoi(syscallRequest.Values[2])
+		device := ioModel.Device{Ip: deviceRequested.Ip, Port: deviceRequested.Port, Name: syscallRequest.Values[0]}
+		sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
 		SleepDevice(syscallRequest.Pid, sleepTime, device)
+		//TODO: revisar, puede fallar?
 		deviceRequested.IsFree = true
 		err = models.ConnectedDeviceList.Set(index, deviceRequested)
 		if err != nil {
@@ -93,14 +94,14 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 	case "INIT_PROC":
-		if(len(syscallRequest.Values)< 2){
+		if len(syscallRequest.Values) < 2 {
 			slog.Error("INIT_PROC necesita 2 parametros: path y tamaño")
 			http.Error(writer, "Parametros insuficientes", http.StatusBadRequest)
 			return
 		}
-	
+
 		parentPID := syscallRequest.Pid
-	
+
 		pseudocodeFile := syscallRequest.Values[0]
 		processSize, err := strconv.Atoi(syscallRequest.Values[1])
 		if err != nil {
@@ -116,14 +117,14 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
 			return
 		}
-	
+
 		slog.Info("Proceso inicializado correctamente", "PID", pcb.PID)
-	
+
 		// No se requiere enviar una respuesta a la CPU
 		server.SendJsonResponse(writer, map[string]interface{}{
-			"message": "Proceso inicializado",
-			"pid":     pcb.PID,
-			"parent pid":   pcb.ParentPID,
+			"message":    "Proceso inicializado",
+			"pid":        pcb.PID,
+			"parent pid": pcb.ParentPID,
 		})
 	case "DUMP_MEMORY":
 		slog.Warn("DUMP_MEMORY") //TODO: implementar
@@ -131,7 +132,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		slog.Warn("EXIT") //TODO: implementar
 	default:
 		slog.Error("Invalid syscall type", slog.String("type", syscallName))
-        panic(fmt.Sprintf("Invalid syscall type: %s", syscallName))
+		panic(fmt.Sprintf("Invalid syscall type: %s", syscallName))
 	}
 }
 
