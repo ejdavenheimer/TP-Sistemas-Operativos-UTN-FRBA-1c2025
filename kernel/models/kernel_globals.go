@@ -51,6 +51,7 @@ const (
 
 type PCB struct {
 	PID            int                      // Identificador único del proceso
+	ParentPID      int                      // Identificador del proceso padre
 	PC             int                      // Program Counter
 	ME             map[Estado]int           // Métricas de Estado: cuántas veces pasó por cada estado
 	MT             map[Estado]time.Duration // Métricas de Tiempo por Estado
