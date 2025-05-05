@@ -126,7 +126,7 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 	var syscallRequest kernelModel.SyscallRequest
 	executeInstructionRequest := models.ExecuteInstructionRequest{
 		Pid:    pid,
-		Values: value[1:],
+		Values: value[0:],
 	}
 
 	switch value[0] {

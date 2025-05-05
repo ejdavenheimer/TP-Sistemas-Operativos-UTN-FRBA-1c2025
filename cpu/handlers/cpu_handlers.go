@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-func ExecuteHandlerV2(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
+func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var instructionRequest memoriaModel.InstructionRequest
 
@@ -41,6 +41,7 @@ func ExecuteHandlerV2(cpuConfig *models.Config) func(http.ResponseWriter, *http.
 	}
 }
 
+// TODO: deprecado, borrar!
 func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var instructionRequest memoriaModel.InstructionRequest

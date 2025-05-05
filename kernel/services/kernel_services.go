@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
@@ -14,14 +15,14 @@ import (
 )
 
 // este servicio le solicita al dispositivo que duerme por el tiempo que le pasemos.
-func SleepDevice(pid int, timeSleep int, device ioModel.Device) {
+func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 	//Crea y codifica la request de conexion a Kernel
 	var request = models.DeviceRequest{Pid: pid, SuspensionTime: timeSleep}
 	body, err := json.Marshal(request)
 
 	if err != nil {
 		slog.Error("error", slog.String("message", err.Error()))
-		return
+		return err
 	}
 
 	//Envia la request de conexion a Kernel
@@ -40,7 +41,7 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) {
 		slog.Debug(fmt.Sprintf("Se va a desconectar el dispositivo %s.", result.Name))
 		models.ConnectedDeviceList.Remove(index)
 
-		return
+		return errors.New("dispositivo desconectado")
 	}
 
 	responseBody, _ := io.ReadAll(response.Body)
@@ -49,9 +50,11 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) {
 	err = json.Unmarshal(responseBody, &deviceResponse)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
+		return err
 	}
 
 	slog.Debug(fmt.Sprintf("Response: %s", deviceResponse.Reason))
+	return nil
 }
 
 func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWriter) {
@@ -85,8 +88,15 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 
 		device := ioModel.Device{Ip: deviceRequested.Ip, Port: deviceRequested.Port, Name: syscallRequest.Values[0]}
 		sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
-		SleepDevice(syscallRequest.Pid, sleepTime, device)
-		//TODO: revisar, puede fallar?
+		err = SleepDevice(syscallRequest.Pid, sleepTime, device)
+		if err != nil {
+			slog.Error(fmt.Sprintf("error: %v", err))
+			return
+		}
+
+		deviceRequested, index, _ = models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
+			return syscallRequest.Values[0] == d.Name && !d.IsFree
+		})
 		deviceRequested.IsFree = true
 		err = models.ConnectedDeviceList.Set(index, deviceRequested)
 		if err != nil {
@@ -109,7 +119,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			http.Error(writer, "Tamaño de proceso inválido", http.StatusBadRequest)
 			return
 		}
-	
+
 		// Paso en pid del padre como primer argumento
 		additionalArgs := []string{strconv.Itoa(parentPID)}
 		pcb, err := InitProcess(pseudocodeFile, processSize, additionalArgs)
