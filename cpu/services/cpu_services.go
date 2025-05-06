@@ -14,7 +14,6 @@ import (
 	"strings"
 )
 
-// este servicio realiza la conexión con kernel.
 func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionsResponse {
 	//Envia la request de conexion a Kernel
 	query := fmt.Sprintf("memoria/instrucciones?pid=%d&pathName=%s", request.Pid, request.PathName)
@@ -94,7 +93,7 @@ func ExecuteGoto(request models.ExecuteInstructionRequest) {
 }
 
 func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) string {
-	query := fmt.Sprintf("memoria/instruccion?pid=%d&pc=%d&pathName=%s", request.Pid, request.PC, request.PathName)
+	query := fmt.Sprintf("memoria/instruccion?pid=%d&pc=%d", request.Pid, request.PC)
 	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", query, nil)
 
 	if err != nil || response.StatusCode != http.StatusOK {
