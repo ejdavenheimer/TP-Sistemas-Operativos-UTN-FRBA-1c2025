@@ -37,7 +37,6 @@ var ConnectedDevicesMap = helpers.DeviceMap{M: make(map[string]models.Device)} /
 var ConnectedDeviceList list.ArrayList[models.Device]
 
 var ConnectedCpuMap = helpers.CpuMap{M: make(map[string]cpuModels.CpuN)}
-var ConnectedCpuList list.ArrayList[cpuModels.CpuN]
 
 type Estado string
 

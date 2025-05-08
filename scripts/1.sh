@@ -113,6 +113,34 @@ test_ejecutar_proceso_desde_kernel() {
         --data "{\"pid\": $pid, \"pc\": $pc, \"pathName\": \"$pathName\"}"
 }
 
+test_finalizar_proceso_kernel() {
+    echo -e "${VERDE}Finalizando un proceso desde Kernel${NC}"
+
+    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    read -p "$(echo -e ${AMARILLO}PC:${NC} )" pc
+    read -p "$(echo -e ${AMARILLO}Path:${NC} )" pathName
+
+    # Simulamos valores de métricas (esto depende del modelo que tengas en memoria)
+    echo -e "${VERDE}Simulando métricas en el PCB...${NC}"
+    metrics='{
+        "NEW": 2,
+        "READY": 3
+    }'
+    times='{
+        "NEW": 150,
+        "READY": 230
+    }'
+
+    curl --location --request POST http://localhost:8001/kernel/finalizarProceso \
+        --header 'Content-Type: application/json' \
+        --data "{
+            \"pid\": $pid,
+            \"pc\": $pc,
+            \"pathName\": \"$pathName\",
+            \"ME\": {\"NEW\": 2, \"READY\": 3},
+            \"MT\": {\"NEW\": 150, \"READY\": 230}
+        }"
+}
 
 while true; do
     echo -e "${AMARILLO}1.${NC} Obtener intrucción IO"
@@ -123,6 +151,7 @@ while true; do
     echo -e "${AMARILLO}6.${NC} Ejecutando instrucción IO desde CPU (PROCESS)"
     echo -e "${AMARILLO}7.${NC} Ejecutando instrucción INIT_PROC desde CPU"
     echo -e "${AMARILLO}8.${NC} Ejecutar proceso desde Kernel"
+    echo -e "${AMARILLO}9.${NC} Finalizar proceso desde Kernel"
     echo -e "${ROJO}s.${NC} Salir"
     echo
     read -p "$(echo -e ${AMARILLO}Opción:${NC} )" opcion
@@ -136,6 +165,7 @@ while true; do
         6) test_ejecutar_cpu_process ;;
         7) test_ejecutar_syscall_init_proc ;;
         8) test_ejecutar_proceso_desde_kernel ;;
+        9) test_finalizar_proceso_kernel ;;
         s) echo -e "${ROJO}Saliendo...${NC}"; break ;;
         *) echo -e "${ROJO}Opción no válida${NC}" ;;
     esac

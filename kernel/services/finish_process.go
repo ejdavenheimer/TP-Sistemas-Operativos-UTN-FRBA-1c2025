@@ -11,6 +11,7 @@ import (
 )
 
 func FinishProcess(pcb models.PCB) {
+	slog.Info("Iniciando finalización del proceso", slog.Int("PID", pcb.PID))
 	//Conectarse con memoria y enviar PCB
 	bodyRequest, err := json.Marshal(pcb)
 	if err != nil {
@@ -18,6 +19,7 @@ func FinishProcess(pcb models.PCB) {
 		panic(err)
 	}
 	url := fmt.Sprintf("http://%s:%d/memoria/liberarpcb", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
+	slog.Debug("Enviando PCB a memoria", slog.String("url", url))
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(bodyRequest))
 	if err != nil {
@@ -27,9 +29,9 @@ func FinishProcess(pcb models.PCB) {
 
 	//Recibir StatusOK por parte de memoria
 	if resp.StatusCode == http.StatusOK {
-		slog.Info("Respuesta OK de Memoria")
+		slog.Info("Memoria respondió OK al liberar PCB")
 	} else {
-		slog.Warn(fmt.Sprintf("Respuesta NO OK de Memoria. Código: %d.", resp.StatusCode))
+		slog.Warn("Memoria respondió con error al liberar PCB", slog.Int("status", resp.StatusCode))
 	}
 
 	//Logear métricas
@@ -43,9 +45,11 @@ func FinishProcess(pcb models.PCB) {
 	)
 
 	//Liberar PCB asociado
+	slog.Info("Liberando PCB de la cola de EXIT")
 	models.QueueExit.Dequeue()
 
 	//Intentar inicializar un proceso de SUSP READY sino los de NEW
+	slog.Debug("Revisando procesos en cola SUSP_READY")
 	for models.QueueSuspReady.Size() != 0 {
 		pcb, err := models.QueueSuspReady.Dequeue()
 		if err != nil {
@@ -53,9 +57,8 @@ func FinishProcess(pcb models.PCB) {
 			return
 		}
 		pcb.EstadoActual = models.EstadoReady
+		slog.Info("Moviendo proceso de SuspReady a Ready", slog.Int("PID", pcb.PID))
 		models.QueueReady.Add(pcb)
+		slog.Info("Finalización del proceso completada", slog.Int("PID", pcb.PID))
 	}
-
-	//Ya se hace automaticamente por el planificador de largo plazo en la creación de proceso
-	//y allí invoca al planificador de mediano plazo que se encarga de pasar los de susp ready a ready
 }

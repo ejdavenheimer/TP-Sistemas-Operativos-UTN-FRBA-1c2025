@@ -16,8 +16,6 @@ func SelectToExecute(pcb models.PCB) {
 		ExecuteProcess(pcb, cpu)
 	} else {
 		slog.Info("No hay CPU libre.")
-		//Se manda a la cola de nuevo para que se ejecute después
-		pcb.EstadoActual = models.EstadoReady
 		return
 	}
 }
