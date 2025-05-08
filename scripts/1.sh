@@ -31,18 +31,15 @@ test_ejecutar_cpu_exec() {
     echo -e "${VERDE}Ejecutando instrucción IO desde CPU${NC}"
     read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
     read -p "$(echo -e ${AMARILLO}PC:${NC} )" pc
-    read -p "$(echo -e ${AMARILLO}Path:${NC} )" pathName
     echo -e "${VERDE}El Pid ingresado es:${NC} $pid"
     echo -e "${VERDE}El PC ingresado es:${NC} $pc"
-    echo -e "${VERDE}El Path ingresado es:${NC} $pathName"
     curl --location --request POST http://localhost:8004/cpu/exec \
         --header 'Content-Type: application/json' \
-        --data "{\"pid\": $pid, \"pc\": $pc, \"pathName\": \"$pathName\"}"
+        --data "{\"pid\": $pid, \"pc\": $pc}"
 }
 # {
 #     "pid": 1,
 #     "pc": 0,
-#     "pathName": "example1"
 # }
 
 test_ejecutar_cpu_process() {
