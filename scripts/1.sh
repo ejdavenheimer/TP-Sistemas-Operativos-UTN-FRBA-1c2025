@@ -100,6 +100,19 @@ test_ejecutar_syscall_init_proc() {
     echo -e "${VERDE}Respuesta del servidor:${NC} $response"
 }
 
+test_ejecutar_proceso_desde_kernel() {
+    echo -e "${VERDE}Ejecutando instrucción desde Kernel${NC}"
+    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    read -p "$(echo -e ${AMARILLO}PC:${NC} )" pc
+    read -p "$(echo -e ${AMARILLO}Path:${NC} )" pathName
+    echo -e "${VERDE}El Pid ingresado es:${NC} $pid"
+    echo -e "${VERDE}El PC ingresado es:${NC} $pc"
+    echo -e "${VERDE}El Path ingresado es:${NC} $pathName"
+    curl --location --request POST http://localhost:8001/kernel/ejecutarProceso \
+        --header 'Content-Type: application/json' \
+        --data "{\"pid\": $pid, \"pc\": $pc, \"pathName\": \"$pathName\"}"
+}
+
 
 while true; do
     echo -e "${AMARILLO}1.${NC} Obtener intrucción IO"
@@ -108,7 +121,8 @@ while true; do
     echo -e "${AMARILLO}4.${NC} Obtener dispositivos conectados"
     echo -e "${AMARILLO}5.${NC} Obtener CPUs conectadas"
     echo -e "${AMARILLO}6.${NC} Ejecutando instrucción IO desde CPU (PROCESS)"
-    echo -e "${AMARULLI}7.${NC} Ejecutando instrucción INIT_PROC desde CPU"
+    echo -e "${AMARILLO}7.${NC} Ejecutando instrucción INIT_PROC desde CPU"
+    echo -e "${AMARILLO}8.${NC} Ejecutar proceso desde Kernel"
     echo -e "${ROJO}s.${NC} Salir"
     echo
     read -p "$(echo -e ${AMARILLO}Opción:${NC} )" opcion
@@ -121,6 +135,7 @@ while true; do
         5) test_obtener_cpus_conectadas ;;
         6) test_ejecutar_cpu_process ;;
         7) test_ejecutar_syscall_init_proc ;;
+        8) test_ejecutar_proceso_desde_kernel ;;
         s) echo -e "${ROJO}Saliendo...${NC}"; break ;;
         *) echo -e "${ROJO}Opción no válida${NC}" ;;
     esac

@@ -1,0 +1,31 @@
+package services
+
+import (
+	"log/slog"
+
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
+)
+
+// Esto va en el plani de corto plazo
+func SelectToExecute(pcb models.PCB) {
+	//VER CPU CONECTADA
+	cpu, ok := models.ConnectedCpuMap.GetFirstFree()
+	if ok {
+		//Cambiar a estado EXEC
+		pcb.EstadoActual = models.EstadoExecuting
+		ExecuteProcess(pcb, cpu)
+	} else {
+		slog.Info("No hay CPU libre.")
+		//Se manda a la cola de nuevo para que se ejecute después
+		pcb.EstadoActual = models.EstadoReady
+		return
+	}
+}
+
+func InterruptExec(pcb models.PCB) {
+	//Implementar bien la lógica del SJF c/desalojo
+	//if pcb.Estimacion < models.QueueReady.Get(0).Estimacion && models.QueueCpus.Size == 0 {
+
+	//}
+	//SE ME MUERE EL CEREBRO, MEJOR TERMINEMOS FIFO Y DESPUÉS VEO ESTO JAJA
+}

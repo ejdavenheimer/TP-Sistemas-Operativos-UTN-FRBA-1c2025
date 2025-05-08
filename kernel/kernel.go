@@ -65,6 +65,7 @@ func main() {
 
 	//Planificador de larzo plazo
 	http.HandleFunc("POST /kernel/finalizarProceso", kernelHandler.FinishProcessHandler)
+	http.HandleFunc("POST /kernel/ejecutarProceso", kernelHandler.ExecuteProcessHandler)
 
 	//Iniciacialización del servidor
 	err = server.InitServer(models.KernelConfig.PortKernel)
