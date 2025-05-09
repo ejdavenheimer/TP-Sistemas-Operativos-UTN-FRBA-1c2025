@@ -31,8 +31,10 @@ var CpuRegisters Registers
 var InterruptPending bool = false
 
 type CpuN struct {
-	Port   int
-	Ip     string
-	Id     int
-	IsFree bool
+	Port         int
+	Ip           string
+	Id           int
+	IsFree       bool
+	PIDExecuting int
+	PIDRafaga    float32
 }
