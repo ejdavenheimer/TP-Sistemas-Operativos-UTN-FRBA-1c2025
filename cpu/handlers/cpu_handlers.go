@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
@@ -72,13 +73,12 @@ func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Re
 func InterruptProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var pid int
-
-		// Decodifica el request (codificado en formato json).
-		err := json.NewDecoder(r.Body).Decode(&pid)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		if err := json.NewDecoder(r.Body).Decode(&pid); err != nil {
+			http.Error(w, "PID inválido", http.StatusBadRequest)
 			return
 		}
+
+		slog.Info("Interrupción recibida", slog.Int("pid", pid))
 
 		w.WriteHeader(http.StatusOK)
 	}
