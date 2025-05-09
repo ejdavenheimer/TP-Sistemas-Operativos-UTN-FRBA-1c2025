@@ -37,16 +37,16 @@ var ConnectedDevicesMap = helpers.DeviceMap{M: make(map[string]models.Device)} /
 var ConnectedDeviceList list.ArrayList[models.Device]
 
 var ConnectedCpuMap = helpers.CpuMap{M: make(map[string]cpuModels.CpuN)}
-var ConnectedCpuList list.ArrayList[cpuModels.CpuN]
 
 type Estado string
 
 const (
-	EstadoNew       Estado = "NEW"
-	EstadoReady     Estado = "READY"
-	EstadoExecuting Estado = "EXECUTING"
-	EstadoBlocked   Estado = "BLOCKED"
-	EstadoExit      Estado = "EXIT"
+	EstadoNew             Estado = "NEW"
+	EstadoReady           Estado = "READY"
+	EstadoExecuting       Estado = "EXECUTING"
+	EstadoBlocked         Estado = "BLOCKED"
+	EstadoExit            Estado = "EXIT"
+	EstadoSuspendidoReady Estado = "SUSPREADY"
 )
 
 type PCB struct {
@@ -58,6 +58,7 @@ type PCB struct {
 	EstadoActual   Estado                   // Para saber en qué estado está actualmente
 	UltimoCambio   time.Time                // Para medir el tiempo que pasa en cada estado
 	PseudocodePath string
+	Rafaga         float32
 	Size           int
 }
 
@@ -74,7 +75,16 @@ const (
 	EstadoPlanificadorActivo   EstadoPlanificador = "START"
 )
 
-type ExecuteRequest struct {
-	PID int
-	PC  int
+type PCBExecuteRequest struct {
+	PID           int
+	PC            int
+	StatusCodePCB StatusCodePCB
 }
+
+type StatusCodePCB int
+
+const (
+	NeedFinish    StatusCodePCB = 100
+	NeedReplan    StatusCodePCB = 101
+	NeedInterrupt StatusCodePCB = 102
+)
