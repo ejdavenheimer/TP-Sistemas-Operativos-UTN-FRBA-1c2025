@@ -64,6 +64,7 @@ func main() {
 	http.HandleFunc("GET /cpu", handlers.HandshakeHandler("Cpu en funcionamiento 🚀"))
 	http.HandleFunc("POST /cpu/process", cpuHandler.ExecuteHandler(models.CpuConfig)) //TODO: deprecado, borrar EP
 	http.HandleFunc("POST /cpu/exec", cpuHandler.ExecuteProcessHandler(models.CpuConfig))
+	http.HandleFunc("POST /cpu/interrupt", cpuHandler.ExecuteProcessHandler(models.CpuConfig))
 
 	err = server.InitServer(models.CpuConfig.PortCpu)
 	if err != nil {

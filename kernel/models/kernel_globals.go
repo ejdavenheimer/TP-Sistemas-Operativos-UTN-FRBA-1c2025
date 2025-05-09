@@ -58,6 +58,7 @@ type PCB struct {
 	EstadoActual   Estado                   // Para saber en qué estado está actualmente
 	UltimoCambio   time.Time                // Para medir el tiempo que pasa en cada estado
 	PseudocodePath string
+	Rafaga         float32
 	Size           int
 }
 

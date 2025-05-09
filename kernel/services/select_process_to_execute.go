@@ -19,11 +19,3 @@ func SelectToExecute(pcb models.PCB) {
 		return
 	}
 }
-
-func InterruptExec(pcb models.PCB) {
-	//Implementar bien la lógica del SJF c/desalojo
-	//if pcb.Estimacion < models.QueueReady.Get(0).Estimacion && models.QueueCpus.Size == 0 {
-
-	//}
-	//SE ME MUERE EL CEREBRO, MEJOR TERMINEMOS FIFO Y DESPUÉS VEO ESTO JAJA
-}
