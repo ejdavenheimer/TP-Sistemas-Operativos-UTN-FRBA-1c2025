@@ -6,6 +6,7 @@ import (
 	"fmt"
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
+	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 	"io"
@@ -137,7 +138,16 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			"parent pid": pcb.ParentPID,
 		})
 	case "DUMP_MEMORY":
-		slog.Warn("DUMP_MEMORY") //TODO: implementar
+		pcb, index, exists := models.QueueReady.Find(func(pcb models.PCB) bool {
+			return pcb.PID == syscallRequest.Pid
+		})
+
+		if !exists || index == -1 {
+			slog.Warn("TODO: ver que pasa en este caso")
+			return
+		}
+
+		DumpServices(uint(pcb.PID), pcb.Size)
 	case "EXIT":
 		slog.Warn("EXIT") //TODO: implementar
 	default:
@@ -155,4 +165,33 @@ func EndProcess(response ioModel.DeviceResponse) {
 func BlokedProcess(response ioModel.DeviceResponse) {
 	slog.Debug(fmt.Sprintf("[%d] Se bloquea el proceso el proceso - Motivo: %s", response.Pid, response.Reason))
 	//TODO: implementar lógica para bloquear proceso
+}
+
+func DumpServices(pid uint, size int) {
+	var request = memoriaModel.DumpMemoryRequest{Pid: pid, Size: size}
+	body, err := json.Marshal(request)
+
+	if err != nil {
+		slog.Error("error", slog.String("message", err.Error()))
+		return
+	}
+
+	response, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/dump-memory", body)
+	var dumpMemoryResponse memoriaModel.DumpMemoryResponse
+
+	if err != nil {
+		slog.Warn("TODO: implementar")
+		return
+	}
+
+	responseBody, _ := io.ReadAll(response.Body)
+	slog.Debug(fmt.Sprintf("Response: %s", string(responseBody)))
+
+	err = json.Unmarshal(responseBody, &dumpMemoryResponse)
+	if err != nil {
+		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
+		return
+	}
+
+	slog.Debug(fmt.Sprintf("Response: %s", dumpMemoryResponse.Result))
 }

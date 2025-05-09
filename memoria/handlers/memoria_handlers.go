@@ -107,7 +107,7 @@ func reserveMemory(pid uint, size int, path string) error {
 	return nil
 }
 
-func DumpMemmoryHandler() func(w http.ResponseWriter, r *http.Request) {
+func DumpMemoryHandler() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var dumpRequest models.DumpMemoryRequest
 
@@ -117,7 +117,7 @@ func DumpMemmoryHandler() func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		slog.Debug(fmt.Sprintf("## PID: <%d> Dump Memory", dumpRequest.Pid))
 
 		err = services.ExecuteDumpMemory(dumpRequest.Pid, dumpRequest.Size, models.MemoryConfig.DumpPath)
