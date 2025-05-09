@@ -2,10 +2,12 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,14 +15,14 @@ import (
 )
 
 // este servicio le solicita al dispositivo que duerme por el tiempo que le pasemos.
-func SleepDevice(pid int, timeSleep int, device ioModel.Device) {
+func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 	//Crea y codifica la request de conexion a Kernel
 	var request = models.DeviceRequest{Pid: pid, SuspensionTime: timeSleep}
 	body, err := json.Marshal(request)
 
 	if err != nil {
 		slog.Error("error", slog.String("message", err.Error()))
-		return
+		return err
 	}
 
 	//Envia la request de conexion a Kernel
@@ -39,7 +41,7 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) {
 		slog.Debug(fmt.Sprintf("Se va a desconectar el dispositivo %s.", result.Name))
 		models.ConnectedDeviceList.Remove(index)
 
-		return
+		return errors.New("dispositivo desconectado")
 	}
 
 	responseBody, _ := io.ReadAll(response.Body)
@@ -48,17 +50,19 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) {
 	err = json.Unmarshal(responseBody, &deviceResponse)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
+		return err
 	}
 
 	slog.Debug(fmt.Sprintf("Response: %s", deviceResponse.Reason))
+	return nil
 }
 
 func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWriter) {
-	ioName := syscallRequest.Values[0]
-	switch ioName {
+	syscallName := syscallRequest.Type
+	switch syscallName {
 	case "IO":
 		deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
-			return syscallRequest.Type == d.Name && d.IsFree
+			return syscallRequest.Values[0] == d.Name && d.IsFree
 		})
 
 		if index == -1 {
@@ -82,9 +86,17 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 
-		device := ioModel.Device{Ip: deviceRequested.Ip, Port: deviceRequested.Port, Name: syscallRequest.Values[1]}
-		sleepTime, _ := strconv.Atoi(syscallRequest.Values[2])
-		SleepDevice(syscallRequest.Pid, sleepTime, device)
+		device := ioModel.Device{Ip: deviceRequested.Ip, Port: deviceRequested.Port, Name: syscallRequest.Values[0]}
+		sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
+		err = SleepDevice(syscallRequest.Pid, sleepTime, device)
+		if err != nil {
+			slog.Error(fmt.Sprintf("error: %v", err))
+			return
+		}
+
+		deviceRequested, index, _ = models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
+			return syscallRequest.Values[0] == d.Name && !d.IsFree
+		})
 		deviceRequested.IsFree = true
 		err = models.ConnectedDeviceList.Set(index, deviceRequested)
 		if err != nil {
@@ -92,14 +104,45 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 	case "INIT_PROC":
-		slog.Warn("INIT_PROC") //TODO: implementar
+		if len(syscallRequest.Values) < 2 {
+			slog.Error("INIT_PROC necesita 2 parametros: path y tamaño")
+			http.Error(writer, "Parametros insuficientes", http.StatusBadRequest)
+			return
+		}
+
+		parentPID := syscallRequest.Pid
+
+		pseudocodeFile := syscallRequest.Values[0]
+		processSize, err := strconv.Atoi(syscallRequest.Values[1])
+		if err != nil {
+			slog.Error("Tamaño de proceso inválido", "valor", syscallRequest.Values[1])
+			http.Error(writer, "Tamaño de proceso inválido", http.StatusBadRequest)
+			return
+		}
+
+		// Paso en pid del padre como primer argumento
+		additionalArgs := []string{strconv.Itoa(parentPID)}
+		pcb, err := InitProcess(pseudocodeFile, processSize, additionalArgs)
+		if err != nil {
+			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		slog.Info("Proceso inicializado correctamente", "PID", pcb.PID)
+
+		// No se requiere enviar una respuesta a la CPU
+		server.SendJsonResponse(writer, map[string]interface{}{
+			"message":    "Proceso inicializado",
+			"pid":        pcb.PID,
+			"parent pid": pcb.ParentPID,
+		})
 	case "DUMP_MEMORY":
 		slog.Warn("DUMP_MEMORY") //TODO: implementar
 	case "EXIT":
 		slog.Warn("EXIT") //TODO: implementar
 	default:
-		slog.Error("Invalid syscall type", slog.String("type", ioName))
-        panic(fmt.Sprintf("Invalid syscall type: %s", ioName))
+		slog.Error("Invalid syscall type", slog.String("type", syscallName))
+		panic(fmt.Sprintf("Invalid syscall type: %s", syscallName))
 	}
 }
 

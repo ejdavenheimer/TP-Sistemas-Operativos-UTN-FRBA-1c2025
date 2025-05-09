@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	cpuModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
@@ -25,7 +26,8 @@ func ConnectCpuHandler() func(http.ResponseWriter, *http.Request) {
 		slog.Debug(fmt.Sprintf("CPU conectada: %v", cpuConnected))
 
 		//Guarda el dispositivo en el map de dispositivos conectados
-		models.ConnectedCpuList.Add(cpuConnected)
+		key := strconv.Itoa(cpuConnected.Id)
+		models.ConnectedCpuMap.Set(key, cpuConnected)
 		writer.WriteHeader(http.StatusOK)
 	}
 }

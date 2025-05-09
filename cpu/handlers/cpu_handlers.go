@@ -2,13 +2,15 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
+	"net/http"
+
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/services"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
-	"net/http"
 )
 
-func ExecuteHandlerV2(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
+func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var instructionRequest memoriaModel.InstructionRequest
 
@@ -41,6 +43,7 @@ func ExecuteHandlerV2(cpuConfig *models.Config) func(http.ResponseWriter, *http.
 	}
 }
 
+// TODO: deprecado, borrar!
 func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var instructionRequest memoriaModel.InstructionRequest
@@ -64,5 +67,19 @@ func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Re
 		for _, instr := range instructions {
 			services.DecodeAndExecute(instructionRequest.Pid, instr, cpuConfig, &isFinished)
 		}
+	}
+}
+
+func InterruptProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var pid int
+		if err := json.NewDecoder(r.Body).Decode(&pid); err != nil {
+			http.Error(w, "PID inválido", http.StatusBadRequest)
+			return
+		}
+
+		slog.Info("Interrupción recibida", slog.Int("pid", pid))
+
+		w.WriteHeader(http.StatusOK)
 	}
 }

@@ -14,7 +14,6 @@ import (
 	"strings"
 )
 
-// este servicio realiza la conexión con kernel.
 func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionsResponse {
 	//Envia la request de conexion a Kernel
 	query := fmt.Sprintf("memoria/instrucciones?pid=%d&pathName=%s", request.Pid, request.PathName)
@@ -76,10 +75,10 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 func ExecuteGoto(request models.ExecuteInstructionRequest) {
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s %s", request.Pid, request.Values[0], request.Values[1]))
 	slog.Debug(fmt.Sprintf("Valor anterior de PC: %d", models.CpuRegisters.PC))
-	
+
 	value, _ := strconv.Atoi(request.Values[1])
 	result := value - 1
-	
+
 	if value < 0 {
 		slog.Error(fmt.Sprintf("El valor de parámetros de GOTO no puede ser negativo"))
 		return
@@ -94,7 +93,7 @@ func ExecuteGoto(request models.ExecuteInstructionRequest) {
 }
 
 func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) string {
-	query := fmt.Sprintf("memoria/instruccion?pid=%d&pc=%d&pathName=%s", request.Pid, request.PC, request.PathName)
+	query := fmt.Sprintf("memoria/instruccion?pid=%d&pc=%d", request.Pid, request.PC)
 	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", query, nil)
 
 	if err != nil || response.StatusCode != http.StatusOK {
@@ -141,20 +140,26 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 	case "IO":
 		syscallRequest = kernelModel.SyscallRequest{
 			Pid:    pid,
-			Type:   value[1],
-			Values: value[0:],
+			Type:   value[0],
+			Values: value[1:],
 		}
 		*isFinished = true
 		ExecuteSyscall(syscallRequest, cpuConfig)
 	case "INIT_PROC", "DUMP_MEMORY", "EXIT":
 		syscallRequest = kernelModel.SyscallRequest{
 			Pid:    pid,
-			Values: value[0:],
+			Type:   value[0],
+			Values: value[1:],
 		}
 		*isFinished = true
 		ExecuteSyscall(syscallRequest, cpuConfig)
 	default:
 		slog.Error(fmt.Sprintf("Unknown instruction type %s", value[0]))
+	}
+
+	if value[0] == "EXIT" {
+		*isFinished = true
+		return
 	}
 
 	if value[0] != "GOTO" {

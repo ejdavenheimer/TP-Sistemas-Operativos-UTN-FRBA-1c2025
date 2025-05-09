@@ -73,3 +73,19 @@ func (sMap *CpuMap) MarkAsFree(id string) {
 		sMap.M[id] = cpu
 	}
 }
+
+func (sMap *CpuMap) GetMaxRafagaPCBExecuting() models.CpuN {
+	sMap.mx.Lock()
+	defer sMap.mx.Unlock()
+
+	var max models.CpuN
+	max.PIDRafaga = -1 // Valor imposible para inicializar
+
+	for _, cpu := range sMap.M {
+		if !cpu.IsFree && cpu.PIDRafaga > max.PIDRafaga {
+			max = cpu
+		}
+	}
+
+	return max
+}

@@ -59,10 +59,11 @@ func GetDevicesMapHandlers() func(http.ResponseWriter, *http.Request) {
 func GetCpuMapHandlers() func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		var cpus []cpuModel.CpuN
-		models.ConnectedCpuList.ForEach(func(cpu cpuModel.CpuN) {
+
+		for _, cpu := range models.ConnectedCpuMap.M {
 			cpus = append(cpus, cpu)
 			slog.Debug(fmt.Sprintf("CPU: %v", cpu))
-		})
+		}
 
 		writer.Header().Set("Content-Type", "application/json")
 		err := json.NewEncoder(writer).Encode(cpus)

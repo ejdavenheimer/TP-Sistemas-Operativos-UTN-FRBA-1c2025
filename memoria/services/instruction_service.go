@@ -6,11 +6,16 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 func GeInstruction(pid uint, pc uint, path string) (string, error) {
-	GetInstructions(pid, path, models.InstructionsMap)
+	err := GetInstructionsByPid(pid, path, models.InstructionsMap)
+	if err != nil {
+		return "", errors.New("instruction not found")
+	}
+
 	instructions, exists := models.InstructionsMap[pid]
 	if !exists || uint32(pc) >= uint32(len(instructions)) {
 		return "", errors.New("instruction not found")
@@ -20,14 +25,29 @@ func GeInstruction(pid uint, pc uint, path string) (string, error) {
 }
 
 // Toma de a un archivo a la vez y guarda las instrucciones en un map l
-func GetInstructions(pid uint, path string, instructionsMap map[uint][]string) error{
-    data := ExtractInstructions(path)
-    if data == nil {
-        return fmt.Errorf("No se pudieron cargar las instrucciones desde el archivo")
-    }
+func GetInstructions(pid uint, path string, instructionsMap map[uint][]string) error {
+	data := ExtractInstructions(path)
+	if data == nil {
+		return fmt.Errorf("No se pudieron cargar las instrucciones desde el archivo")
+	}
 
-    InsertData(pid, instructionsMap, data)
-    return nil
+	InsertData(pid, instructionsMap, data)
+	return nil
+}
+
+func GetInstructionsByPid(pid uint, path string, instructionsMap map[uint][]string) error {
+	path, err := FindScriptByID(path, fmt.Sprintf("%d", pid))
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se encontró archivo para el ID %d: %v", pid, err))
+		return nil
+	}
+	data := ExtractInstructions(path)
+	if data == nil {
+		return fmt.Errorf("No se pudieron cargar las instrucciones desde el archivo")
+	}
+
+	InsertData(pid, instructionsMap, data)
+	return nil
 }
 
 // Abre el archivo especificado por la ruta 'path' y guarda su contenido en un slice de bytes.
@@ -36,7 +56,7 @@ func ExtractInstructions(path string) []byte {
 	// Lee el archivo
 	file, err := os.ReadFile(path)
 	if err != nil {
-		slog.Error(fmt.Sprintf("Error in extracting instructions: %s", err))
+		slog.Error(fmt.Sprintf("error: %v", err))
 		return nil
 	}
 
@@ -55,4 +75,18 @@ func InsertData(pid uint, instructionsMap map[uint][]string, data []byte) {
 	}
 	// Insertar las instrucciones en la memoria de instrucciones
 	instructionsMap[pid] = cleaned
+}
+
+func FindScriptByID(dir string, pid string) (string, error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), pid) {
+			return filepath.Join(dir, file.Name()), nil
+		}
+	}
+	return "", fmt.Errorf("no se encontró archivo con ID %s no encontrado", pid)
 }
