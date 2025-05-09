@@ -7,7 +7,7 @@ type Config struct {
 	EntriesPerPage int    `json:"entries_per_page"`
 	NumberOfLevels int    `json:"number_of_levels"`
 	MemoryDelay    int    `json:"memory_delay"`
-	SwapFilePath   string `json:"swap_file_path"`
+	SwapFilePath   string `json:"swapfile_path"`
 	SwapDelay      int    `json:"swap_delay"`
 	LogLevel       string `json:"log_level"`
 	DumpPath       string `json:"dump_path"`
@@ -32,6 +32,15 @@ type InstructionRequest struct {
 	Pid      int
 	PC       int
 	PathName string
+}
+
+type DumpMemoryRequest struct {
+	Pid uint
+	Size int 
+}
+
+type DumpMemoryResponse struct {
+	Result string
 }
 
 var MemoryConfig *Config
