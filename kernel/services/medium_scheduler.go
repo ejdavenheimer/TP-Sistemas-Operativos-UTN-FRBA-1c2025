@@ -1,6 +1,11 @@
 package services
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"sort"
 	"time"
 
 	"log/slog"
@@ -8,66 +13,127 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 )
 
-// MoveFromSuspBlockedToSuspReady is invoked by the I/O module when
-// a process in SUSP_BLOCKED finishes its I/O and should go to SUSP_READY.
-func MoveFromSuspBlockedToSuspReady(pid int) {
-	// Find index of PCB in QueueSuspBlocked
-	_, idx, found := models.QueueSuspBlocked.Find(func(p models.PCB) bool {
-		return p.PID == pid
-	})
-	if !found {
-		slog.Error("Process not found in SUSP_BLOCKED", "pid", pid)
+func mediumTermScheduler() {
+	for {
+		if SchedulerState != models.EstadoPlanificadorActivo {
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+
+		//Si ambas colas están vacías, vuelve a mirar en otro momento
+		if models.QueueSuspReady.Size() == 0 && models.QueueSuspBlocked.Size() != 0 {
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+
+		//Maneja el swapeo de procesos en la cola SuspBlocked
+		if models.QueueSuspBlocked.Size() != 0 {
+			movePrincipalMemoryToSwap()
+		}
+
+		if models.QueueSuspReady.Size() != 0 {
+			switch models.KernelConfig.NewAlgorithm {
+			case "FIFO":
+				mediumScheduleFIFO()
+			case "PMCP":
+				mediumScheduleShortestFirst()
+			default:
+				slog.Warn("Algoritmo no reconocido, utilizando FIFO por defecto")
+				mediumScheduleFIFO()
+			}
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+// SUSP. BLOCKED. En este momento se debe informar al módulo memoria que debe ser
+// movido de memoria principal a swap. Cabe aclarar que en este momento vamos
+// a tener más memoria libre en el sistema por lo que se debe verificar si uno o
+// más nuevos procesos pueden entrar (tanto de la cola NEW como de SUSP. READY).
+func movePrincipalMemoryToSwap() {
+	//Armar estructura a enviar
+	var pcb, _ = models.QueueSuspBlocked.Get(0)
+
+	slog.Info("Iniciando solicitud para mover el proceso de memoria principal a SWAP", slog.Int("PID", pcb.PID))
+
+	//Conectarse con memoria y enviar PCB
+	bodyRequest, err := json.Marshal(pcb)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Error al pasar a formato json el pcb: %v", err))
+		panic(err)
+	}
+	url := fmt.Sprintf("http://%s:%d/memoria/swap", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
+	slog.Debug("Enviando PCB a memoria", slog.String("url", url))
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(bodyRequest))
+	if err != nil {
+		slog.Error("Error enviando el PCB a ip:%s puerto:%d", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
+	}
+	defer resp.Body.Close()
+
+	//Memoria libera espacio, así que nos envía un OK
+	if resp.StatusCode == http.StatusOK {
+		slog.Info("Memoria swapeó el proceso y liberó espacio para que entre otro a ready")
+	} else {
+		slog.Warn("Memoria respondió con error al swapear PCB", slog.Int("status", resp.StatusCode))
+	}
+
+	//Se intenta desencolar procesos en SuspReady en la rutina normal
+}
+
+// Una vez que el proceso llegue a SUSP. READY tendrá el mismo comportamiento,
+//
+//	es decir, utilizará el mismo algoritmo que la cola NEW teniendo más
+//	 prioridad que esta última. De esta manera, ningún proceso que esté
+//	  esperando en la cola de NEW podrá ingresar al sistema si hay al
+//	   menos un proceso en SUSP. READY.
+func mediumScheduleFIFO() {
+	if models.QueueSuspReady.Size() == 0 {
 		return
 	}
 
-	// Remove from SUSP_BLOCKED
-	pcb, _ := models.QueueSuspBlocked.Get(idx)
-	models.QueueSuspBlocked.Remove(idx)
+	process, _ := models.QueueSuspReady.Get(0)
+	err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
+	if err != nil {
+		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
+		return
+	}
 
-	// Move to SUSP_READY
-	pcb.EstadoActual = models.EstadoSuspendidoReady
-	models.QueueSuspReady.Add(pcb)
-
-	slog.Info("Process moved to SUSP_READY", "pid", pid)
+	models.QueueSuspReady.Remove(0) // Elimina el primer proceso de la cola NEW
+	process.EstadoActual = models.EstadoReady
+	models.QueueReady.Add(process)
+	slog.Info("Proceso movido a READY", "PID", process.PID)
 }
 
-// StartMediumTermScheduler launches the medium-term scheduler as a goroutine.
-// It periodically checks the SUSP_READY queue and tries to initialize processes
-// into memory, moving them to READY when successful.
-func StartMediumTermScheduler() {
-	go func() {
-		ticker := time.NewTicker(500 * time.Millisecond)
-		defer ticker.Stop()
+func mediumScheduleShortestFirst() {
+	if models.QueueSuspReady.Size() == 0 {
+		return
+	}
 
-		for range ticker.C {
-			// While there are processes waiting in SUSP_READY
-			for models.QueueSuspReady.Size() > 0 {
-				// Check if memory has free space
-				// if !memory_client.HasFreeSpace() {
-				// 	break
-				// }
+	var slice []models.PCB
+	for i := 0; i < models.QueueSuspReady.Size(); i++ {
+		value, _ := models.QueueSuspReady.Get(i)
+		slice = append(slice, value)
+	}
 
-				// Dequeue next PCB
-				pcb, err := models.QueueSuspReady.Dequeue()
-				if err != nil {
-					slog.Error("Error dequeuing from SUSP_READY", "error", err)
-					break
-				}
+	// Ordenar los procesos por tamaño (ascendente)
+	sort.Slice(slice, func(i, j int) bool {
+		return slice[i].Size < slice[j].Size
+	})
 
-				// Try to initialize it in memory
-				// err = memory_client.InitializeProcess(pcb)
-				// if err != nil {
-				// 	slog.Error("Failed to initialize process from SUSP_READY", "pid", pcb.PID, "error", err)
-				// 	// Put it back at front (or end—your choice)
-				// 	models.QueueSuspReady.Insert(0, pcb)
-				// 	break
-				// }
+	// Verificar si hay suficiente memoria para el primer proceso en la cola NEW
+	process := slice[0]
+	err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
+	if err != nil {
+		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
+		return
+	}
 
-				// Success: move to READY
-				pcb.EstadoActual = models.EstadoReady
-				models.QueueReady.Add(pcb)
-				slog.Info("Process moved to READY", "pid", pcb.PID)
-			}
-		}
-	}()
+	// Si hay espacio, mover a READY
+	// Eliminar solo el primer proceso (más chico) de la cola NEW
+	models.QueueSuspReady.Remove(0) // Eliminar el primer proceso de la cola NEW
+	process.EstadoActual = models.EstadoReady
+	models.QueueReady.Add(process) // Agregarlo a la cola READY
+	slog.Info("Proceso movido a READY", "PID", process.PID)
 }
