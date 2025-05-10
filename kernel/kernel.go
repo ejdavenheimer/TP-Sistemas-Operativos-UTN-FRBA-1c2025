@@ -64,6 +64,7 @@ func main() {
 	http.HandleFunc("POST /kernel/syscall", kernelHandler.ExecuteSyscallHandler())
 	http.HandleFunc("POST /kernel/cpus", kernelHandler.ConnectCpuHandler())
 	http.HandleFunc("POST /kernel/informar-io-finalizada", kernelHandler.FinishExecIOHandler())
+	http.HandleFunc("POST /kernel/mandar-interrupcion-a-cpu", kernelHandler.SendInterruptionHandler)
 
 	//Planificador de larzo plazo
 	http.HandleFunc("POST /kernel/finalizarProceso", kernelHandler.FinishProcessHandler)

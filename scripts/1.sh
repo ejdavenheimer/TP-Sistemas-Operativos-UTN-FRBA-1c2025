@@ -142,6 +142,25 @@ test_finalizar_proceso_kernel() {
         }"
 }
 
+test_mandar_interrupcion_kernel() {
+    echo -e "${VERDE}Enviando interrupción a una CPU desde Kernel${NC}"
+
+    read -p "$(echo -e ${AMARILLO}PID del proceso:${NC} )" pid
+    read -p "$(echo -e ${AMARILLO}Puerto de la CPU:${NC} )" port
+    read -p "$(echo -e ${AMARILLO}IP de la CPU:${NC} )" ip
+
+    echo -e "${VERDE}Enviando interrupción a PID=${pid}, IP=${ip}, Puerto=${port}${NC}"
+
+    curl --location --request POST http://localhost:8001/kernel/mandar-interrupcion-a-cpu \
+        --header 'Content-Type: application/json' \
+        --data "{
+            \"PID\": $pid,
+            \"Puerto\": $port,
+            \"IP\": \"$ip\"
+        }"
+}
+
+
 
 while true; do
     echo -e "${AMARILLO}1.${NC} Obtener intrucción IO"
@@ -153,6 +172,7 @@ while true; do
     echo -e "${AMARILLO}7.${NC} Ejecutando instrucción INIT_PROC desde CPU"
     echo -e "${AMARILLO}8.${NC} Ejecutar proceso desde Kernel"
     echo -e "${AMARILLO}9.${NC} Finalizar proceso desde Kernel"
+    echo -e "${AMARILLO}10.${NC} Solicitar la interrupción de un proceso desde Kernel a CPU"
     echo -e "${ROJO}s.${NC} Salir"
     echo
     read -p "$(echo -e ${AMARILLO}Opción:${NC} )" opcion
@@ -167,6 +187,7 @@ while true; do
         7) test_ejecutar_syscall_init_proc ;;
         8) test_ejecutar_proceso_desde_kernel ;;
         9) test_finalizar_proceso_kernel ;;
+        10) test_mandar_interrupcion_kernel ;;
         s) echo -e "${ROJO}Saliendo...${NC}"; break ;;
         *) echo -e "${ROJO}Opción no válida${NC}" ;;
     esac

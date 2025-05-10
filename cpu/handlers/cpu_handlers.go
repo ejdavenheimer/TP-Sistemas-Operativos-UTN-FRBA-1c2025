@@ -80,7 +80,8 @@ func InterruptProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter,
 
 		slog.Info("Interrupción recibida", slog.Int("pid", pid))
 
-		if pid == models.InterruptControl.PID {
+		// if pid == models.InterruptControl.PID {  ------DESCOMENTAR!!!!
+		if pid == 2 {
 			slog.Info("Interrupción informada al cpu", slog.Int("pid", pid))
 			models.InterruptControl.InterruptPending = true
 			w.WriteHeader(http.StatusOK)
