@@ -28,7 +28,7 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 		}
 		models.CpuRegisters.PC = uint(request.PC)
 		var isFinished bool = false
-		for !models.InterruptPending && !isFinished {
+		for !models.InterruptControl.InterruptPending && !isFinished {
 			fetchResult := services.Fetch(request, cpuConfig)
 			if fetchResult == "" {
 				w.WriteHeader(http.StatusNotFound)
@@ -38,7 +38,7 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 			request.PC = int(models.CpuRegisters.PC)
 		}
 
-		models.InterruptPending = false
+		models.InterruptControl.InterruptPending = false
 		//w.WriteHeader(http.StatusOK)
 	}
 }
@@ -80,6 +80,14 @@ func InterruptProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter,
 
 		slog.Info("Interrupción recibida", slog.Int("pid", pid))
 
-		w.WriteHeader(http.StatusOK)
+		if pid == models.InterruptControl.PID {
+			slog.Info("Interrupción informada al cpu", slog.Int("pid", pid))
+			models.InterruptControl.InterruptPending = true
+			w.WriteHeader(http.StatusOK)
+		} else {
+			slog.Error("No existe ese proceso ejecutandose en esta cpu para interrumpirlo", slog.Int("pid", pid))
+			w.WriteHeader(http.StatusBadRequest)
+		}
+
 	}
 }

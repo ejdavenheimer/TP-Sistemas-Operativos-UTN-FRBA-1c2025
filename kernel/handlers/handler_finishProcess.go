@@ -18,5 +18,6 @@ func FinishProcessHandler(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	services.FinishProcess(pcb)
+	//services.FinishProcess(pcb)
+	services.FinishProcess()
 }

@@ -35,7 +35,7 @@ func longTermScheduler() {
 		}
 		// Si la cola NEW no está vacía, procesamos el primer proceso
 		process, _ := models.QueueNew.Get(0)
-        
+
 		// Verificar si la cola estaba vacía antes de agregar el proceso
 		if models.QueueNew.Size() == 1 {
 			// Solicitar memoria si la cola estaba vacía y es el primer proceso
@@ -72,8 +72,8 @@ func scheduleFIFO() {
 		return
 	}
 
-	models.QueueNew.Remove(0)  // Elimina el primer proceso de la cola NEW
-    process.EstadoActual = models.EstadoReady
+	models.QueueNew.Remove(0) // Elimina el primer proceso de la cola NEW
+	process.EstadoActual = models.EstadoReady
 	models.QueueReady.Add(process)
 	slog.Info("Proceso movido a READY", "PID", process.PID)
 }
@@ -84,28 +84,28 @@ func scheduleShortestFirst() {
 	}
 
 	var slice []models.PCB
-    for i := 0; i < models.QueueNew.Size(); i++ {
-        value, _ := models.QueueNew.Get(i) 
-        slice = append(slice, value)     
-    }
+	for i := 0; i < models.QueueNew.Size(); i++ {
+		value, _ := models.QueueNew.Get(i)
+		slice = append(slice, value)
+	}
 
-    // Ordenar los procesos por tamaño (ascendente)
-    sort.Slice(slice, func(i, j int) bool {
-        return slice[i].Size < slice[j].Size
-    })
+	// Ordenar los procesos por tamaño (ascendente)
+	sort.Slice(slice, func(i, j int) bool {
+		return slice[i].Size < slice[j].Size
+	})
 
-    // Verificar si hay suficiente memoria para el primer proceso en la cola NEW
-    process := slice[0]
-    err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
-    if err != nil {
-        slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
-        return
-    }
+	// Verificar si hay suficiente memoria para el primer proceso en la cola NEW
+	process := slice[0]
+	err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
+	if err != nil {
+		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
+		return
+	}
 
-    // Si hay espacio, mover a READY
-    // Eliminar solo el primer proceso (más chico) de la cola NEW
-    models.QueueNew.Remove(0)  // Eliminar el primer proceso de la cola NEW
-    process.EstadoActual = models.EstadoReady
-    models.QueueReady.Add(process)  // Agregarlo a la cola READY
-    slog.Info("Proceso movido a READY", "PID", process.PID)
+	// Si hay espacio, mover a READY
+	// Eliminar solo el primer proceso (más chico) de la cola NEW
+	models.QueueNew.Remove(0) // Eliminar el primer proceso de la cola NEW
+	process.EstadoActual = models.EstadoReady
+	models.QueueReady.Add(process) // Agregarlo a la cola READY
+	slog.Info("Proceso movido a READY", "PID", process.PID)
 }

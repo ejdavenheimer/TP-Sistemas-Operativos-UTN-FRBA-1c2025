@@ -10,7 +10,15 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 )
 
-func FinishProcess(pcb models.PCB) {
+// func FinishProcess(pcb models.PCB) {
+
+func FinishProcess() {
+	pcb, err := models.QueueExit.Dequeue()
+	if err == nil {
+		slog.Error(fmt.Sprintf("Error al sacar pcb de QueueExit, ya que está vacía", err))
+		return
+	}
+
 	slog.Info("Iniciando finalización del proceso", slog.Int("PID", pcb.PID))
 	//Conectarse con memoria y enviar PCB
 	bodyRequest, err := json.Marshal(pcb)
@@ -45,20 +53,9 @@ func FinishProcess(pcb models.PCB) {
 	)
 
 	//Liberar PCB asociado
-	slog.Info("Liberando PCB de la cola de EXIT")
-	models.QueueExit.Dequeue()
+	slog.Info("Liberado PCB de la cola de EXIT")
 
 	//Intentar inicializar un proceso de SUSP READY sino los de NEW
-	slog.Debug("Revisando procesos en cola SUSP_READY")
-	for models.QueueSuspReady.Size() != 0 {
-		pcb, err := models.QueueSuspReady.Dequeue()
-		if err != nil {
-			slog.Error("Error al hacer Dequeue de SuspReady:", "error", err)
-			return
-		}
-		pcb.EstadoActual = models.EstadoReady
-		slog.Info("Moviendo proceso de SuspReady a Ready", slog.Int("PID", pcb.PID))
-		models.QueueReady.Add(pcb)
-		slog.Info("Finalización del proceso completada", slog.Int("PID", pcb.PID))
-	}
+	//Ya lo hace el plani de mediano plazo
+
 }
