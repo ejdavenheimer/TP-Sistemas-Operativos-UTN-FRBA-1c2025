@@ -10,14 +10,14 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 )
 
-// func FinishProcess(pcb models.PCB) {
+func FinishProcess(pcb models.PCB) {
 
-func FinishProcess() {
-	pcb, err := models.QueueExit.Dequeue()
-	if err == nil {
-		slog.Error(fmt.Sprintf("Error al sacar pcb de QueueExit, ya que está vacía", err))
-		return
-	}
+	// func FinishProcess() { ----- DESCOMENTAR!!!!
+	// 	pcb, err := models.QueueExit.Dequeue()
+	// 	if err == nil {
+	// 		slog.Error(fmt.Sprintf("Error al sacar pcb de QueueExit, ya que está vacía", err))
+	// 		return
+	// 	}
 
 	slog.Info("Iniciando finalización del proceso", slog.Int("PID", pcb.PID))
 	//Conectarse con memoria y enviar PCB

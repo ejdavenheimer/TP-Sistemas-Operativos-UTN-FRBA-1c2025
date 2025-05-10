@@ -116,31 +116,32 @@ test_ejecutar_proceso_desde_kernel() {
 test_finalizar_proceso_kernel() {
     echo -e "${VERDE}Finalizando un proceso desde Kernel${NC}"
 
-    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    read -p "$(echo -e ${AMARILLO}PID:${NC} )" pid
     read -p "$(echo -e ${AMARILLO}PC:${NC} )" pc
-    read -p "$(echo -e ${AMARILLO}Path:${NC} )" pathName
-
-    # Simulamos valores de métricas (esto depende del modelo que tengas en memoria)
-    echo -e "${VERDE}Simulando métricas en el PCB...${NC}"
-    metrics='{
-        "NEW": 2,
-        "READY": 3
-    }'
-    times='{
-        "NEW": 150,
-        "READY": 230
-    }'
+    read -p "$(echo -e ${AMARILLO}Path:${NC} )" path
+    read -p "$(echo -e ${AMARILLO}Size:${NC} )" size
 
     curl --location --request POST http://localhost:8001/kernel/finalizarProceso \
         --header 'Content-Type: application/json' \
         --data "{
-            \"pid\": $pid,
-            \"pc\": $pc,
-            \"pathName\": \"$pathName\",
-            \"ME\": {\"NEW\": 2, \"READY\": 3},
-            \"MT\": {\"NEW\": 150, \"READY\": 230}
+            \"PID\": $pid,
+            \"PC\": $pc,
+            \"ParentPID\": 0,
+            \"PseudocodePath\": \"$path\",
+            \"EstadoActual\": \"EXIT\",
+            \"ME\": {
+                \"NEW\": 2,
+                \"READY\": 3
+            },
+            \"MT\": {
+                \"NEW\": 150000000000,
+                \"READY\": 230000000000
+            },
+            \"Size\": $size,
+            \"Rafaga\": 10.5
         }"
 }
+
 
 while true; do
     echo -e "${AMARILLO}1.${NC} Obtener intrucción IO"
