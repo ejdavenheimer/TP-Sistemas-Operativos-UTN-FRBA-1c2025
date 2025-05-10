@@ -43,7 +43,6 @@ func FinishProcess(pcb models.PCB) {
 	}
 
 	//Logear métricas
-	slog.Info(" ## (PID)- Métricas de Estado: NEW NEW_COUNT NEW_TIME READY READY_COUNT READY_TIME")
 	slog.Info("Métricas de estado",
 		slog.Int("PID", pcb.PID),
 		slog.Int("NEW_COUNT", int(pcb.ME[models.EstadoNew])),
