@@ -9,9 +9,9 @@ import (
 )
 
 // Esto va en el plani de corto plazo
-// func SelectToExecute(pcb models.PCB) {
+func SelectToExecute(pcb models.PCB) {
 
-func SelectToExecute() {
+	//func SelectToExecute() { ----DESCOMENTAR!!!!!!!!!!!
 	slog.Debug("Intentando seleccionar CPU libre para ejecutar proceso...")
 
 	//VER CPU CONECTADA
@@ -22,13 +22,13 @@ func SelectToExecute() {
 	}
 
 	//Cambiar a estado EXEC
-	pcb, err := models.QueueReady.Dequeue()
-	if err != nil {
-		slog.Warn("No se pudo obtener un proceso de la cola READY:", err)
-		cpu.IsFree = true
-		models.ConnectedCpuMap.Set(strconv.Itoa(cpu.Id), cpu)
-		return
-	}
+	//pcb, err := models.QueueReady.Dequeue() ----DESCOMENTAR!!!!!!!!!!!!!
+	// if err != nil {
+	// 	slog.Warn("No se pudo obtener un proceso de la cola READY:", err)
+	// 	cpu.IsFree = true
+	// 	models.ConnectedCpuMap.Set(strconv.Itoa(cpu.Id), cpu)
+	// 	return
+	// }
 
 	pcb.EstadoActual = models.EstadoExecuting
 	slog.Info(fmt.Sprintf("Proceso PID=%d pasa a estado EXECUTING", pcb.PID))
