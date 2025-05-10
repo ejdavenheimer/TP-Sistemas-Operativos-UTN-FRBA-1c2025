@@ -17,7 +17,7 @@ func ExecuteProcess(pcb models.PCB, cpu cpuModels.CpuN) {
 	pcbExecute.PID = pcb.PID
 	pcbExecute.PC = pcb.PC
 
-	//Prepara el Request a Json para envíar a memoria
+	//Prepara el Request a Json para envíar a cpu
 	bodyRequest, err := json.Marshal(pcbExecute)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al pasar a formato json el pcb: %v", err))

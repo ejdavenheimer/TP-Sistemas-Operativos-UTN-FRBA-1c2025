@@ -13,13 +13,8 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 )
 
-func mediumTermScheduler() {
+func MediumTermScheduler() {
 	for {
-		if SchedulerState != models.EstadoPlanificadorActivo {
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
-
 		//Si ambas colas están vacías, vuelve a mirar en otro momento
 		if models.QueueSuspReady.Size() == 0 && models.QueueSuspBlocked.Size() != 0 {
 			time.Sleep(500 * time.Millisecond)

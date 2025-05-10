@@ -45,6 +45,7 @@ func main() {
 
 	slog.Debug(fmt.Sprintf("Port Kernel: %d", models.KernelConfig.PortKernel))
 
+	go services.MediumTermScheduler()
 	go services.StartScheduler()
 
 	// Iniciar el proceso
@@ -62,6 +63,7 @@ func main() {
 	http.HandleFunc("POST /kernel/dispositivos", kernelHandler.ConnectIoHandler())
 	http.HandleFunc("POST /kernel/syscall", kernelHandler.ExecuteSyscallHandler())
 	http.HandleFunc("POST /kernel/cpus", kernelHandler.ConnectCpuHandler())
+	http.HandleFunc("POST /kernel/informar-io-finalizada", kernelHandler.FinishExecIOHandler())
 
 	//Planificador de larzo plazo
 	http.HandleFunc("POST /kernel/finalizarProceso", kernelHandler.FinishProcessHandler)
