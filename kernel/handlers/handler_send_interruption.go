@@ -2,14 +2,21 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/services"
 )
 
-func ExecuteProcessHandler(resp http.ResponseWriter, req *http.Request) {
-	var pcb models.PCB
+type loNecesario struct {
+	PID    int
+	Puerto int
+	IP     string
+}
+
+func SendInterruptionHandler(resp http.ResponseWriter, req *http.Request) {
+	slog.Info("Me meti al SendInterruption")
+	var pcb loNecesario
 	err := json.NewDecoder(req.Body).Decode(&pcb)
 
 	if err != nil {
@@ -18,5 +25,5 @@ func ExecuteProcessHandler(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	// services.SelectToExecute() ----DESCOMENTAR!!!!!!!
-	services.SelectToExecute(pcb)
+	services.SendInterruption(pcb.PID, pcb.Puerto, pcb.IP)
 }
