@@ -30,16 +30,17 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 		var isFinished bool = false
 		for !models.InterruptControl.InterruptPending && !isFinished {
 			fetchResult := services.Fetch(request, cpuConfig)
-			if fetchResult == "" {
+			if fetchResult.Instruction == "" {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			services.DecodeAndExecute(instructionRequest.Pid, fetchResult, cpuConfig, &isFinished)
+			services.DecodeAndExecute(instructionRequest.Pid, fetchResult.Instruction, cpuConfig, &isFinished)
+			isFinished = fetchResult.IsLast
 			request.PC = int(models.CpuRegisters.PC)
 		}
 
 		models.InterruptControl.InterruptPending = false
-		//w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 

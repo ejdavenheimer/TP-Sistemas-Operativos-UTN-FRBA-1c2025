@@ -48,7 +48,7 @@ func GetInstructionHandler(configPath string) func(http.ResponseWriter, *http.Re
 		pid, _ := strconv.ParseInt(pidStr, 10, 64)
 		pc, _ := strconv.ParseInt(pcStr, 10, 64)
 
-		instructionResult, err := services.GeInstruction(uint(pid), uint(pc), configPath)
+		instructionResult, isLast, err := services.GeInstruction(uint(pid), uint(pc), configPath)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			slog.Error(fmt.Sprintf("error: %s", err.Error()))
@@ -57,6 +57,7 @@ func GetInstructionHandler(configPath string) func(http.ResponseWriter, *http.Re
 
 		instruction := models.InstructionResponse{
 			Instruction: instructionResult,
+			IsLast:      isLast,
 		}
 		slog.Info(fmt.Sprintf("## PID: <%d> - Obtener instrucción: <%d> - Instrucción: %s", pid, pc, instruction.Instruction))
 		server.SendJsonResponse(w, instruction)

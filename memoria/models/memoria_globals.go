@@ -20,6 +20,7 @@ type InstructionsResponse struct {
 
 type InstructionResponse struct {
 	Instruction string
+	IsLast      bool
 }
 
 type MemoryRequest struct {
@@ -35,8 +36,8 @@ type InstructionRequest struct {
 }
 
 type DumpMemoryRequest struct {
-	Pid uint
-	Size int 
+	Pid  uint
+	Size int
 }
 
 type DumpMemoryResponse struct {

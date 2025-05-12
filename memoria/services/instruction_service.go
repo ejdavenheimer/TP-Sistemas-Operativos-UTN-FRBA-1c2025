@@ -10,18 +10,19 @@ import (
 	"strings"
 )
 
-func GeInstruction(pid uint, pc uint, path string) (string, error) {
+func GeInstruction(pid uint, pc uint, path string) (string, bool, error) {
 	err := GetInstructionsByPid(pid, path, models.InstructionsMap)
 	if err != nil {
-		return "", errors.New("instruction not found")
+		return "", false, errors.New("instruction not found")
 	}
 
 	instructions, exists := models.InstructionsMap[pid]
 	if !exists || uint32(pc) >= uint32(len(instructions)) {
-		return "", errors.New("instruction not found")
+		return "", false, errors.New("instruction not found")
 	}
 	instruction := instructions[pc]
-	return instruction, nil
+	isLast := pc == uint(len(instructions))-1
+	return instruction, isLast, nil
 }
 
 // Toma de a un archivo a la vez y guarda las instrucciones en un map l

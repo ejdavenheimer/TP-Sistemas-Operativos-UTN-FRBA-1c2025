@@ -92,31 +92,31 @@ func ExecuteGoto(request models.ExecuteInstructionRequest) {
 	slog.Debug(fmt.Sprintf("Valor actual de PC: %d", models.CpuRegisters.PC))
 }
 
-func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) string {
+func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionResponse {
 	query := fmt.Sprintf("memoria/instruccion?pid=%d&pc=%d", request.Pid, request.PC)
 	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", query, nil)
 
+	var instructionResponse memoriaModel.InstructionResponse
 	if err != nil || response.StatusCode != http.StatusOK {
 		slog.Error("error:", err)
-		return ""
+		return instructionResponse
 	}
 
 	if response.StatusCode != http.StatusOK {
 		slog.Error(fmt.Sprintf("error: %d", response.StatusCode))
-		return ""
+		return instructionResponse
 	}
 
 	responseBody, _ := io.ReadAll(response.Body)
 	slog.Debug(fmt.Sprintf("Response: %s", string(responseBody)))
 
-	var instructionResponse memoriaModel.InstructionResponse
 	err = json.Unmarshal(responseBody, &instructionResponse)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
 	}
 
 	slog.Debug(fmt.Sprintf("Instrucción recibida: %s", instructionResponse.Instruction))
-	return instructionResponse.Instruction
+	return instructionResponse
 }
 
 func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, isFinished *bool) {
