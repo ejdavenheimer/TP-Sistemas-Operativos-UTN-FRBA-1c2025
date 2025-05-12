@@ -137,22 +137,14 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 		ExecuteRead(executeInstructionRequest)
 	case "GOTO":
 		ExecuteGoto(executeInstructionRequest)
-	case "IO":
+	case "DUMP_MEMORY", "EXIT", "INIT_PROC", "IO":
 		syscallRequest = kernelModel.SyscallRequest{
 			Pid:    pid,
 			Type:   value[0],
 			Values: value[1:],
 		}
 		*isFinished = true
-		ExecuteSyscall(syscallRequest, cpuConfig)
-	case "INIT_PROC", "DUMP_MEMORY", "EXIT":
-		syscallRequest = kernelModel.SyscallRequest{
-			Pid:    pid,
-			Type:   value[0],
-			Values: value[1:],
-		}
-		*isFinished = true
-		ExecuteSyscall(syscallRequest, cpuConfig)
+		go ExecuteSyscall(syscallRequest, cpuConfig)
 	default:
 		slog.Error(fmt.Sprintf("Unknown instruction type %s", value[0]))
 	}

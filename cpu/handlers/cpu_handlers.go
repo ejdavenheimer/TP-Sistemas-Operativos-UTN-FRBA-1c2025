@@ -45,21 +45,18 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 			services.DecodeAndExecute(instructionRequest.Pid, fetchResult.Instruction, cpuConfig, &models.InterruptControl.InterruptPending)
 			request.PC = int(models.CpuRegisters.PC)
 		}
-		var response kernelModel.PCBExecuteRequest
-		if models.InterruptControl.InterruptPending {
-			response = kernelModel.PCBExecuteRequest{
-				PID:           request.Pid,
-				PC:            request.PC,
-				StatusCodePCB: kernelModel.NeedInterrupt,
-			}
+
+		response := kernelModel.PCBExecuteRequest{
+			PID: request.Pid,
+			PC:  request.PC,
 		}
 
-		if isFinished {
-			response = kernelModel.PCBExecuteRequest{
-				PID:           request.Pid,
-				PC:            request.PC,
-				StatusCodePCB: kernelModel.NeedFinish,
-			}
+		if models.InterruptControl.InterruptPending {
+			response.StatusCodePCB = kernelModel.NeedInterrupt
+		}
+
+		if isFinished && !models.InterruptControl.InterruptPending {
+			response.StatusCodePCB = kernelModel.NeedFinish
 		}
 
 		models.InterruptControl.InterruptPending = false
