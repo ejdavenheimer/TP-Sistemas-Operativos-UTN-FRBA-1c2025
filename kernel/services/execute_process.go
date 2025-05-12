@@ -52,11 +52,19 @@ func ExecuteProcess(pcb models.PCB, cpu cpuModels.CpuN) {
 	case models.NeedFinish:
 		//Se ejecutó bien el proceso, así que hay que finalizarlo
 		pcb.EstadoActual = models.EstadoExit
+		models.QueueExit.Add(pcb)
 
 	case models.NeedReplan:
 		//Se ejecutó bien el proceso, pero aún quedan instrucciones a ejecutar porque fue desalojado
 		pcb.PC = pcbExecute.PC
 		pcb.EstadoActual = models.EstadoReady
+		models.QueueReady.Add(pcb)
+
+	case models.NeedInterrupt:
+		//Se produjo una interrupción, ya sea porque ejecuta una IO o porque llega un proceso de mayor prioridad
+		pcb.PC = pcbExecute.PC
+		pcb.EstadoActual = models.EstadoBlocked
+		models.QueueBlocked.Add(pcb)
 	}
 
 	// Volver a marcar CPU como libre para se pueda re-utilizar

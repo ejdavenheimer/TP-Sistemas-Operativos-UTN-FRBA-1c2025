@@ -157,11 +157,6 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 		slog.Error(fmt.Sprintf("Unknown instruction type %s", value[0]))
 	}
 
-	if value[0] == "EXIT" {
-		*isFinished = true
-		return
-	}
-
 	if value[0] != "GOTO" {
 		models.CpuRegisters.PC++
 	}
