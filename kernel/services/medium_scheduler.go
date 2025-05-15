@@ -13,15 +13,21 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 )
 
-func mediumTermScheduler() {
+func MediumTermScheduler() {
+	slog.Info("Planificador de mediano plazo iniciado.")
+	/////////////////////////////////////////////////////
+	//BORRAR DESPUÉS ESTE PCB, es solo de prueba
+	var pcb = models.PCB{
+		PID:            1,
+		Size:           5,
+		PseudocodePath: "./scripts/prueba2",
+	}
+	/////////////////////////////////////////////////////
+	models.QueueSuspReady.Add(pcb)
 	for {
-		if SchedulerState != models.EstadoPlanificadorActivo {
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
-
 		//Si ambas colas están vacías, vuelve a mirar en otro momento
-		if models.QueueSuspReady.Size() == 0 && models.QueueSuspBlocked.Size() != 0 {
+
+		if models.QueueSuspReady.Size() == 0 && models.QueueSuspBlocked.Size() == 0 {
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
@@ -34,8 +40,10 @@ func mediumTermScheduler() {
 		if models.QueueSuspReady.Size() != 0 {
 			switch models.KernelConfig.NewAlgorithm {
 			case "FIFO":
+				slog.Debug("Me meto al plani de mediano plazo FIFO")
 				mediumScheduleFIFO()
 			case "PMCP":
+				slog.Debug("Me meto al plani de mediano plazo PMCP")
 				mediumScheduleShortestFirst()
 			default:
 				slog.Warn("Algoritmo no reconocido, utilizando FIFO por defecto")
@@ -92,21 +100,24 @@ func mediumScheduleFIFO() {
 	if models.QueueSuspReady.Size() == 0 {
 		return
 	}
-
+	slog.Debug("Ya entré al algoritmo FIFO en mediano plazo")
 	process, _ := models.QueueSuspReady.Get(0)
+
 	err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
 	if err != nil {
 		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
 		return
 	}
-
+	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(0) // Elimina el primer proceso de la cola NEW
+	slog.Debug("Removí de SuspReady el proceso")
 	process.EstadoActual = models.EstadoReady
 	models.QueueReady.Add(process)
 	slog.Info("Proceso movido a READY", "PID", process.PID)
 }
 
 func mediumScheduleShortestFirst() {
+	slog.Debug("Ya entré al algoritmo PMCP en mediano plazo")
 	if models.QueueSuspReady.Size() == 0 {
 		return
 	}
@@ -132,7 +143,9 @@ func mediumScheduleShortestFirst() {
 
 	// Si hay espacio, mover a READY
 	// Eliminar solo el primer proceso (más chico) de la cola NEW
+	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(0) // Eliminar el primer proceso de la cola NEW
+	slog.Debug("Removí de SuspReady el proceso")
 	process.EstadoActual = models.EstadoReady
 	models.QueueReady.Add(process) // Agregarlo a la cola READY
 	slog.Info("Proceso movido a READY", "PID", process.PID)

@@ -116,31 +116,51 @@ test_ejecutar_proceso_desde_kernel() {
 test_finalizar_proceso_kernel() {
     echo -e "${VERDE}Finalizando un proceso desde Kernel${NC}"
 
-    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    read -p "$(echo -e ${AMARILLO}PID:${NC} )" pid
     read -p "$(echo -e ${AMARILLO}PC:${NC} )" pc
-    read -p "$(echo -e ${AMARILLO}Path:${NC} )" pathName
-
-    # Simulamos valores de métricas (esto depende del modelo que tengas en memoria)
-    echo -e "${VERDE}Simulando métricas en el PCB...${NC}"
-    metrics='{
-        "NEW": 2,
-        "READY": 3
-    }'
-    times='{
-        "NEW": 150,
-        "READY": 230
-    }'
+    read -p "$(echo -e ${AMARILLO}Path:${NC} )" path
+    read -p "$(echo -e ${AMARILLO}Size:${NC} )" size
 
     curl --location --request POST http://localhost:8001/kernel/finalizarProceso \
         --header 'Content-Type: application/json' \
         --data "{
-            \"pid\": $pid,
-            \"pc\": $pc,
-            \"pathName\": \"$pathName\",
-            \"ME\": {\"NEW\": 2, \"READY\": 3},
-            \"MT\": {\"NEW\": 150, \"READY\": 230}
+            \"PID\": $pid,
+            \"PC\": $pc,
+            \"ParentPID\": 0,
+            \"PseudocodePath\": \"$path\",
+            \"EstadoActual\": \"EXIT\",
+            \"ME\": {
+                \"NEW\": 2,
+                \"READY\": 3
+            },
+            \"MT\": {
+                \"NEW\": 150000000000,
+                \"READY\": 230000000000
+            },
+            \"Size\": $size,
+            \"Rafaga\": 10.5
         }"
 }
+
+test_mandar_interrupcion_kernel() {
+    echo -e "${VERDE}Enviando interrupción a una CPU desde Kernel${NC}"
+
+    read -p "$(echo -e ${AMARILLO}PID del proceso:${NC} )" pid
+    read -p "$(echo -e ${AMARILLO}Puerto de la CPU:${NC} )" port
+    read -p "$(echo -e ${AMARILLO}IP de la CPU:${NC} )" ip
+
+    echo -e "${VERDE}Enviando interrupción a PID=${pid}, IP=${ip}, Puerto=${port}${NC}"
+
+    curl --location --request POST http://localhost:8001/kernel/mandar-interrupcion-a-cpu \
+        --header 'Content-Type: application/json' \
+        --data "{
+            \"PID\": $pid,
+            \"Puerto\": $port,
+            \"IP\": \"$ip\"
+        }"
+}
+
+
 
 while true; do
     echo -e "${AMARILLO}1.${NC} Obtener intrucción IO"
@@ -152,6 +172,7 @@ while true; do
     echo -e "${AMARILLO}7.${NC} Ejecutando instrucción INIT_PROC desde CPU"
     echo -e "${AMARILLO}8.${NC} Ejecutar proceso desde Kernel"
     echo -e "${AMARILLO}9.${NC} Finalizar proceso desde Kernel"
+    echo -e "${AMARILLO}10.${NC} Solicitar la interrupción de un proceso desde Kernel a CPU"
     echo -e "${ROJO}s.${NC} Salir"
     echo
     read -p "$(echo -e ${AMARILLO}Opción:${NC} )" opcion
@@ -166,6 +187,7 @@ while true; do
         7) test_ejecutar_syscall_init_proc ;;
         8) test_ejecutar_proceso_desde_kernel ;;
         9) test_finalizar_proceso_kernel ;;
+        10) test_mandar_interrupcion_kernel ;;
         s) echo -e "${ROJO}Saliendo...${NC}"; break ;;
         *) echo -e "${ROJO}Opción no válida${NC}" ;;
     esac

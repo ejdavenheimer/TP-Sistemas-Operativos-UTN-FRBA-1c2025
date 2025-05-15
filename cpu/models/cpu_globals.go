@@ -28,7 +28,16 @@ type Registers struct {
 }
 
 var CpuRegisters Registers
-var InterruptPending bool = false
+
+var InterruptControl = InterruptData{
+	InterruptPending: false,
+	PID:              -1,
+}
+
+type InterruptData struct {
+	InterruptPending bool
+	PID              int
+}
 
 type CpuN struct {
 	Port         int

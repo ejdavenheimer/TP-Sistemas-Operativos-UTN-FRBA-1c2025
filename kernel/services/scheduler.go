@@ -109,6 +109,7 @@ func scheduleShortestFirst() {
 	process.EstadoActual = models.EstadoReady
 	models.QueueReady.Add(process) // Agregarlo a la cola READY
 	slog.Info("Proceso movido a READY", "PID", process.PID)
+<<<<<<< HEAD
 }
 
 // PLANIFICADOR DE CORTO PLAZO
@@ -141,4 +142,6 @@ func StartShortTermScheduler() {
 			go ExecuteProcess(pcbInterface)
 		}
 	}()
+=======
+>>>>>>> origin/dev
 }
