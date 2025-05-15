@@ -160,8 +160,6 @@ test_mandar_interrupcion_kernel() {
         }"
 }
 
-
-
 while true; do
     echo -e "${AMARILLO}1.${NC} Obtener intrucción IO"
     echo -e "${AMARILLO}2.${NC} Ejecutando instrucción IO desde CPU (EXEC)"
