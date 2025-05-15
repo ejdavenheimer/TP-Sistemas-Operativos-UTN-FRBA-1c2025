@@ -90,3 +90,11 @@ func FindScriptByID(dir string, pid string) (string, error) {
 	}
 	return "", fmt.Errorf("no se encontró archivo con ID %s no encontrado", pid)
 }
+
+func Read(physicalAddress int, size int) (string, error) {
+	//if physicalAddress < 0 || physicalAddress+size > len(models.UserMemory) {
+	//	return "", fmt.Errorf("acceso fuera de los límites de memoria")
+	//}
+	//return string(models.UserMemory[physicalAddress : physicalAddress+size]), nil
+	return "DATOS FIJOS PARA PRUEBA", nil
+}
