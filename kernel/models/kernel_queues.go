@@ -12,6 +12,7 @@ var QueueExit = &list.ArrayList[PCB]{}
 
 // Colas del Planificador de Corto Plazo
 var QueueReady = &list.ArrayList[PCB]{}
+var QueueExec = &list.ArrayList[PCB]{}
 var QueueBlocked = &list.ArrayList[PCB]{}
 
 //A futuro... var QueueNewPMCP = orderList(&list.ArrayList[PCB]{})

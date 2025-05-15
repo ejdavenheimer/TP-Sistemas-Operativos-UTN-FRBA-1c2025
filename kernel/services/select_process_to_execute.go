@@ -30,8 +30,8 @@ func SelectToExecute(pcb models.PCB) {
 	// 	return
 	// }
 
-	pcb.EstadoActual = models.EstadoExecuting
-	slog.Info(fmt.Sprintf("Proceso PID=%d pasa a estado EXECUTING", pcb.PID))
+	//pcb.EstadoActual = models.EstadoExecuting
+	//slog.Info(fmt.Sprintf("Proceso PID=%d pasa a estado EXECUTING", pcb.PID))
 
 	// Actualiza los datos para saber dónde se está ejecutando cada proceso
 	cpu.PIDExecuting = pcb.PID

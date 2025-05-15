@@ -31,11 +31,7 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 	var deviceResponse ioModel.DeviceResponse
 
 	if err != nil {
-		deviceResponse := ioModel.DeviceResponse{
-			Pid:    pid,
-			Reason: "Dispositivo desconectado",
-		}
-		EndProcess(deviceResponse)
+		EndProcess(pid, "Dispositivo desconectado")
 		result, index, _ := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
 			return device.Port == d.Port
 		})
@@ -68,15 +64,14 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 
 		if index == -1 {
 			slog.Debug("El dispositivo se encuentra ocupado...")
-			//TODO: revisar que pasa en este caso, entiendo que se bloqueo
-			BlokedProcess(ioModel.DeviceResponse{Pid: syscallRequest.Pid, Reason: fmt.Sprintf("El dispositivo %s no se encuentra disponible", syscallRequest.Type)})
+			BlockedProcess(syscallRequest.Pid, fmt.Sprintf("El dispositivo %s no se encuentra disponible", syscallRequest.Type))
 			return
 		}
 
 		if !exists || deviceRequested.Name == "" {
 			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
 			http.Error(writer, "Dispositivo no conectado.", http.StatusNotFound)
-			EndProcess(ioModel.DeviceResponse{Pid: syscallRequest.Pid, Reason: fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type)})
+			EndProcess(syscallRequest.Pid, fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
 			return
 		}
 
@@ -138,10 +133,9 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			"parent pid": pcb.ParentPID,
 		})
 	case "DUMP_MEMORY":
-		pcb, index, exists := models.QueueReady.Find(func(pcb models.PCB) bool {
+		pcb, index, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
 			return pcb.PID == syscallRequest.Pid
 		})
-
 		if !exists || index == -1 {
 			slog.Warn("TODO: ver que pasa en este caso")
 			return
@@ -149,22 +143,45 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 
 		DumpServices(uint(pcb.PID), pcb.Size)
 	case "EXIT":
-		slog.Warn("EXIT") //TODO: implementar
+		EndProcess(syscallRequest.Pid, fmt.Sprintf("Se ejecuta syscall %s", syscallRequest.Type))
 	default:
 		slog.Error("Invalid syscall type", slog.String("type", syscallName))
 		panic(fmt.Sprintf("Invalid syscall type: %s", syscallName))
 	}
 }
 
-func EndProcess(response ioModel.DeviceResponse) {
-	slog.Debug(fmt.Sprintf("[%d] Finaliza el proceso - Motivo: %s", response.Pid, response.Reason))
-	//TODO: implementar lógica para finalizar proceso
-	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", response.Pid))
+func EndProcess(pid int, reason string) {
+	slog.Debug(fmt.Sprintf("[%d] Finaliza el proceso - Motivo: %s", pid, reason))
+
+	pcb, _, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+		return pcb.PID == pid
+	})
+
+	slog.Debug(fmt.Sprintf("Current execution: %v", pcb.PID))
+
+	if !exists {
+		slog.Error("No se encontró al proceso")
+		return
+	}
+
+	pcb.EstadoActual = models.EstadoExit
+	models.QueueExit.Add(pcb)
+	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", pid))
 }
 
-func BlokedProcess(response ioModel.DeviceResponse) {
-	slog.Debug(fmt.Sprintf("[%d] Se bloquea el proceso el proceso - Motivo: %s", response.Pid, response.Reason))
-	//TODO: implementar lógica para bloquear proceso
+func BlockedProcess(pid int, reason string) {
+	slog.Debug(fmt.Sprintf("[%d] Se bloquea el proceso el proceso - Motivo: %s", pid, reason))
+	pcb, _, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+		return pcb.PID == pid
+	})
+
+	if !exists {
+		slog.Error(fmt.Sprintf("No se encontro el proceso <%d>", pid))
+		return
+	}
+
+	pcb.EstadoActual = models.EstadoBlocked
+	models.QueueBlocked.Add(pcb)
 }
 
 func DumpServices(pid uint, size int) {
@@ -176,11 +193,14 @@ func DumpServices(pid uint, size int) {
 		return
 	}
 
+	BlockedProcess(int(pid), "dumping services")
+
 	response, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/dump-memory", body)
 	var dumpMemoryResponse memoriaModel.DumpMemoryResponse
 
-	if err != nil {
-		slog.Warn("TODO: implementar")
+	if err != nil || response.StatusCode != 200 {
+		slog.Error(fmt.Sprintf("error: %v", err))
+		EndProcess(int(pid), "DUMP MEMORY")
 		return
 	}
 
@@ -192,6 +212,17 @@ func DumpServices(pid uint, size int) {
 		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
 		return
 	}
+
+	pcb, _, exists := models.QueueBlocked.Find(func(pcb models.PCB) bool {
+		return pcb.PID == int(pid)
+	})
+
+	if !exists {
+		slog.Error("No se encontró al proceso")
+		return
+	}
+
+	models.QueueExit.Add(pcb)
 
 	slog.Debug(fmt.Sprintf("Response: %s", dumpMemoryResponse.Result))
 }

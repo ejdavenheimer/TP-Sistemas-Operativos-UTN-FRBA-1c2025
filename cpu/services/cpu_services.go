@@ -143,8 +143,8 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 			Type:   value[0],
 			Values: value[1:],
 		}
-		*isFinished = true
-		go ExecuteSyscall(syscallRequest, cpuConfig)
+		//*isFinished = true
+		ExecuteSyscall(syscallRequest, cpuConfig)
 	default:
 		slog.Error(fmt.Sprintf("Unknown instruction type %s", value[0]))
 	}

@@ -19,6 +19,7 @@ func StartScheduler() {
 	SchedulerState = models.EstadoPlanificadorActivo
 	slog.Info("Planificador iniciado.")
 	go longTermScheduler()
+	go ShortTermScheduler()
 }
 
 // Planificador de largo plazo
