@@ -8,6 +8,7 @@ import (
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 	"io"
+	"os"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -39,37 +40,107 @@ func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.C
 	return instruction
 }
 
-func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models.Config) {
+func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models.Config) string {
 	//Crea y codifica la request de conexion a Kernel
 	body, err := json.Marshal(syscallRequest)
 
 	if err != nil {
 		slog.Error("error:", err)
-		return
+		return "error"
 	}
 
 	//Envia la request de conexion a Kernel
-	_, err = client.DoRequest(cpuConfig.PortKernel, cpuConfig.IpKernel, "POST", "kernel/syscall", body)
+	response, err := client.DoRequest(cpuConfig.PortKernel, cpuConfig.IpKernel, "POST", "kernel/syscall", body)
 
 	if err != nil {
 		slog.Error("error:", err)
-		return
+		return "error"
 	}
+
+	defer response.Body.Close()
+	responseBody, _ := io.ReadAll(response.Body)
+
+	var kernelResp struct {
+		Action string `json:"action"` // e.g., "continue", "block", "exit"
+	}
+
+	err = json.Unmarshal(responseBody, &kernelResp)
+	if err != nil {
+		slog.Error("error parseando respuesta del kernel:", err)
+		return "error"
+	}
+
+	return kernelResp.Action
 }
 
 func ExecuteNoop(request models.ExecuteInstructionRequest) {
+	//log obligatorio
+	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", request.Pid, request.Values[0]))
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s", request.Pid, request.Values[0]))
-	//TODO: implementar lógica para NOOP
+	slog.Debug(fmt.Sprintf("Valor inicial de PC: %d", models.CpuRegisters.PC))
+    
+	increase_PC()
 }
 
 func ExecuteWrite(request models.ExecuteInstructionRequest) {
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
 	//TODO: implementar lógica para WRITE
+	increase_PC()
 }
 
 func ExecuteRead(request models.ExecuteInstructionRequest) {
+	//log obligatorio
+	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s %s", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
-	//TODO: implementar lógica para READ
+
+	logicalAddress, err := strconv.Atoi(request.Values[1])
+    if err != nil {
+	    slog.Error("Dirección lógica inválida")
+	    return
+    }
+
+    size, err := strconv.Atoi(request.Values[2])
+    if err != nil {
+	    slog.Error("Tamaño inválido")
+	    return
+    }
+
+	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
+
+	readRequest := models.MemoryReadRequest{
+		Pid:             request.Pid,
+		PhysicalAddress: physicalAddress,
+		Size:            size,
+	}
+
+	jsonBody, err := json.Marshal(readRequest)
+    if err != nil {
+        slog.Error("No se pudo serializar la request a Memoria")
+        return
+    }
+	
+
+    response, err := client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST", "memoria/leerMemoria", jsonBody)
+	if err != nil {
+		slog.Error("Error al comunicarse con Memoria")
+		return
+	}
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		slog.Error("Error al leer desde Memoria", "direccion", physicalAddress, "status", response.StatusCode, "body", string(body))
+		os.Exit(1)
+	}
+
+	var memoryValue string
+    defer response.Body.Close()
+    if err := json.NewDecoder(response.Body).Decode(&memoryValue); err != nil {
+        slog.Error("No se pudo leer el valor de memoria")
+        return
+    }
+
+    slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress,memoryValue))
+	increase_PC()
 }
 
 func ExecuteGoto(request models.ExecuteInstructionRequest) {
@@ -137,19 +208,26 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 		ExecuteRead(executeInstructionRequest)
 	case "GOTO":
 		ExecuteGoto(executeInstructionRequest)
-	case "IO":
+	case "INIT_PROC", "DUMP_MEMORY", "IO":
 		syscallRequest = kernelModel.SyscallRequest{
 			Pid:    pid,
 			Type:   value[0],
 			Values: value[1:],
 		}
-		*isFinished = true
-		ExecuteSyscall(syscallRequest, cpuConfig)
-	case "INIT_PROC", "DUMP_MEMORY", "EXIT":
+		action := ExecuteSyscall(syscallRequest, cpuConfig)
+		switch action{
+		case "continue":
+			increase_PC()
+			*isFinished = false
+		case "block", "exit":
+		    *isFinished = true
+		default:
+			slog.Error(fmt.Sprintf("acción desconocida de syscall: %v", action))
+			*isFinished = true
+		}
+	case "EXIT":
 		syscallRequest = kernelModel.SyscallRequest{
-			Pid:    pid,
 			Type:   value[0],
-			Values: value[1:],
 		}
 		*isFinished = true
 		ExecuteSyscall(syscallRequest, cpuConfig)
@@ -157,14 +235,14 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 		slog.Error(fmt.Sprintf("Unknown instruction type %s", value[0]))
 	}
 
-	if value[0] == "EXIT" {
-		*isFinished = true
-		return
-	}
+	//if value[0] != "GOTO" {
+	//	models.CpuRegisters.PC++
+	//}
 
-	if value[0] != "GOTO" {
-		models.CpuRegisters.PC++
-	}
+	//slog.Debug(fmt.Sprintf("Valor del PC: %d", models.CpuRegisters.PC))
+}
 
-	slog.Debug(fmt.Sprintf("Valor del PC: %d", models.CpuRegisters.PC))
+func increase_PC(){
+	models.CpuRegisters.PC += 1
+	slog.Debug(fmt.Sprintf("Valor actual de PC: %d", models.CpuRegisters.PC))
 }
