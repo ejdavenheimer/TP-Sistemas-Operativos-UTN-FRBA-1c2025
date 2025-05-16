@@ -17,6 +17,20 @@ type Config struct {
 
 var CpuConfig *Config
 
+type TLBEntry struct {
+	PID         int
+    PageNumber  int
+    FrameNumber int
+    LastUsed    int64 //contador para LRU
+}
+
+type MemoryConfig struct{
+	PageSize        int    `json:"page_size"`
+    EntriesPerPage  int    `json:"entries_per_page"`
+    NumberOfLevels  int    `json:"number_of_levels"`
+}
+var MemConfig *MemoryConfig
+
 type ExecuteInstructionRequest struct {
 	Pid    int
 	Values []string
@@ -46,4 +60,11 @@ type CpuN struct {
 	IsFree       bool
 	PIDExecuting int
 	PIDRafaga    float32
+}
+
+//Para la instrucción READ
+type MemoryReadRequest struct {
+	Pid              int
+	PhysicalAddress  int
+	Size             int
 }
