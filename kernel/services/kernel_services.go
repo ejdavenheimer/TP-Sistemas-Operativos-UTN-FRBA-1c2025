@@ -130,11 +130,8 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 
 		slog.Info("Proceso inicializado correctamente", "PID", pcb.PID)
 
-		// No se requiere enviar una respuesta a la CPU
 		server.SendJsonResponse(writer, map[string]interface{}{
-			"message":    "Proceso inicializado",
-			"pid":        pcb.PID,
-			"parent pid": pcb.ParentPID,
+			"action":     "continue",
 		})
 	case "DUMP_MEMORY":
 		slog.Warn("DUMP_MEMORY") //TODO: implementar
