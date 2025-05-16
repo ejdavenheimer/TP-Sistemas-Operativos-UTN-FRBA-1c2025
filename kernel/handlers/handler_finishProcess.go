@@ -18,6 +18,6 @@ func FinishProcessHandler(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	services.FinishProcess(pcb)
-	// services.FinishProcess() ------- DESCOMENTAR!!!
+	//services.FinishProcess(pcb)
+	services.FinishProcess()
 }
