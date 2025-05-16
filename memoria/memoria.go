@@ -31,6 +31,9 @@ func main() {
 	http.HandleFunc("GET /memoria", handlers.HandshakeHandler("Memoria en funcionamiento 🚀"))
 	http.HandleFunc("GET /memoria/instrucciones", memoryHandler.GetInstructionsHandler(models.MemoryConfig.ScriptsPath))
 	http.HandleFunc("GET /memoria/instruccion", memoryHandler.GetInstructionHandler(models.MemoryConfig.ScriptsPath))
+	http.HandleFunc("GET /config/memoria", memoryHandler.MemoryConfigHandler)
+	http.HandleFunc("POST /memoria/leerMemoria", memoryHandler.ReadMemoryHandler)
+	http.HandleFunc("POST /memoria/buscarFrame", memoryHandler.SearchFrameHandler)
 
 	http.HandleFunc("POST /memoria/cargarpcb", memoryHandler.ReserveMemoryHandler)
 
