@@ -227,10 +227,17 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 		}
 	case "EXIT":
 		syscallRequest = kernelModel.SyscallRequest{
-			Type:   value[0],
+			Type: value[0],
 		}
-		*isFinished = true
-		ExecuteSyscall(syscallRequest, cpuConfig)
+		action := ExecuteSyscall(syscallRequest, cpuConfig)
+		switch action {
+		case "exit":
+			*isFinished = true
+		default:
+			slog.Error(fmt.Sprintf("acción desconocida de syscall: %v", action))
+			*isFinished = true
+		}
+	
 	default:
 		slog.Error(fmt.Sprintf("Unknown instruction type %s", value[0]))
 	}
