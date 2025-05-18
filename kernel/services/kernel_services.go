@@ -135,11 +135,18 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		})
 	case "DUMP_MEMORY":
 		slog.Warn("DUMP_MEMORY") //TODO: implementar
+		server.SendJsonResponse(writer, map[string]string{
+			"action": "continue",
+		})
 	case "EXIT":
 		slog.Warn("EXIT") //TODO: implementar
+		server.SendJsonResponse(writer, map[string]interface{}{
+			"action": "exit",
+		})
 	default:
 		slog.Error("Invalid syscall type", slog.String("type", syscallName))
-		panic(fmt.Sprintf("Invalid syscall type: %s", syscallName))
+		http.Error(writer, fmt.Sprintf("Tipo de syscall inválido: %s", syscallName), http.StatusBadRequest)
+		//panic(fmt.Sprintf("Invalid syscall type: %s", syscallName))
 	}
 }
 
