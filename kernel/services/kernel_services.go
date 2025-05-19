@@ -52,8 +52,10 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
 		return err
 	}
-
 	slog.Debug(fmt.Sprintf("Response: %s", deviceResponse.Reason))
+
+	slog.Info(fmt.Sprintf("Enviando syscall a dispositivo %s (%s:%d) - PID: %d - Tiempo: %dms", 
+	device.Name, device.Ip, device.Port, pid, timeSleep))
 	return nil
 }
 
@@ -65,6 +67,11 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
 			return syscallRequest.Values[0] == d.Name && d.IsFree
 		})
+
+			if exists {
+			sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
+			SleepDevice(0, sleepTime, deviceRequested)
+		}
 
 		if index == -1 {
 			slog.Debug("El dispositivo se encuentra ocupado...")
