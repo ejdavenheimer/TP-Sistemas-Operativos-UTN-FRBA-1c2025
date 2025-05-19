@@ -31,6 +31,6 @@ func ConnectToKernel(ioName string, ioConfig *models.Config) {
 
 func Sleep(pid int, suspensionTime int) {
 	slog.Debug(fmt.Sprintf("[%d] zzzzzzzzzz", pid))
-	time.Sleep(time.Duration(suspensionTime) * time.Millisecond) //TODO: es necesario multiplicar por time.Millisecond
+	time.Sleep(time.Duration(suspensionTime) * time.Millisecond)
 	slog.Debug("quién me desperto?? (mirada que juzga)")
 }

@@ -29,7 +29,7 @@ func GeInstruction(pid uint, pc uint, path string) (string, bool, error) {
 func GetInstructions(pid uint, path string, instructionsMap map[uint][]string) error {
 	data := ExtractInstructions(path)
 	if data == nil {
-		return fmt.Errorf("No se pudieron cargar las instrucciones desde el archivo")
+		return fmt.Errorf("no se pudieron cargar las instrucciones desde el archivo")
 	}
 
 	InsertData(pid, instructionsMap, data)
@@ -44,7 +44,7 @@ func GetInstructionsByPid(pid uint, path string, instructionsMap map[uint][]stri
 	}
 	data := ExtractInstructions(path)
 	if data == nil {
-		return fmt.Errorf("No se pudieron cargar las instrucciones desde el archivo")
+		return fmt.Errorf("no se pudieron cargar las instrucciones desde el archivo")
 	}
 
 	InsertData(pid, instructionsMap, data)
@@ -98,4 +98,39 @@ func Read(physicalAddress int, size int) (string, error) {
 	//}
 	//return string(models.UserMemory[physicalAddress : physicalAddress+size]), nil
 	return "DATOS FIJOS PARA PRUEBA", nil
+}
+
+func HandleWrite(address int, data string) error {
+	slog.Debug("Entrando a HandleWrite", "address", address, "data", data)
+
+	// Validación límites de memoria
+	if address < 0 || address >= len(models.UserMemory) {
+		slog.Error("Dirección inválida de escritura", "address", address)
+		return errors.New("invalid memory address")
+	}
+
+	// Validación de escritura
+	if address+len(data) > len(models.UserMemory) {
+		slog.Error("La escritura excede los límites de la memoria", "address", address, "length", len(data))
+		return errors.New("write exceeds memory bounds")
+	}
+
+	procesoValido := false
+	for _, proc := range models.ProcessTable {
+		if address >= proc.BaseAddress && address+len(data) <= proc.BaseAddress+proc.Size {
+			procesoValido = true
+			break
+		}
+	}
+	if !procesoValido {
+		slog.Warn("Escritura fuera del rango de procesos existentes", "address", address)
+		return errors.New("write out of process bounds")
+	}
+
+	for i := 0; i < len(data); i++ {
+		models.UserMemory[address+i] = data[i]
+	}
+
+	slog.Info("Escritura realizada con éxito", "address", address, "length", len(data))
+	return nil
 }

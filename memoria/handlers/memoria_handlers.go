@@ -101,7 +101,7 @@ func MemoryConfigHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func ReadMemoryHandler(w http.ResponseWriter, r *http.Request){
+func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	var request models.MemoryInstructionRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -117,7 +117,7 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	// Validar que sea el inicio de página
-	if request.PhysicalAddress % models.MemoryConfig.PageSize != 0 {
+	if request.PhysicalAddress%models.MemoryConfig.PageSize != 0 {
 		http.Error(w, "Dirección no es inicio de página", http.StatusBadRequest)
 		slog.Warn("Dirección física no alineada a inicio de página", slog.Int("direccion", request.PhysicalAddress))
 		return
@@ -130,7 +130,7 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request){
 	}
 
 	// Validar rango del proceso
-	if request.PhysicalAddress < process.BaseAddress || request.PhysicalAddress + request.Size > process.BaseAddress+process.Size {
+	if request.PhysicalAddress < process.BaseAddress || request.PhysicalAddress+request.Size > process.BaseAddress+process.Size {
 		http.Error(w, "Violación de memoria", http.StatusForbidden)
 		slog.Warn("Violación de memoria", slog.Int("pid", request.Pid), slog.Int("direccion", request.PhysicalAddress))
 		return
@@ -151,9 +151,9 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request){
 	json.NewEncoder(w).Encode(value)
 }
 
-func SearchFrameHandler(w http.ResponseWriter, r *http.Request){
+func SearchFrameHandler(w http.ResponseWriter, r *http.Request) {
 	type Request struct {
-		PID     uint   `json:"pid"`
+		PID     uint  `json:"pid"`
 		Entries []int `json:"entries"`
 	}
 
@@ -204,4 +204,31 @@ func DumpMemoryHandler() func(w http.ResponseWriter, r *http.Request) {
 		}
 		server.SendJsonResponse(w, response)
 	}
+}
+
+func WriteHandler(w http.ResponseWriter, r *http.Request) {
+	//VALIDACION METODO HTTP
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req models.WriteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Error("Invalid WRITE request", "error", err)
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+	//EJECUCION ESCRITURA
+	if err := services.HandleWrite(req.Address, req.Data); err != nil {
+		slog.Error("WRITE failed", "error", err)
+		http.Error(w, "Write failed", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info("WRITE completed",
+		"address", req.Address,
+		"data_length", len(req.Data),
+	)
+	w.WriteHeader(http.StatusOK) //RESPUESTA
 }
