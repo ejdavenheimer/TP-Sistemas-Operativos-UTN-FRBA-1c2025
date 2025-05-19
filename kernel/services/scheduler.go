@@ -78,7 +78,8 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB], es
 	process.EstadoActual = models.EstadoReady
 	process.UltimoCambio = time.Now()
 	models.QueueReady.Add(*process)
-
+    
+	//log obligatorio
 	slog.Info(fmt.Sprintf("## PID %d pasa de %s a READY", process.PID, estadoOrigen))
 	runScheduler()
 }

@@ -59,6 +59,7 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 
 func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWriter) {
 	syscallName := syscallRequest.Type
+	slog.Info(fmt.Sprintf("## %d - Solicitó syscall: %s", syscallRequest.Pid, syscallName))
 	switch syscallName {
 	case "IO":
 		deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
