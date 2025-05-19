@@ -85,6 +85,45 @@ func ExecuteNoop(request models.ExecuteInstructionRequest) {
 func ExecuteWrite(request models.ExecuteInstructionRequest) {
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
 	//TODO: implementar lógica para WRITE
+		//CONVERSION DIR LOG A FISICA
+	dirLogica, err := strconv.Atoi(request.Values[1])
+
+	if err != nil {
+		slog.Error("Error al convertir dirección lógica", "error", err)
+		return
+	}
+
+	dirFisica := TranslateAddress(request.Pid, dirLogica)
+
+	//SOLICITUD DE ESCRITURA
+	writeReq := models.WriteRequest{
+    PID:             request.Pid,
+    LogicalAddr:     dirLogica,
+    PhysicalAddress: dirFisica,
+    Data:           request.Values[2],
+}
+
+	body, err := json.Marshal(writeReq)
+	if err != nil {
+		slog.Error("Error al serializar WriteRequest", "error", err)
+		return
+	}
+
+	//PETICION HTTP A MEMORIA 
+	_, err = client.DoRequest(
+		models.CpuConfig.PortMemory,
+		models.CpuConfig.IpMemory,
+		"POST",
+		"memoria/write",
+		body,
+	)
+	if err != nil {
+		slog.Error("Fallo la escritura en Memoria", "error", err)
+		return
+	}
+
+	slog.Info("Escritura realizada con éxito", "direccion_fisica", dirFisica, "dato", request.Values[2])
+
 	increase_PC()
 }
 

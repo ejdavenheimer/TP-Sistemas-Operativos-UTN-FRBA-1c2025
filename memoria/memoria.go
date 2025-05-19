@@ -27,6 +27,11 @@ func main() {
 	slog.Debug(fmt.Sprintf("Port Memory: %d", models.MemoryConfig.PortMemory))
 	models.InstructionsMap = make(map[uint][]string)
 
+	models.UserMemory = make([]byte, models.MemoryConfig.MemorySize) //INICIALIZACION DE MEMORIA 
+	slog.Debug("Memoria inicializada", "tamaño", len(models.UserMemory))
+	
+
+
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Memoria"))
 	http.HandleFunc("GET /memoria", handlers.HandshakeHandler("Memoria en funcionamiento 🚀"))
 	http.HandleFunc("GET /memoria/instrucciones", memoryHandler.GetInstructionsHandler(models.MemoryConfig.ScriptsPath))
@@ -34,8 +39,10 @@ func main() {
 	http.HandleFunc("GET /config/memoria", memoryHandler.MemoryConfigHandler)
 	http.HandleFunc("POST /memoria/leerMemoria", memoryHandler.ReadMemoryHandler)
 	http.HandleFunc("POST /memoria/buscarFrame", memoryHandler.SearchFrameHandler)
-
+	
 	http.HandleFunc("POST /memoria/cargarpcb", memoryHandler.ReserveMemoryHandler)
+	http.HandleFunc("POST /memoria/write", memoryHandler.WriteHandler)
+	slog.Info("Memoria lista")
 
 	//Liberar espacio de memoria de un PCB
 	http.HandleFunc("POST /memoria/liberarpcb", memoryHandler.DeleteContextHandler)

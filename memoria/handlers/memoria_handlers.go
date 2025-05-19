@@ -177,3 +177,30 @@ func SearchFrameHandler(w http.ResponseWriter, r *http.Request){
 		slog.Error("Error codificando respuesta")
 	}
 }
+
+func WriteHandler(w http.ResponseWriter, r *http.Request) {
+    //VALIDACION METODO HTTP
+	if r.Method != http.MethodPost {
+        http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    var req models.WriteRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        slog.Error("Invalid WRITE request", "error", err)
+        http.Error(w, "Invalid request", http.StatusBadRequest)
+        return
+    }
+//EJECUCION ESCRITURA
+    if err := services.HandleWrite(req.Address, req.Data); err != nil {
+        slog.Error("WRITE failed", "error", err)
+        http.Error(w, "Write failed", http.StatusInternalServerError)
+        return
+    }
+
+    slog.Info("WRITE completed",
+        "address", req.Address,
+        "data_length", len(req.Data),
+    )
+    w.WriteHeader(http.StatusOK) //RESPUESTA
+}

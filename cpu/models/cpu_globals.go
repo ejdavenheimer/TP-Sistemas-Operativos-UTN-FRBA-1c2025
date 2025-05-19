@@ -1,5 +1,6 @@
 package models
 
+import "errors"
 type Config struct {
 	PortCpu          int    `json:"port_cpu"`
 	IpCpu            string `json:"ip_cpu"`
@@ -67,4 +68,21 @@ type MemoryReadRequest struct {
 	Pid              int
 	PhysicalAddress  int
 	Size             int
+}
+
+//DEFINICION DE ERRORES
+	var	ErrInvalidInstruction = errors.New("invalid instruction")
+	var ErrInvalidAddress = errors.New("invalid address")
+
+//ESTRUCTRURA DE LA INSTRUCCION WRITE
+	type WriteInstruction struct {
+	Opcode string
+	Operands []string 
+}
+//ESTRUCTURA DE SOLICITUD WRITE
+type WriteRequest struct{
+	PID int 
+	LogicalAddr int
+	Data string
+	PhysicalAddress int 
 }

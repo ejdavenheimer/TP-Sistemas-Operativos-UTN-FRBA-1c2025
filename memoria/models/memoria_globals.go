@@ -63,3 +63,8 @@ var InstructionsMap map[uint][]string
 var NextFreeAddress int = 0
 var UserMemory []byte //Espacio contiguo de memoria de usuario
 var PageTables = make(map[uint]map[int]interface{})
+
+type WriteRequest struct {
+	Address int    `json:"address"`
+	Data    string `json:"data"`
+}
