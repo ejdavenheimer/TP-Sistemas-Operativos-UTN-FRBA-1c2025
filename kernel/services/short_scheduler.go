@@ -2,56 +2,145 @@ package services
 
 import (
 	"fmt"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"log/slog"
+	"strconv"
 	"time"
+
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 )
 
 // Planificador de corto plazo
 func ShortTermScheduler() {
 	for {
-		//if SchedulerState != models.EstadoPlanificadorActivo {
-		//	time.Sleep(500 * time.Millisecond)
-		//	continue
-		//}
-
-		if models.QueueReady.Size() == 0 {
-			time.Sleep(500 * time.Millisecond) //TODO: es necesario?
-			continue
-		}
-
-		process, _ := models.QueueReady.Get(0)
-
-		if process.PID == 0 {
-			time.Sleep(500 * time.Millisecond) //TODO: es necesario?
+		if models.QueueReady.Size() == 0 && models.QueueBlocked.Size() == 0 {
+			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
 		switch models.KernelConfig.SchedulerAlgorithm {
 		case "FIFO":
 			shortScheduleFIFO()
+		case "SJFSinDesalojo":
+			sortByShortestTimeBurst()
+			shortScheduleSJFSinDesalojo()
+		case "SJFConDesalojo":
+			sortByShortestTimeBurst()
+			shortScheduleSJFConDesalojo()
 		default:
 			slog.Warn("Algoritmo no reconocido, utilizando FIFO por defecto")
-			shortScheduleFIFO() //TODO: que pasa en este caso? tiene que ejecutar FIFO?
+			shortScheduleFIFO()
 		}
 
-		time.Sleep(500 * time.Millisecond) //TODO: es necesario?
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
 func shortScheduleFIFO() {
-	process, err := models.QueueReady.Dequeue() // Elimina el primer proceso de la cola READY
+	slog.Debug("Intentando seleccionar CPU libre para ejecutar proceso...")
 
-	if err != nil {
-		slog.Error(fmt.Sprintf("error: %v", err))
+	//VER CPU CONECTADA
+	cpu, ok := models.ConnectedCpuMap.GetFirstFree()
+	if !ok {
+		slog.Info("No hay CPU libre.")
 		return
 	}
 
-	process.EstadoActual = models.EstadoExecuting
-	slog.Debug(fmt.Sprintf("Proceso PID=%d pasa a estado EXECUTING", process.PID))
-	models.QueueExec.Add(process)
+	//Cambiar a estado EXEC
+	pcb, err := models.QueueReady.Dequeue()
+	if err != nil {
+		slog.Warn("No se pudo obtener un proceso de la cola READY")
+		cpu.IsFree = true
+		models.ConnectedCpuMap.Set(strconv.Itoa(cpu.Id), cpu)
+		return
+	}
 
-	SelectToExecute(process)
+	pcb.EstadoActual = models.EstadoExecuting
+	models.QueueExec.Add(pcb)
+	slog.Info(fmt.Sprintf("Proceso PID=%d pasa a estado EXECUTING", pcb.PID))
 
-	slog.Info("Proceso movido a EXEC", "PID", process.PID)
+	// Actualiza los datos para saber dónde se está ejecutando cada proceso
+	cpu.PIDExecuting = pcb.PID
+	key := strconv.Itoa(cpu.Id)
+
+	slog.Debug(fmt.Sprintf("Asignando proceso PID=%d a CPU ID=%d", pcb.PID, cpu.Id))
+	models.ConnectedCpuMap.Set(key, cpu)
+
+	ExecuteProcess(pcb, cpu)
+}
+
+func shortScheduleSJFSinDesalojo() {
+	slog.Debug("Intentando seleccionar CPU libre para ejecutar proceso...")
+
+	//VER CPU CONECTADA
+	cpu, ok := models.ConnectedCpuMap.GetFirstFree()
+	if !ok {
+		slog.Info("No hay CPU libre.")
+		return
+	}
+
+	//Cambiar a estado EXEC
+	pcb, err := models.QueueReady.Dequeue()
+	if err != nil {
+		slog.Warn("No se pudo obtener un proceso de la cola READY")
+		cpu.IsFree = true
+		models.ConnectedCpuMap.Set(strconv.Itoa(cpu.Id), cpu)
+		return
+	}
+
+	pcb.EstadoActual = models.EstadoExecuting
+	models.QueueExec.Add(pcb)
+	slog.Info(fmt.Sprintf("Proceso PID=%d pasa a estado EXECUTING", pcb.PID))
+
+	// Actualiza los datos para saber dónde se está ejecutando cada proceso
+	cpu.PIDExecuting = pcb.PID
+	key := strconv.Itoa(cpu.Id)
+
+	slog.Debug(fmt.Sprintf("Asignando proceso PID=%d a CPU ID=%d", pcb.PID, cpu.Id))
+	models.ConnectedCpuMap.Set(key, cpu)
+
+	ExecuteProcess(pcb, cpu)
+}
+
+func sortByShortestTimeBurst() {
+	models.QueueReady.Sort(func(a, b models.PCB) bool {
+		return a.Rafaga < b.Rafaga
+	})
+}
+
+func shortScheduleSJFConDesalojo() {
+	pcb, err := models.QueueReady.Dequeue()
+
+	slog.Debug("Intentando seleccionar CPU libre para ejecutar proceso...")
+
+	//VER CPU CONECTADA
+	cpu, ok := models.ConnectedCpuMap.GetFirstFree()
+	if !ok {
+		slog.Info("No hay CPU libre, pero chequeo si puedo desalojar")
+		InterruptExec(pcb)
+		return
+	}
+
+	//Cambiar a estado EXEC
+	if err != nil {
+		slog.Warn("No se pudo obtener un proceso de la cola READY")
+		cpu.IsFree = true
+		models.ConnectedCpuMap.Set(strconv.Itoa(cpu.Id), cpu)
+		return
+	}
+
+	pcb.EstadoActual = models.EstadoExecuting
+	models.QueueExec.Add(pcb)
+	slog.Info(fmt.Sprintf("Proceso PID=%d pasa a estado EXECUTING", pcb.PID))
+
+	// Actualiza los datos para saber dónde se está ejecutando cada proceso
+	cpu.PIDExecuting = pcb.PID
+	key := strconv.Itoa(cpu.Id)
+
+	// Activar solo cuando se necesite el algoritmo SJF
+	cpu.PIDRafaga = pcb.Rafaga
+
+	slog.Debug(fmt.Sprintf("Asignando proceso PID=%d a CPU ID=%d", pcb.PID, cpu.Id))
+	models.ConnectedCpuMap.Set(key, cpu)
+
+	ExecuteProcess(pcb, cpu)
 }

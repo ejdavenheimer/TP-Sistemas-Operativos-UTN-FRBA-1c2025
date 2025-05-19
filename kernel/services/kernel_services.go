@@ -56,6 +56,7 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 
 func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWriter) {
 	syscallName := syscallRequest.Type
+	slog.Info(fmt.Sprintf("## %d - Solicitó syscall: %s", syscallRequest.Pid, syscallName))
 	switch syscallName {
 	case "IO":
 		deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
@@ -126,11 +127,8 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 
 		slog.Info("Proceso inicializado correctamente", "PID", pcb.PID)
 
-		// No se requiere enviar una respuesta a la CPU
 		server.SendJsonResponse(writer, map[string]interface{}{
-			"message":    "Proceso inicializado",
-			"pid":        pcb.PID,
-			"parent pid": pcb.ParentPID,
+			"action":     "continue",
 		})
 	case "DUMP_MEMORY":
 		pcb, index, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
@@ -142,11 +140,20 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		}
 
 		DumpServices(uint(pcb.PID), pcb.Size)
+		//slog.Warn("DUMP_MEMORY") //TODO: implementar
+		server.SendJsonResponse(writer, map[string]string{
+			"action": "continue",
+		})
 	case "EXIT":
+		slog.Warn("EXIT") //TODO: implementar
 		EndProcess(syscallRequest.Pid, fmt.Sprintf("Se ejecuta syscall %s", syscallRequest.Type))
+		server.SendJsonResponse(writer, map[string]interface{}{
+			"action": "exit",
+		})
 	default:
 		slog.Error("Invalid syscall type", slog.String("type", syscallName))
-		panic(fmt.Sprintf("Invalid syscall type: %s", syscallName))
+		http.Error(writer, fmt.Sprintf("Tipo de syscall inválido: %s", syscallName), http.StatusBadRequest)
+		//panic(fmt.Sprintf("Invalid syscall type: %s", syscallName))
 	}
 }
 

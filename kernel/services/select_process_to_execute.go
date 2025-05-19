@@ -22,13 +22,13 @@ func SelectToExecute(pcb models.PCB) {
 	}
 
 	//Cambiar a estado EXEC
-	//pcb, err := models.QueueReady.Dequeue() ----DESCOMENTAR!!!!!!!!!!!!!
-	// if err != nil {
-	// 	slog.Warn("No se pudo obtener un proceso de la cola READY:", err)
-	// 	cpu.IsFree = true
-	// 	models.ConnectedCpuMap.Set(strconv.Itoa(cpu.Id), cpu)
-	// 	return
-	// }
+	pcb, err := models.QueueReady.Dequeue()
+	if err != nil {
+		slog.Error("No se pudo obtener un proceso de la cola READY:", err)
+		cpu.IsFree = true
+		models.ConnectedCpuMap.Set(strconv.Itoa(cpu.Id), cpu)
+		return
+	}
 
 	//pcb.EstadoActual = models.EstadoExecuting
 	//slog.Info(fmt.Sprintf("Proceso PID=%d pasa a estado EXECUTING", pcb.PID))

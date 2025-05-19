@@ -52,7 +52,8 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 	}
 
 	models.QueueNew.Add(*pcb)
-	slog.Info("Proceso agregado a cola NEW", "PID", pid)
+	//Log obligatorio
+	slog.Info(fmt.Sprintf("## PID %d Se crea el proceso - Estado : NEW", pid))
 
 	return pcb, nil
 }

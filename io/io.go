@@ -2,6 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"strconv"
+
 	ioHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/services"
@@ -9,17 +14,13 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
-	"log/slog"
-	"net/http"
-	"os"
-	"strconv"
 )
 
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-	ConfigPath = "io/configs/io.json"//"./configs/io.json"
-//	LogPath    = "io.log"
+	ConfigPath = "io/configs/io.json" //"./configs/io.json"
+// LogPath    = "io.log"
 )
 
 func main() {

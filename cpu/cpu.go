@@ -60,6 +60,14 @@ func main() {
 	}
 	services.ConnectToKernel(cpuId, models.CpuConfig)
 
+	//Solicita información a la Memoria
+	if err := services.RequestMemoryConfig(); err != nil {
+		slog.Error("No se pudo obtener la configuración de Memoria")
+	}
+
+	//Inicializar
+	services.InitTLB()
+
 	http.HandleFunc("GET /", handlers.HandshakeHandler(fmt.Sprintf("Bienvenido al módulo de CPU%s", idCpu)))
 	http.HandleFunc("GET /cpu", handlers.HandshakeHandler("Cpu en funcionamiento 🚀"))
 	http.HandleFunc("POST /cpu/process", cpuHandler.ExecuteHandler(models.CpuConfig)) //TODO: deprecado, borrar EP
