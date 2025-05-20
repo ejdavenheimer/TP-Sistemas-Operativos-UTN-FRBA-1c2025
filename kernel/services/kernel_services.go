@@ -232,7 +232,8 @@ func DumpServices(pid uint, size int) {
 		return
 	}
 
-	models.QueueExit.Add(pcb)
+	pcb.EstadoActual = models.EstadoReady
+	models.QueueReady.Add(pcb)
 
 	slog.Debug(fmt.Sprintf("Response: %s", dumpMemoryResponse.Result))
 }
