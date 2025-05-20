@@ -38,11 +38,12 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 				return
 			}
 
-			if fetchResult.IsLast {
+			services.DecodeAndExecute(instructionRequest.Pid, fetchResult.Instruction, cpuConfig, &isFinished)
+
+			if !isFinished && fetchResult.IsLast {
 				isFinished = fetchResult.IsLast
 			}
 
-			services.DecodeAndExecute(instructionRequest.Pid, fetchResult.Instruction, cpuConfig, &models.InterruptControl.InterruptPending)
 			request.PC = int(models.CpuRegisters.PC)
 		}
 
