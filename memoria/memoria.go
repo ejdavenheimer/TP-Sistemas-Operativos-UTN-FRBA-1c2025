@@ -26,17 +26,15 @@ func main() {
 	http.HandleFunc("GET /memoria", handlers.HandshakeHandler("Memoria en funcionamiento 🚀"))
 	http.HandleFunc("GET /memoria/instrucciones", memoryHandler.GetInstructionsHandler(models.MemoryConfig.ScriptsPath))
 	http.HandleFunc("GET /memoria/instruccion", memoryHandler.GetInstructionHandler(models.MemoryConfig.ScriptsPath))
-	http.HandleFunc("POST /memoria/dump-memory", memoryHandler.DumpMemoryHandler())
 	http.HandleFunc("GET /config/memoria", memoryHandler.MemoryConfigHandler)
+	http.HandleFunc("POST /memoria/dump-memory", memoryHandler.DumpMemoryHandler())
 	http.HandleFunc("POST /memoria/leerMemoria", memoryHandler.ReadMemoryHandler)
 	http.HandleFunc("POST /memoria/buscarFrame", memoryHandler.SearchFrameHandler)
-
 	http.HandleFunc("POST /memoria/cargarpcb", memoryHandler.ReserveMemoryHandler)
 	http.HandleFunc("POST /memoria/write", memoryHandler.WriteHandler)
-	slog.Debug("Memoria lista")
-
 	//Liberar espacio de memoria de un PCB
 	http.HandleFunc("POST /memoria/liberarpcb", memoryHandler.DeleteContextHandler)
+	slog.Debug("Memoria lista")
 
 	err := server.InitServer(models.MemoryConfig.PortMemory)
 	if err != nil {

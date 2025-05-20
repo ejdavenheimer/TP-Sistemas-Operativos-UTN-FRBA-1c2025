@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// crea un directorio en el path especificado.
+// CreateDirectory crea un directorio en el path especificado.
 func CreateDirectory(dir string) {
 	err := os.MkdirAll(dir, os.ModePerm)
 
@@ -22,7 +22,7 @@ func CreateDirectory(dir string) {
 	slog.Debug(fmt.Sprintf("Directorio %s creado o ya existía.", dir))
 }
 
-// crea el archivo
+// CreateFile crea el archivo
 func CreateFile(file string) error {
 	_, err := os.OpenFile(file, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 
@@ -34,12 +34,16 @@ func CreateFile(file string) error {
 	return nil
 }
 
+// InitMemory se encarga de hacer la configuración inicial
 func InitMemory(configPath string, logPath string) {
 	config.InitConfig(configPath, &models.MemoryConfig)
 	log.InitLogger(logPath, models.MemoryConfig.LogLevel)
 
 	slog.Debug(fmt.Sprintf("Port Memory: %d", models.MemoryConfig.PortMemory))
 	models.InstructionsMap = make(map[uint][]string)
+
+	models.UserMemory = make([]byte, models.MemoryConfig.MemorySize) //INICIALIZACIÓN DE MEMORIA
+	slog.Debug("Memoria inicializada", "tamaño", len(models.UserMemory))
 
 	CreateDirectory(models.MemoryConfig.DumpPath)
 	slog.Debug(fmt.Sprintf("Swap: %s", models.MemoryConfig.SwapFilePath))
