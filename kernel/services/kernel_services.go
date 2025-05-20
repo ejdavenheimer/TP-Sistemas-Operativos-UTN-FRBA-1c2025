@@ -100,6 +100,9 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			slog.Error(fmt.Sprintf("error: %v", err))
 			return
 		}
+		server.SendJsonResponse(writer, map[string]interface{}{
+			"action": "continue",
+		})
 	case "INIT_PROC":
 		if len(syscallRequest.Values) < 2 {
 			slog.Error("INIT_PROC necesita 2 parametros: path y tamaño")
@@ -128,24 +131,24 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		slog.Info("Proceso inicializado correctamente", "PID", pcb.PID)
 
 		server.SendJsonResponse(writer, map[string]interface{}{
-			"action":     "continue",
+			"action": "continue",
 		})
 	case "DUMP_MEMORY":
 		pcb, index, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
 			return pcb.PID == syscallRequest.Pid
 		})
 		if !exists || index == -1 {
-			slog.Warn("TODO: ver que pasa en este caso")
+			slog.Warn("TODO: ver que pasa en este caso por ahora hago un exit")
+			server.SendJsonResponse(writer, map[string]string{
+				"action": "exit",
+			})
 			return
 		}
-
 		DumpServices(uint(pcb.PID), pcb.Size)
-		//slog.Warn("DUMP_MEMORY") //TODO: implementar
 		server.SendJsonResponse(writer, map[string]string{
 			"action": "continue",
 		})
 	case "EXIT":
-		slog.Warn("EXIT") //TODO: implementar
 		EndProcess(syscallRequest.Pid, fmt.Sprintf("Se ejecuta syscall %s", syscallRequest.Type))
 		server.SendJsonResponse(writer, map[string]interface{}{
 			"action": "exit",
