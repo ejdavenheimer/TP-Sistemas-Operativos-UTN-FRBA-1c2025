@@ -75,34 +75,132 @@ func ReserveMemoryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slog.Info("Ruta recibida para cargar instrucciones", "path", request.Path)
+	//slog.Info("Ruta recibida para cargar instrucciones", "path", request.Path)
 
-	err := reserveMemory(request.PID, request.Size, request.Path)
+	err := services.ReserveMemory(request.PID, request.Size, request.Path)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error al reservar memoria: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	//log obligatorio
+	slog.Info(fmt.Sprintf("## PID: <%d> - Proceso Creado - Tamaño: <%d>", request.PID, request.Size))
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Memoria reservada con éxito"))
 }
 
-func reserveMemory(pid uint, size int, path string) error {
-	if size > models.MemoryConfig.MemorySize {
-		return fmt.Errorf("No hay suficiente memoria disponible")
+func MemoryConfigHandler(w http.ResponseWriter, r *http.Request) {
+	response := map[string]int{
+		"page_size":        models.MemoryConfig.PageSize,
+		"entries_per_page": models.MemoryConfig.EntriesPerPage,
+		"number_of_levels": models.MemoryConfig.NumberOfLevels,
 	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
 
-	// Intentar cargar las instrucciones
-	err := services.GetInstructions(uint(pid), path, models.InstructionsMap)
+func ReadMemoryHandler(w http.ResponseWriter, r *http.Request){
+	var request models.MemoryInstructionRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		slog.Error("Error al decodificar")
+		return
+	}
+	// Obtener proceso
+	process, ok := models.ProcessTable[request.Pid]
+	if !ok {
+		http.Error(w, "Proceso no encontrado", http.StatusNotFound)
+		slog.Warn("Intento de lectura de proceso inexistente", slog.Int("pid", request.Pid))
+		return
+	}
+	// Validar que sea el inicio de página
+	if request.PhysicalAddress % models.MemoryConfig.PageSize != 0 {
+		http.Error(w, "Dirección no es inicio de página", http.StatusBadRequest)
+		slog.Warn("Dirección física no alineada a inicio de página", slog.Int("direccion", request.PhysicalAddress))
+		return
+	}
+	// Validar que el tamaño solicitado no exceda el tamaño de una página
+	if request.Size > models.MemoryConfig.PageSize {
+		http.Error(w, "Lectura excede el tamaño de una página", http.StatusBadRequest)
+		slog.Warn("Lectura mayor al tamaño de página", slog.Int("pid", request.Pid))
+		return
+	}
+	
+	// Validar rango del proceso
+	if request.PhysicalAddress < process.BaseAddress || request.PhysicalAddress + request.Size > process.BaseAddress+process.Size {
+		http.Error(w, "Violación de memoria", http.StatusForbidden)
+		slog.Warn("Violación de memoria", slog.Int("pid", request.Pid), slog.Int("direccion", request.PhysicalAddress))
+		return
+	}
+	// Leer desde la memoria
+	value, err := services.Read(request.PhysicalAddress, request.Size)
 	if err != nil {
-		return fmt.Errorf("Error al cargar instrucciones: %v", err)
+		http.Error(w, "Error leyendo memoria", http.StatusInternalServerError)
+		slog.Error("Error al leer desde Memoria", slog.Int("direccion", request.PhysicalAddress))
+		return
+	}
+    
+	//log obligatorio
+	slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d>", request.Pid, request.PhysicalAddress, request.Size))
+    
+	// Devolver el valor leído
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(value)
+}
+
+func SearchFrameHandler(w http.ResponseWriter, r *http.Request){
+	type Request struct {
+		PID     uint   `json:"pid"`
+		Entries []int `json:"entries"`
 	}
 
-	// Decrementar el espacio disponible en memoria
-	models.MemoryConfig.MemorySize -= size
+	var request Request
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		slog.Error("Error al decodificar")
+		return
+	}
 
-	// Solo mostrar el mensaje de éxito si las instrucciones se cargaron correctamente
-	slog.Debug(fmt.Sprintf("Memoria reservada: %d bytes. Instrucciones cargadas para PID %d.", size, pid))
+	//buscar frame
+	frame := services.SearchFrame(request.PID, request.Entries)
 
-	return nil
+	type Response struct {
+		Frame int `json:"frame"`
+	}
+
+	resp := Response{Frame: frame}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		slog.Error("Error codificando respuesta")
+	}
+}
+
+func WriteHandler(w http.ResponseWriter, r *http.Request) {
+    //VALIDACION METODO HTTP
+	if r.Method != http.MethodPost {
+        http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    var req models.WriteRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        slog.Error("Invalid WRITE request", "error", err)
+        http.Error(w, "Invalid request", http.StatusBadRequest)
+        return
+    }
+//EJECUCION ESCRITURA
+    if err := services.HandleWrite(req.Address, req.Data); err != nil {
+        slog.Error("WRITE failed", "error", err)
+        http.Error(w, "Write failed", http.StatusInternalServerError)
+        return
+    }
+
+    slog.Info("WRITE completed",
+        "address", req.Address,
+        "data_length", len(req.Data),
+    )
+    w.WriteHeader(http.StatusOK) //RESPUESTA
 }

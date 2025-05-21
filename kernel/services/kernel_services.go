@@ -52,18 +52,26 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
 		return err
 	}
-
 	slog.Debug(fmt.Sprintf("Response: %s", deviceResponse.Reason))
+
+	slog.Info(fmt.Sprintf("Enviando syscall a dispositivo %s (%s:%d) - PID: %d - Tiempo: %dms", 
+	device.Name, device.Ip, device.Port, pid, timeSleep))
 	return nil
 }
 
 func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWriter) {
 	syscallName := syscallRequest.Type
+	slog.Info(fmt.Sprintf("## %d - Solicitó syscall: %s", syscallRequest.Pid, syscallName))
 	switch syscallName {
 	case "IO":
 		deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
 			return syscallRequest.Values[0] == d.Name && d.IsFree
 		})
+
+			if exists {
+			sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
+			SleepDevice(0, sleepTime, deviceRequested)
+		}
 
 		if index == -1 {
 			slog.Debug("El dispositivo se encuentra ocupado...")
@@ -130,19 +138,23 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 
 		slog.Info("Proceso inicializado correctamente", "PID", pcb.PID)
 
-		// No se requiere enviar una respuesta a la CPU
 		server.SendJsonResponse(writer, map[string]interface{}{
-			"message":    "Proceso inicializado",
-			"pid":        pcb.PID,
-			"parent pid": pcb.ParentPID,
+			"action":     "continue",
 		})
 	case "DUMP_MEMORY":
 		slog.Warn("DUMP_MEMORY") //TODO: implementar
+		server.SendJsonResponse(writer, map[string]string{
+			"action": "continue",
+		})
 	case "EXIT":
 		slog.Warn("EXIT") //TODO: implementar
+		server.SendJsonResponse(writer, map[string]interface{}{
+			"action": "exit",
+		})
 	default:
 		slog.Error("Invalid syscall type", slog.String("type", syscallName))
-		panic(fmt.Sprintf("Invalid syscall type: %s", syscallName))
+		http.Error(writer, fmt.Sprintf("Tipo de syscall inválido: %s", syscallName), http.StatusBadRequest)
+		//panic(fmt.Sprintf("Invalid syscall type: %s", syscallName))
 	}
 }
 

@@ -43,7 +43,7 @@ func ExecuteSyscallHandler() func(http.ResponseWriter, *http.Request) {
 		}
 
 		services.ExecuteSyscall(syscallRequest, writer)
-		writer.WriteHeader(http.StatusOK)
+		//writer.WriteHeader(http.StatusOK)
 	}
 }
 
@@ -72,5 +72,62 @@ func GetCpuMapHandlers() func(http.ResponseWriter, *http.Request) {
 			http.Error(writer, "Error interno", http.StatusInternalServerError)
 			return
 		}
+	}
+}
+func DeviceRegisterHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request models.Device
+		err := json.NewDecoder(r.Body).Decode(&request)
+		if err != nil {
+			slog.Error("Error al decodificar dispositivo IO", "error", err)
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		models.ConnectedDevicesMap.Set(request.Name, ioModel.Device{
+			Name: request.Name,
+			Ip:   request.Ip,
+			Port: request.Port,
+		})
+
+		slog.Info(fmt.Sprintf("Dispositivo IO conectado: %s (%s:%d)", request.Name, request.Ip, request.Port))
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "OK"})
+	}
+}
+//EJECUTA UNA SYSCALL IO 
+func ExecuteSyscallIOHandler() func(http.ResponseWriter, *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		var syscallRequest models.SyscallRequest
+		err := json.NewDecoder(request.Body).Decode(&syscallRequest)
+		if err != nil {
+			http.Error(writer, "Error al decodificar el cuerpo de la solicitud", http.StatusBadRequest)
+			return
+		}
+
+		slog.Debug(fmt.Sprintf("BODY: %v", syscallRequest))
+//BUSCA AL DISP SOLICITADO
+		deviceRequested, exists := models.ConnectedDevicesMap.Get(syscallRequest.Type)
+		if !exists || deviceRequested.Name == "" {
+			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
+			http.Error(writer, "Dispositivo no conectado.", http.StatusNotFound)
+			services.EndProcess(ioModel.DeviceResponse{
+				Pid: syscallRequest.Pid, Reason: fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type)})
+			return
+		}
+
+		services.ExecuteSyscall(models.SyscallRequest{
+			Type:   syscallRequest.Type,
+			Pid:    syscallRequest.Pid,
+			Values: syscallRequest.Values,
+		}, writer)
+	}
+}
+
+func GetDevicesMap() func(http.ResponseWriter, *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		models.ConnectedDevicesMap.GetAll()
+		writer.WriteHeader(http.StatusOK)
 	}
 }

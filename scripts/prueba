@@ -1,3 +1,4 @@
 NOOP
-INIT_PROC proceso1 256
+READ 128 10
+INIT_PROC scripts/prueba2 300
 EXIT

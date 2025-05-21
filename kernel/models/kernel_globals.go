@@ -12,10 +12,12 @@ import (
 type Config struct {
 	IpMemory           string  `json:"ip_memory"`
 	PortMemory         int     `json:"port_memory"`
+	IpKernel           int     `josn:"ip_kernel"`
 	PortKernel         int     `json:"port_kernel"`
 	SchedulerAlgorithm string  `json:"scheduler_algorithm"`
 	NewAlgorithm       string  `json:"new_algorithm"`
 	Alpha              float64 `json:"alpha"`
+	InitialEstimate    int     `json:"initial_estimate"`
 	SuspensionTime     int     `json:"suspension_time"`
 	LogLevel           string  `json:"log_level"`
 }
@@ -88,3 +90,9 @@ const (
 	NeedReplan    StatusCodePCB = 101
 	NeedInterrupt StatusCodePCB = 102
 )
+
+type Device struct {
+    Name string `json:"name"`
+    Ip   string `json:"ip"`
+    Port int    `json:"port"`
+}
