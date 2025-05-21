@@ -109,39 +109,4 @@ func scheduleShortestFirst() {
 	process.EstadoActual = models.EstadoReady
 	models.QueueReady.Add(process) // Agregarlo a la cola READY
 	slog.Info("Proceso movido a READY", "PID", process.PID)
-<<<<<<< HEAD
-}
-
-// PLANIFICADOR DE CORTO PLAZO
-func StartShortTermScheduler() {
-	go func() {
-		for {
-			//Si el planificador no está activo, duerme medio segundo y vuelve a chequear.
-			if SchedulerState != models.EstadoPlanificadorActivo {
-				time.Sleep(500 * time.Millisecond)
-				continue
-			}
-
-			//Si la cola READY está vacía, no hay procesos listos para ejecutar. Así que duerme medio segundo y vuelve a revisar.
-			if models.QueueReady.Size() == 0 {
-				time.Sleep(500 * time.Millisecond)
-				continue
-			}
-
-			//Toma el primer proceso en la cola READY (sin sacarlo todavía).
-			pcbInterface, err := models.QueueReady.Get(0)
-			if err != nil {
-				slog.Warn("Error obteniendo proceso de READY")
-				continue
-			}
-
-			//Lo saca de la cola READY. Ya está listo para ejecutarse.
-			models.QueueReady.Remove(0)
-			slog.Info("Planificador de corto plazo: enviando proceso a ejecutar", "PID", pcbInterface.PID)
-
-			go ExecuteProcess(pcbInterface)
-		}
-	}()
-=======
->>>>>>> origin/dev
 }

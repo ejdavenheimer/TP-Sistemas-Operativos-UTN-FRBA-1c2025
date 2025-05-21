@@ -46,8 +46,8 @@ func main() {
 	slog.Debug(fmt.Sprintf("Port Kernel: %d", models.KernelConfig.PortKernel))
 
 	go services.MediumTermScheduler()
-	go services.StartShortTermScheduler()
 	go services.StartScheduler()
+	go services.StartShortTermScheduler()
 
 	// Iniciar el proceso
 	pcb, err = services.InitProcess(pseudocodeFile, processSize, additionalArgs)

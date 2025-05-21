@@ -39,12 +39,6 @@ func SelectToExecute() bool {
 		return false // No hay CPU libre, no se puede ejecutar un proceso
 	}
 
-	//Si la cola READY está vacía, no hay procesos listos para ejecutar.
-	if models.QueueReady.Size() == 0 {
-		slog.Debug("No hay procesos en READY.")
-		return false // No hay procesos en READY, no se puede ejecutar nada
-	}
-
 	//FIFO: obtengo el proceso a ejecutar, el primero de la cola READY
 	pcb, err := models.QueueReady.Get(0)
 	if err != nil {
@@ -79,7 +73,7 @@ func SelectToExecute() bool {
 
 		// Liberar CPU
 		models.ConnectedCpuMap.MarkAsFree(key)
-	}(pcb, cpu, key)
+	}(&pcb, cpu, key)
 
 	return true
 }
