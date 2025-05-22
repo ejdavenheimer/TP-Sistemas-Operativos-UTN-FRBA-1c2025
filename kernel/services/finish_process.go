@@ -10,17 +10,15 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 )
 
-/*
-Al momento de finalizar un proceso, el Kernel deberá informar a la Memoria la
-finalización del mismo y luego de recibir la confirmación por parte de la Memoria
-deberá liberar su PCB asociado e intentar inicializar uno de los que estén esperando,
-para ello primero se deberá verificar los procesos que estén en estado SUSP. READY
-y luego en caso de que no se pueda iniciar ninguno de esos, se pasará a ver los que se
-encuentren en el estado NEW de acuerdo al algoritmo definido, si los hubiere.
-Luego de la finalización, se debe loguear las métricas de estado con el formato adecuado.
-*/
+//func FinishProcess(pcb models.PCB) {
+func FinishProcess() {
+	pcb, err := models.QueueExit.Dequeue()
+	if err == nil {
+	 	slog.Error(fmt.Sprintf("Error al sacar pcb de QueueExit, ya que está vacía: %v", err))
+	 	return
+	}
 
-func FinishProcess(pcb models.PCB) {
+	slog.Info("Iniciando finalización del proceso", slog.Int("PID", pcb.PID))
 	//Conectarse con memoria y enviar PCB
 	bodyRequest, err := json.Marshal(pcb)
 	if err != nil {
@@ -28,6 +26,7 @@ func FinishProcess(pcb models.PCB) {
 		panic(err)
 	}
 	url := fmt.Sprintf("http://%s:%d/memoria/liberarpcb", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
+	slog.Debug("Enviando PCB a memoria", slog.String("url", url))
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(bodyRequest))
 	if err != nil {
@@ -37,14 +36,24 @@ func FinishProcess(pcb models.PCB) {
 
 	//Recibir StatusOK por parte de memoria
 	if resp.StatusCode == http.StatusOK {
-		slog.Info("Respuesta OK de Memoria")
+		slog.Info("Memoria respondió OK al liberar PCB")
 	} else {
-		slog.Warn(fmt.Sprintf("Respuesta NO OK de Memoria. Código: %d.", resp.StatusCode))
+		slog.Warn("Memoria respondió con error al liberar PCB", slog.Int("status", resp.StatusCode))
 	}
 
+	//Logear métricas
+	slog.Info("Métricas de estado",
+		slog.Int("PID", pcb.PID),
+		slog.Int("NEW_COUNT", int(pcb.ME[models.EstadoNew])),
+		slog.Int("NEW_TIME", int(pcb.MT[models.EstadoNew])),
+		slog.Int("READY_COUNT", pcb.ME[models.EstadoReady]),
+		slog.Int("READY_TIME", int(pcb.MT[models.EstadoReady])),
+	)
+
 	//Liberar PCB asociado
-	models.QueueExit.Dequeue()
+	slog.Info("Liberado PCB de la cola de EXIT")
 
 	//Intentar inicializar un proceso de SUSP READY sino los de NEW
-	//Logear métricas
+	//Ya lo hace el plani de mediano plazo
+
 }

@@ -45,7 +45,9 @@ func main() {
 
 	slog.Debug(fmt.Sprintf("Port Kernel: %d", models.KernelConfig.PortKernel))
 
+	go services.MediumTermScheduler()
 	go services.StartScheduler()
+	go services.StartShortTermScheduler()
 
 	// Iniciar el proceso
 	pcb, err = services.InitProcess(pseudocodeFile, processSize, additionalArgs)
@@ -62,9 +64,12 @@ func main() {
 	http.HandleFunc("POST /kernel/dispositivos", kernelHandler.ConnectIoHandler())
 	http.HandleFunc("POST /kernel/syscall", kernelHandler.ExecuteSyscallHandler())
 	http.HandleFunc("POST /kernel/cpus", kernelHandler.ConnectCpuHandler())
+	http.HandleFunc("POST /kernel/informar-io-finalizada", kernelHandler.FinishExecIOHandler())
+	http.HandleFunc("POST /kernel/mandar-interrupcion-a-cpu", kernelHandler.SendInterruptionHandler)
 
 	//Planificador de larzo plazo
 	http.HandleFunc("POST /kernel/finalizarProceso", kernelHandler.FinishProcessHandler)
+	http.HandleFunc("POST /kernel/ejecutarProceso", kernelHandler.ExecuteProcessHandler)
 
 	//Iniciacialización del servidor
 	err = server.InitServer(models.KernelConfig.PortKernel)

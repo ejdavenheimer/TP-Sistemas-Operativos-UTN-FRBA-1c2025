@@ -24,3 +24,7 @@ type DeviceResponse struct {
 	Pid    int
 	Reason string
 }
+type IORequest struct {
+	PID int `json:"pid"`
+	TimeIO int `json:"tiempo"`
+}

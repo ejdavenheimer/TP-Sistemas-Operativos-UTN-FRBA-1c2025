@@ -19,7 +19,7 @@ import (
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-	ConfigPath = "cpu/configs/cpu.json" //"./configs/cpu.json"
+	ConfigPath = "./configs/cpu.json" //"cpu/configs/cpu.json"
 // LogPath    = "cpu.log"
 )
 
@@ -60,10 +60,19 @@ func main() {
 	}
 	services.ConnectToKernel(cpuId, models.CpuConfig)
 
+	//Solicita información a la Memoria
+	if err := services.RequestMemoryConfig(); err != nil {
+		slog.Error("No se pudo obtener la configuración de Memoria")
+	}
+
+	//Inicializar
+	services.InitTLB()
+
 	http.HandleFunc("GET /", handlers.HandshakeHandler(fmt.Sprintf("Bienvenido al módulo de CPU%s", idCpu)))
 	http.HandleFunc("GET /cpu", handlers.HandshakeHandler("Cpu en funcionamiento 🚀"))
-	http.HandleFunc("POST /cpu/exec", cpuHandler.ExecuteHandler(models.CpuConfig))
-	http.HandleFunc("POST /cpu/process", cpuHandler.ExecuteHandlerV2(models.CpuConfig))
+	http.HandleFunc("POST /cpu/process", cpuHandler.ExecuteHandler(models.CpuConfig)) //TODO: deprecado, borrar EP
+	http.HandleFunc("POST /cpu/exec", cpuHandler.ExecuteProcessHandler(models.CpuConfig))
+	http.HandleFunc("POST /cpu/interrupt", cpuHandler.InterruptProcessHandler(models.CpuConfig))
 
 	err = server.InitServer(models.CpuConfig.PortCpu)
 	if err != nil {

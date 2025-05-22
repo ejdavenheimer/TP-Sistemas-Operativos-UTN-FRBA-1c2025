@@ -2,13 +2,17 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
+	"log/slog"
+	"net/http"
+
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/services"
+	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
-	"net/http"
 )
 
-func ExecuteHandlerV2(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
+func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var instructionRequest memoriaModel.InstructionRequest
 
@@ -26,21 +30,42 @@ func ExecuteHandlerV2(cpuConfig *models.Config) func(http.ResponseWriter, *http.
 		}
 		models.CpuRegisters.PC = uint(request.PC)
 		var isFinished bool = false
-		for !models.InterruptPending && !isFinished {
+		for !models.InterruptControl.InterruptPending && !isFinished {
 			fetchResult := services.Fetch(request, cpuConfig)
-			if fetchResult == "" {
+
+			if fetchResult.Instruction == "" {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			services.DecodeAndExecute(instructionRequest.Pid, fetchResult, cpuConfig, &isFinished)
+
+			services.DecodeAndExecute(instructionRequest.Pid, fetchResult.Instruction, cpuConfig, &isFinished)
+
+			if !isFinished && fetchResult.IsLast {
+				isFinished = fetchResult.IsLast
+			}
+
 			request.PC = int(models.CpuRegisters.PC)
 		}
 
-		models.InterruptPending = false
-		//w.WriteHeader(http.StatusOK)
+		response := kernelModel.PCBExecuteRequest{
+			PID: request.Pid,
+			PC:  request.PC,
+		}
+
+		if models.InterruptControl.InterruptPending {
+			response.StatusCodePCB = kernelModel.NeedInterrupt
+		}
+
+		if isFinished && !models.InterruptControl.InterruptPending {
+			response.StatusCodePCB = kernelModel.NeedFinish
+		}
+
+		models.InterruptControl.InterruptPending = false
+		server.SendJsonResponse(w, response)
 	}
 }
 
+// TODO: deprecado, borrar!
 func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var instructionRequest memoriaModel.InstructionRequest
@@ -64,5 +89,28 @@ func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Re
 		for _, instr := range instructions {
 			services.DecodeAndExecute(instructionRequest.Pid, instr, cpuConfig, &isFinished)
 		}
+	}
+}
+
+func InterruptProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var pid int
+		if err := json.NewDecoder(r.Body).Decode(&pid); err != nil {
+			http.Error(w, "PID inválido", http.StatusBadRequest)
+			return
+		}
+
+		slog.Info("Interrupción recibida", slog.Int("pid", pid))
+
+		// if pid == models.InterruptControl.PID {  ------DESCOMENTAR!!!!
+		if pid == 2 {
+			slog.Info("Interrupción informada al cpu", slog.Int("pid", pid))
+			models.InterruptControl.InterruptPending = true
+			w.WriteHeader(http.StatusOK)
+		} else {
+			slog.Error("No existe ese proceso ejecutandose en esta cpu para interrumpirlo", slog.Int("pid", pid))
+			w.WriteHeader(http.StatusBadRequest)
+		}
+
 	}
 }

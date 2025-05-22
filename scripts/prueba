@@ -1,3 +1,4 @@
-instruccion_1
-instruccion_2
-instruccion_3
+NOOP
+READ 128 10
+INIT_PROC scripts/prueba2 300
+EXIT
