@@ -23,11 +23,20 @@ func CreateDirectory(dir string) {
 }
 
 // CreateFile crea el archivo
-func CreateFile(file string) error {
-	_, err := os.OpenFile(file, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+func CreateFile(fileName string, size int) error {
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al crear el archivo: %v", err))
+		return err
+	}
+
+	defer file.Close()
+
+	// Se ajusta el tamaño del archivo
+	err = file.Truncate(int64(size))
+	if err != nil {
+		slog.Error(fmt.Sprintf("Error al ajustar el tamaño del archivo: %v", err))
 		return err
 	}
 
@@ -47,7 +56,7 @@ func InitMemory(configPath string, logPath string) {
 
 	CreateDirectory(models.MemoryConfig.DumpPath)
 	slog.Debug(fmt.Sprintf("Swap: %s", models.MemoryConfig.SwapFilePath))
-	_ = CreateFile(models.MemoryConfig.SwapFilePath)
+	_ = CreateFile(models.MemoryConfig.SwapFilePath, 0) //TODO: revisar, inicialmente va arrancar con tamaño 0 
 }
 
 func GetDumpName(pid uint) string {

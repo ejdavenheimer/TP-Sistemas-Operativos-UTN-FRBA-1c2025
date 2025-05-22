@@ -8,10 +8,11 @@ import (
 )
 
 func ExecuteDumpMemory(pid uint, size int, path string) error{
-	slog.Info(fmt.Sprintf("## PID: <%d> - Memory Dump solicitado", pid))
-	dumpName := helpers.GetDumpName(pid)
+	slog.Info(fmt.Sprintf("## PID: %d - Memory Dump solicitado", pid)) //Log obligatorio
+	dumpName := helpers.GetDumpName(pid) //obtiene el nombre del archivo 
 	
-	err := helpers.CreateFile(models.MemoryConfig.DumpPath + dumpName)
+	//crea o abre el archivo
+	err := helpers.CreateFile(models.MemoryConfig.DumpPath + dumpName, size)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error: %v", err))
 		return err
