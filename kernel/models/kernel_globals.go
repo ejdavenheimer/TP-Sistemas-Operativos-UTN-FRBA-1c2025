@@ -90,3 +90,9 @@ const (
 	NeedReplan    StatusCodePCB = 101
 	NeedInterrupt StatusCodePCB = 102
 )
+
+type Device struct {
+    Name string `json:"name"`
+    Ip   string `json:"ip"`
+    Port int    `json:"port"`
+}

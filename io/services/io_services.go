@@ -27,10 +27,18 @@ func ConnectToKernel(ioName string, ioConfig *models.Config) {
 		slog.Error(fmt.Sprintf("error: %v", err))
 		panic(err)
 	}
+
+	slog.Info("Dispositivo registrado exitosamente con el Kernel", "nombre", ioName)
+	slog.Info(fmt.Sprintf("%%# IO: %s - Registrado en Kernel - IO: %s:%d - Kernel: %s:%d",
+		ioName,
+		ioConfig.IpIo, ioConfig.PortIo,
+		ioConfig.IpKernel, ioConfig.PortKernel))
 }
 
 func Sleep(pid int, suspensionTime int) {
+	slog.Info("Inicio de operación IO", "pid", pid, "duración_ms", suspensionTime)
 	slog.Debug(fmt.Sprintf("[%d] zzzzzzzzzz", pid))
 	time.Sleep(time.Duration(suspensionTime) * time.Millisecond)
 	slog.Debug("quién me desperto?? (mirada que juzga)")
+	slog.Info("Fin de operación IO", "pid", pid)
 }

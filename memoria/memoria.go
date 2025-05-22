@@ -15,8 +15,8 @@ import (
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-	ConfigPath = "memoria/configs/memoria.json" //"./configs/memoria.json"
-	LogPath    = "./logs/memoria.log" //"./memoria.log"
+	ConfigPath = "./configs/memoria.json" //"memoria/configs/memoria.json"
+	LogPath    = "./memoria.log"          //"./logs/memoria.log"
 )
 
 func main() {

@@ -18,5 +18,5 @@ func ExecuteProcessHandler(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	// services.SelectToExecute() ----DESCOMENTAR!!!!!!!
-	services.SelectToExecute(pcb)
+	services.SelectToExecute()
 }
