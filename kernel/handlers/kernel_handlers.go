@@ -107,13 +107,12 @@ func ExecuteSyscallIOHandler() func(http.ResponseWriter, *http.Request) {
 		}
 
 		slog.Debug(fmt.Sprintf("BODY: %v", syscallRequest))
-//BUSCA AL DISP SOLICITADO
+		//BUSCA AL DISP SOLICITADO
 		deviceRequested, exists := models.ConnectedDevicesMap.Get(syscallRequest.Type)
 		if !exists || deviceRequested.Name == "" {
 			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
 			http.Error(writer, "Dispositivo no conectado.", http.StatusNotFound)
-			services.EndProcess(ioModel.DeviceResponse{
-				Pid: syscallRequest.Pid, Reason: fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type)})
+			services.EndProcess(syscallRequest.Pid, fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
 			return
 		}
 
