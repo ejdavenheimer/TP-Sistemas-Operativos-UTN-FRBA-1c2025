@@ -19,11 +19,7 @@ import (
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-<<<<<<< HEAD
-	ConfigPath = "./configs/io.json" //"io/configs/io.json"
-=======
 	ConfigPath = "io/configs/io.json" //"./configs/io.json"
->>>>>>> origin/dev
 // LogPath    = "io.log"
 )
 

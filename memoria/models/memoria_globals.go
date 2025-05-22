@@ -8,7 +8,7 @@ type Config struct {
 	EntriesPerPage int    `json:"entries_per_page"`
 	NumberOfLevels int    `json:"number_of_levels"`
 	MemoryDelay    int    `json:"memory_delay"`
-	SwapFilePath   string `json:"swap_file_path"`
+	SwapFilePath   string `json:"swapfile_path"`
 	SwapDelay      int    `json:"swap_delay"`
 	LogLevel       string `json:"log_level"`
 	DumpPath       string `json:"dump_path"`
@@ -21,6 +21,7 @@ type InstructionsResponse struct {
 
 type InstructionResponse struct {
 	Instruction string
+	IsLast      bool
 }
 
 type MemoryRequest struct {
@@ -58,6 +59,15 @@ type Metrics struct {
 
 var ProcessMetrics = make(map[uint]*Metrics)
 var ProcessTable = make(map[int]Process)
+type DumpMemoryRequest struct {
+	Pid  uint
+	Size int
+}
+
+type DumpMemoryResponse struct {
+	Result string
+}
+
 var MemoryConfig *Config
 var InstructionsMap map[uint][]string
 var NextFreeAddress int = 0

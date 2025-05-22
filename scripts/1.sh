@@ -31,18 +31,15 @@ test_ejecutar_cpu_exec() {
     echo -e "${VERDE}Ejecutando instrucción IO desde CPU${NC}"
     read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
     read -p "$(echo -e ${AMARILLO}PC:${NC} )" pc
-    read -p "$(echo -e ${AMARILLO}Path:${NC} )" pathName
     echo -e "${VERDE}El Pid ingresado es:${NC} $pid"
     echo -e "${VERDE}El PC ingresado es:${NC} $pc"
-    echo -e "${VERDE}El Path ingresado es:${NC} $pathName"
     curl --location --request POST http://localhost:8004/cpu/exec \
         --header 'Content-Type: application/json' \
-        --data "{\"pid\": $pid, \"pc\": $pc, \"pathName\": \"$pathName\"}"
+        --data "{\"pid\": $pid, \"pc\": $pc}"
 }
 # {
 #     "pid": 1,
 #     "pc": 0,
-#     "pathName": "example1"
 # }
 
 test_ejecutar_cpu_process() {
@@ -98,6 +95,17 @@ test_ejecutar_syscall_init_proc() {
 
     # Mostrar la respuesta del servidor
     echo -e "${VERDE}Respuesta del servidor:${NC} $response"
+}
+
+test_ejecutar_dump_memory() {
+    echo -e "${VERDE}Ejecutando syscall DUMP_MEMORY${NC}"
+    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    read -p "$(echo -e ${AMARILLO}Size:${NC} )" size
+    echo -e "${VERDE}El Pid ingresado es:${NC} $pid"
+    echo -e "${VERDE}El PC ingresado es:${NC} $size"
+    curl --location --request POST http://localhost:8002/memoria/dump-memory \
+        --header 'Content-Type: application/json' \
+        --data "{\"pid\": $pid, \"size\": $size}"
 }
 
 test_ejecutar_proceso_desde_kernel() {
@@ -171,6 +179,7 @@ while true; do
     echo -e "${AMARILLO}8.${NC} Ejecutar proceso desde Kernel"
     echo -e "${AMARILLO}9.${NC} Finalizar proceso desde Kernel"
     echo -e "${AMARILLO}10.${NC} Solicitar la interrupción de un proceso desde Kernel a CPU"
+    echo -e "${AMARULLI}11.${NC} Ejecutando instrucción DUMP_MEMORY"
     echo -e "${ROJO}s.${NC} Salir"
     echo
     read -p "$(echo -e ${AMARILLO}Opción:${NC} )" opcion
@@ -186,6 +195,7 @@ while true; do
         8) test_ejecutar_proceso_desde_kernel ;;
         9) test_finalizar_proceso_kernel ;;
         10) test_mandar_interrupcion_kernel ;;
+        11) test_ejecutar_dump_memory ;;
         s) echo -e "${ROJO}Saliendo...${NC}"; break ;;
         *) echo -e "${ROJO}Opción no válida${NC}" ;;
     esac

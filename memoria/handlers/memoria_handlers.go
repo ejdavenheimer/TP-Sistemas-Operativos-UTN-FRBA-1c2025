@@ -48,7 +48,7 @@ func GetInstructionHandler(configPath string) func(http.ResponseWriter, *http.Re
 		pid, _ := strconv.ParseInt(pidStr, 10, 64)
 		pc, _ := strconv.ParseInt(pcStr, 10, 64)
 
-		instructionResult, err := services.GeInstruction(uint(pid), uint(pc), configPath)
+		instructionResult, isLast, err := services.GeInstruction(uint(pid), uint(pc), configPath)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			slog.Error(fmt.Sprintf("error: %s", err.Error()))
@@ -57,6 +57,7 @@ func GetInstructionHandler(configPath string) func(http.ResponseWriter, *http.Re
 
 		instruction := models.InstructionResponse{
 			Instruction: instructionResult,
+			IsLast:      isLast,
 		}
 		slog.Info(fmt.Sprintf("## PID: <%d> - Obtener instrucción: <%d> - Instrucción: %s", pid, pc, instruction.Instruction))
 		server.SendJsonResponse(w, instruction)
@@ -100,7 +101,7 @@ func MemoryConfigHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func ReadMemoryHandler(w http.ResponseWriter, r *http.Request){
+func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	var request models.MemoryInstructionRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -116,7 +117,7 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	// Validar que sea el inicio de página
-	if request.PhysicalAddress % models.MemoryConfig.PageSize != 0 {
+	if request.PhysicalAddress%models.MemoryConfig.PageSize != 0 {
 		http.Error(w, "Dirección no es inicio de página", http.StatusBadRequest)
 		slog.Warn("Dirección física no alineada a inicio de página", slog.Int("direccion", request.PhysicalAddress))
 		return
@@ -127,9 +128,9 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request){
 		slog.Warn("Lectura mayor al tamaño de página", slog.Int("pid", request.Pid))
 		return
 	}
-	
+
 	// Validar rango del proceso
-	if request.PhysicalAddress < process.BaseAddress || request.PhysicalAddress + request.Size > process.BaseAddress+process.Size {
+	if request.PhysicalAddress < process.BaseAddress || request.PhysicalAddress+request.Size > process.BaseAddress+process.Size {
 		http.Error(w, "Violación de memoria", http.StatusForbidden)
 		slog.Warn("Violación de memoria", slog.Int("pid", request.Pid), slog.Int("direccion", request.PhysicalAddress))
 		return
@@ -141,18 +142,18 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request){
 		slog.Error("Error al leer desde Memoria", slog.Int("direccion", request.PhysicalAddress))
 		return
 	}
-    
+
 	//log obligatorio
 	slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d>", request.Pid, request.PhysicalAddress, request.Size))
-    
+
 	// Devolver el valor leído
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(value)
 }
 
-func SearchFrameHandler(w http.ResponseWriter, r *http.Request){
+func SearchFrameHandler(w http.ResponseWriter, r *http.Request) {
 	type Request struct {
-		PID     uint   `json:"pid"`
+		PID     uint  `json:"pid"`
 		Entries []int `json:"entries"`
 	}
 
@@ -178,29 +179,56 @@ func SearchFrameHandler(w http.ResponseWriter, r *http.Request){
 	}
 }
 
+func DumpMemoryHandler() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var dumpRequest models.DumpMemoryRequest
+
+		// Decodifica el request (codificado en formato json).
+		err := json.NewDecoder(r.Body).Decode(&dumpRequest)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		slog.Debug(fmt.Sprintf("## PID: <%d> Dump Memory", dumpRequest.Pid))
+
+		err = services.ExecuteDumpMemory(dumpRequest.Pid, dumpRequest.Size, models.MemoryConfig.DumpPath)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			slog.Error(fmt.Sprintf("error: %s", err.Error()))
+			return
+		}
+
+		response := models.DumpMemoryResponse{
+			Result: "Ok",
+		}
+		server.SendJsonResponse(w, response)
+	}
+}
+
 func WriteHandler(w http.ResponseWriter, r *http.Request) {
-    //VALIDACION METODO HTTP
+	//VALIDACION METODO HTTP
 	if r.Method != http.MethodPost {
-        http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-        return
-    }
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-    var req models.WriteRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        slog.Error("Invalid WRITE request", "error", err)
-        http.Error(w, "Invalid request", http.StatusBadRequest)
-        return
-    }
-//EJECUCION ESCRITURA
-    if err := services.HandleWrite(req.Address, req.Data); err != nil {
-        slog.Error("WRITE failed", "error", err)
-        http.Error(w, "Write failed", http.StatusInternalServerError)
-        return
-    }
+	var req models.WriteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Error("Invalid WRITE request", "error", err)
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+	//EJECUCION ESCRITURA
+	if err := services.HandleWrite(req.Address, req.Data); err != nil {
+		slog.Error("WRITE failed", "error", err)
+		http.Error(w, "Write failed", http.StatusInternalServerError)
+		return
+	}
 
-    slog.Info("WRITE completed",
-        "address", req.Address,
-        "data_length", len(req.Data),
-    )
-    w.WriteHeader(http.StatusOK) //RESPUESTA
+	slog.Info("WRITE completed",
+		"address", req.Address,
+		"data_length", len(req.Data),
+	)
+	w.WriteHeader(http.StatusOK) //RESPUESTA
 }

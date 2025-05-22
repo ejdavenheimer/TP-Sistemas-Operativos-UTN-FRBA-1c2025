@@ -1,28 +1,27 @@
 package services
 
 import (
-	"log/slog"
 	"encoding/json"
-	"sync"
 	"fmt"
-	
-	"net/http"
+	"log/slog"
+	"sync"
+
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
-
+	"net/http"
 )
+
 var (
-    tlb           []models.TLBEntry
-    tlbMaxSize    int
-    tlbAlgorithm  string // "FIFO" o "LRU"
-    tlbCounter    int64  // para LRU, contador incremental
-    tlbMutex      sync.Mutex
+	tlb          []models.TLBEntry
+	tlbMaxSize   int
+	tlbAlgorithm string // "FIFO" o "LRU"
+	tlbCounter   int64  // para LRU, contador incremental
+	tlbMutex     sync.Mutex
 )
 
-
-func InitTLB(){
+func InitTLB() {
 	tlbMaxSize = models.CpuConfig.TlbEntries
-	tlbAlgorithm = models.CpuConfig.TlbReplacement// "FIFO" o "LRU"
+	tlbAlgorithm = models.CpuConfig.TlbReplacement // "FIFO" o "LRU"
 	tlbCounter = 0
 	tlb = make([]models.TLBEntry, 0, tlbMaxSize)
 }
@@ -45,11 +44,11 @@ func RequestMemoryConfig() error {
 	return nil
 }
 
-func TranslateAddress(pid int, logicalAddress int) int{
+func TranslateAddress(pid int, logicalAddress int) int {
 	pageSize := models.MemConfig.PageSize
 	pageNumber := logicalAddress / pageSize
 	offset := logicalAddress % pageSize
-    
+
 	//Verifica que la tlb no este desactivada
 	if tlbMaxSize > 0 {
 		if frame, ok := searchTLB(pid, pageNumber); ok {
@@ -66,7 +65,7 @@ func TranslateAddress(pid int, logicalAddress int) int{
 	slog.Info(fmt.Sprintf("PID: %d - TLB desactivada - Traducción completa - Pagina: %d", pid, pageNumber))
 	frame := tlb_miss(pid, pageNumber)
 	return frame*pageSize + offset
-    
+
 }
 
 func tlb_miss(pid int, pageNumber int) int {
@@ -104,10 +103,10 @@ func insert_tlb(pid int, pagina int, frame int) {
 
 	tlbCounter++
 	entry := models.TLBEntry{
-		PID:        pid,
-		PageNumber: pagina,
+		PID:         pid,
+		PageNumber:  pagina,
 		FrameNumber: frame,
-		LastUsed:   tlbCounter,
+		LastUsed:    tlbCounter,
 	}
 
 	if len(tlb) < tlbMaxSize {
@@ -148,7 +147,7 @@ func RequestMemoryFrame(pid int, entries []int) int {
 		return -1
 	}
 
-	resp, err := client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST","memoria/buscarFrame",jsonBody)
+	resp, err := client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST", "memoria/buscarFrame", jsonBody)
 	if err != nil {
 		slog.Error("Error al hacer request a Memoria por frame", slog.Any("error", err))
 		return -1
@@ -175,37 +174,37 @@ func intPow(base, exp int) int {
 
 func WriteToMemory(pid int, address int, data string, config *models.Config) error {
 	writeReq := models.WriteRequest{
-	PID:             pid, 
-	LogicalAddr:     address,    
-	PhysicalAddress: TranslateAddress(pid, address),
-	Data:           data,
-}
+		PID:             pid,
+		LogicalAddr:     address,
+		PhysicalAddress: TranslateAddress(pid, address),
+		Data:            data,
+	}
 
 	body, err := json.Marshal(writeReq)
 	if err != nil {
 		slog.Error("Failed to serialize write request", "error", err)
 		return err
 	}
-	    slog.Debug("Write request sent to memory",
-        "address", address,
-        "data_length", len(data),
-    )
+	slog.Debug("Write request sent to memory",
+		"address", address,
+		"data_length", len(data),
+	)
 
 	//PETICION HTTP
-    resp, err := client.DoRequest(
-        config.PortMemory,
-        config.IpMemory,
-        "POST",
-        "memoria/write",
-        body,
-    )
-    if err != nil || resp.StatusCode != http.StatusOK {
-        slog.Error("Memory write failed",
-            "error", err,
-            "status_code", resp.StatusCode,
-        )
-        return err
-    }
+	resp, err := client.DoRequest(
+		config.PortMemory,
+		config.IpMemory,
+		"POST",
+		"memoria/write",
+		body,
+	)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		slog.Error("Memory write failed",
+			"error", err,
+			"status_code", resp.StatusCode,
+		)
+		return err
+	}
 
-    return nil
+	return nil
 }

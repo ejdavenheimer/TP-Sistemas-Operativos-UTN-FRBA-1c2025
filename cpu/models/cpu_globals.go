@@ -1,6 +1,7 @@
 package models
 
 import "errors"
+
 type Config struct {
 	PortCpu          int    `json:"port_cpu"`
 	IpCpu            string `json:"ip_cpu"`
@@ -20,16 +21,17 @@ var CpuConfig *Config
 
 type TLBEntry struct {
 	PID         int
-    PageNumber  int
-    FrameNumber int
-    LastUsed    int64 //contador para LRU
+	PageNumber  int
+	FrameNumber int
+	LastUsed    int64 //contador para LRU
 }
 
-type MemoryConfig struct{
-	PageSize        int    `json:"page_size"`
-    EntriesPerPage  int    `json:"entries_per_page"`
-    NumberOfLevels  int    `json:"number_of_levels"`
+type MemoryConfig struct {
+	PageSize       int `json:"page_size"`
+	EntriesPerPage int `json:"entries_per_page"`
+	NumberOfLevels int `json:"number_of_levels"`
 }
+
 var MemConfig *MemoryConfig
 
 type ExecuteInstructionRequest struct {
@@ -63,26 +65,27 @@ type CpuN struct {
 	PIDRafaga    float32
 }
 
-//Para la instrucción READ
+// Para la instrucción READ
 type MemoryReadRequest struct {
-	Pid              int
-	PhysicalAddress  int
-	Size             int
+	Pid             int
+	PhysicalAddress int
+	Size            int
 }
 
-//DEFINICION DE ERRORES
-	var	ErrInvalidInstruction = errors.New("invalid instruction")
-	var ErrInvalidAddress = errors.New("invalid address")
+// DEFINICION DE ERRORES
+var ErrInvalidInstruction = errors.New("invalid instruction")
+var ErrInvalidAddress = errors.New("invalid address")
 
-//ESTRUCTRURA DE LA INSTRUCCION WRITE
-	type WriteInstruction struct {
-	Opcode string
-	Operands []string 
+// ESTRUCTRURA DE LA INSTRUCCION WRITE
+type WriteInstruction struct {
+	Opcode   string
+	Operands []string
 }
-//ESTRUCTURA DE SOLICITUD WRITE
-type WriteRequest struct{
-	PID int 
-	LogicalAddr int
-	Data string
-	PhysicalAddress int 
+
+// ESTRUCTURA DE SOLICITUD WRITE
+type WriteRequest struct {
+	PID             int
+	LogicalAddr     int
+	Data            string
+	PhysicalAddress int
 }
