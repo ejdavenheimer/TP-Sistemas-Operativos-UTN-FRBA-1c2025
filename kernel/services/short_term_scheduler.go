@@ -32,22 +32,33 @@ func StartShortTermScheduler() {
 func SelectToExecute() bool {
 	slog.Debug("Buscando CPU libre para ejecutar proceso...")
 
-	//VER CPU CONECTADA
+	//Verificar CPUs disponibles
 	cpu, ok := models.ConnectedCpuMap.GetFirstFree()
 	if !ok {
 		slog.Debug("No hay CPU disponible.")
 		return false // No hay CPU libre, no se puede ejecutar un proceso
 	}
 
-	//FIFO: obtengo el proceso a ejecutar, el primero de la cola READY
-	pcb, err := models.QueueReady.Get(0)
+	var pcb models.PCB
+	var index int = -1 // inicializo en -1, valor default si da error
+	var err error
+
+	switch models.KernelConfig.SchedulerAlgorithm {
+	case "FIFO":
+		pcb, err = models.QueueReady.Get(0) //obtengo el proceso a ejecutar, el primero de la cola READY
+		index = 0
+	case "SJF":
+		pcb, index, err = getShortestJob()
+	case "SRT":
+		pcb, index, err = getShortestJob()
+	}
+
 	if err != nil {
 		slog.Warn("Error obteniendo proceso de la cola READY:", "error", err)
 		return false //Error al obtener el proceso
 	}
-
 	//Lo saca de la cola READY. Ya está listo para ejecutarse.
-	models.QueueReady.Remove(0)
+	models.QueueReady.Remove(index)
 	TransitionState(&pcb, models.EstadoReady, models.EstadoExecuting)
 
 	// Asigna el proceso a la CPU
@@ -69,6 +80,12 @@ func SelectToExecute() bool {
 			TransitionState(pcb, models.EstadoExecuting, models.EstadoReady)
 			pcb.PC = result.PC
 			models.QueueReady.Add(*pcb)
+
+		case models.NeedInterrupt:
+			TransitionState(pcb, models.EstadoExecuting, models.EstadoReady)
+			pcb.PC = result.PC
+			models.QueueReady.Add(*pcb)
+			slog.Info(fmt.Sprintf("## (%d) - Desalojado por algoritmo SJF/SRT", pcb.PID))
 		}
 
 		// Liberar CPU
@@ -140,4 +157,21 @@ func TransitionState(pcb *models.PCB, oldState models.Estado, newState models.Es
 	//Registramos el cambio en las metricas
 	pcb.EstadoActual = newState
 	pcb.UltimoCambio = time.Now()
+}
+
+func getShortestJob() (models.PCB, int, error) {
+	if models.QueueReady.Size() == 0 {
+		return models.PCB{}, -1, fmt.Errorf("Cola READY vacía")
+	}
+	shortestIndex := 0
+	shortestJob, _ := models.QueueReady.Get(shortestIndex)
+
+	for i := 1; i < models.QueueReady.Size(); i++ {
+		job, _ := models.QueueReady.Get(i)
+		if job.Rafaga < shortestJob.Rafaga {
+			shortestJob = job
+			shortestIndex = i
+		}
+	}
+	return shortestJob, shortestIndex, nil
 }
