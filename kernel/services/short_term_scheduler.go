@@ -79,12 +79,12 @@ func SelectToExecute() bool {
 		case models.NeedReplan:
 			TransitionState(pcb, models.EstadoExecuting, models.EstadoReady)
 			pcb.PC = result.PC
-			models.QueueReady.Add(*pcb)
+			AddProcessToReady(*pcb)
 
 		case models.NeedInterrupt:
 			TransitionState(pcb, models.EstadoExecuting, models.EstadoReady)
 			pcb.PC = result.PC
-			models.QueueReady.Add(*pcb)
+			AddProcessToReady(*pcb)
 			slog.Info(fmt.Sprintf("## (%d) - Desalojado por algoritmo SJF/SRT", pcb.PID))
 		}
 
@@ -174,4 +174,30 @@ func getShortestJob() (models.PCB, int, error) {
 		}
 	}
 	return shortestJob, shortestIndex, nil
+}
+
+func AddProcessToReady(pcb models.PCB) {
+	switch models.KernelConfig.SchedulerAlgorithm {
+	case "FIFO":
+		// En FIFO agrego al final sin ordenar
+		models.QueueReady.Add(pcb)
+
+	case "SJF", "SRT": // Inserto ordenadamente en la cola READY, ordenada por Rafaga ascendente
+		inserted := false
+		for i := 0; i < models.QueueReady.Size(); i++ {
+			proc, _ := models.QueueReady.Get(i)
+			if pcb.Rafaga < proc.Rafaga {
+				models.QueueReady.Insert(i, pcb) // Inserto el proceso en la posición i
+				inserted = true
+				break
+			}
+		}
+		if !inserted { // Si no se insertó antes, lo agrego al final
+			models.QueueReady.Add(pcb)
+		}
+
+		if models.KernelConfig.SchedulerAlgorithm == "SRT" {
+			InterruptExec(pcb) // Pido interrupción si corresponde
+		}
+	}
 }

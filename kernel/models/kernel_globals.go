@@ -60,8 +60,9 @@ type PCB struct {
 	EstadoActual   Estado                   // Para saber en qué estado está actualmente
 	UltimoCambio   time.Time                // Para medir el tiempo que pasa en cada estado
 	PseudocodePath string
-	Rafaga         float32
-	Size           int
+	Rafaga         float32 // Duración real de la rafaga actual
+	Size           int     // Tamaño del proceso en memoria
+	RafagaEstimada float32 // Estimación de la próxima rafaga
 }
 
 type MemoryRequest struct {
@@ -92,7 +93,7 @@ const (
 )
 
 type Device struct {
-    Name string `json:"name"`
-    Ip   string `json:"ip"`
-    Port int    `json:"port"`
+	Name string `json:"name"`
+	Ip   string `json:"ip"`
+	Port int    `json:"port"`
 }
