@@ -17,13 +17,13 @@ func MediumTermScheduler() {
 	slog.Info("Planificador de mediano plazo iniciado.")
 	/////////////////////////////////////////////////////
 	//BORRAR DESPUÉS ESTE PCB, es solo de prueba
-	var pcb = models.PCB{
-		PID:            1,
-		Size:           5,
-		PseudocodePath: "./scripts/prueba2",
-	}
+	//var pcb = models.PCB{
+	//	PID:            1,
+	//	Size:           5,
+	//	PseudocodePath: "./scripts/prueba2",
+	//}
 	/////////////////////////////////////////////////////
-	models.QueueSuspReady.Add(pcb)
+	//models.QueueSuspReady.Add(pcb)
 	for {
 		//Si ambas colas están vacías, vuelve a mirar en otro momento
 
