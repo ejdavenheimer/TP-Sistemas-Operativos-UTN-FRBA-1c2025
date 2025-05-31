@@ -55,7 +55,7 @@ func main() {
 		slog.Error("Error al iniciar proceso", "err", err)
 		return
 	}
-
+	
 	/* ----------> ENDPOINTS <----------*/
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Kernel"))
 	http.HandleFunc("GET /kernel", handlers.HandshakeHandler("Kernel en funcionamiento 🚀"))

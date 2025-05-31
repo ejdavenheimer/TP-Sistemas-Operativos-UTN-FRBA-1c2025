@@ -13,14 +13,12 @@ import (
 // Estado del planificador
 var SchedulerState models.EstadoPlanificador = models.EstadoPlanificadorDetenido
 
-// Inicia el planificador largo plazo (espera Enter y lanza goroutine)
 func StartScheduler() {
 	slog.Info("El planificador está en estado DETENIDO. Presione Enter para iniciar.")
 	fmt.Scanln()
 	SchedulerState = models.EstadoPlanificadorActivo
 	slog.Info("Planificador iniciado.")
 	go longTermScheduler()
-	go StartShortTermScheduler()
 }
 
 // Planificador de largo plazo
