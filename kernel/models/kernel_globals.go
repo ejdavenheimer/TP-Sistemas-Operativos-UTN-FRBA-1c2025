@@ -12,7 +12,7 @@ import (
 type Config struct {
 	IpMemory           string  `json:"ip_memory"`
 	PortMemory         int     `json:"port_memory"`
-	IpKernel           int     `josn:"ip_kernel"`
+	IpKernel           string     `josn:"ip_kernel"`
 	PortKernel         int     `json:"port_kernel"`
 	SchedulerAlgorithm string  `json:"scheduler_algorithm"`
 	NewAlgorithm       string  `json:"new_algorithm"`
