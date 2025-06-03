@@ -66,7 +66,7 @@ func movePrincipalMemoryToSwap() {
 	slog.Info("Iniciando solicitud para mover el proceso de memoria principal a SWAP", slog.Int("PID", pcb.PID))
 
 	//Conectarse con memoria y enviar PCB
-	bodyRequest, err := json.Marshal(pcb)
+	bodyRequest, err := json.Marshal(pcb.PID)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al pasar a formato json el pcb: %v", err))
 		panic(err)
