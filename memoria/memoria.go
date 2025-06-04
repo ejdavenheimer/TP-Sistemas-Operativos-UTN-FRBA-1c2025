@@ -32,7 +32,8 @@ func main() {
 	http.HandleFunc("POST /memoria/buscarFrame", memoryHandler.SearchFrameHandler)
 	http.HandleFunc("POST /memoria/cargarpcb", memoryHandler.ReserveMemoryHandler)
 	http.HandleFunc("POST /memoria/write", memoryHandler.WriteHandler)
-	http.HandleFunc("POST /memoria/swap", memoryHandler.SwapHandler)
+	http.HandleFunc("POST /memoria/swapIn", memoryHandler.PutProcessInSwapHandler)
+	http.HandleFunc("POST /memoria/swapOut", memoryHandler.RemoveProcessInSwapHandler)
 	//Liberar espacio de memoria de un PCB
 	http.HandleFunc("POST /memoria/liberarpcb", memoryHandler.DeleteContextHandler)
 	slog.Debug("Memoria lista")

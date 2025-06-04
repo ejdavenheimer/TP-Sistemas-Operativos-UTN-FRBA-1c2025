@@ -71,7 +71,7 @@ func movePrincipalMemoryToSwap() {
 		slog.Error(fmt.Sprintf("Error al pasar a formato json el pcb: %v", err))
 		panic(err)
 	}
-	url := fmt.Sprintf("http://%s:%d/memoria/swap", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
+	url := fmt.Sprintf("http://%s:%d/memoria/swapIn", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
 	slog.Debug("Enviando PCB a memoria", slog.String("url", url))
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(bodyRequest))
