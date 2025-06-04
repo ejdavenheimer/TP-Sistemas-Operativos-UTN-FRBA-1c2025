@@ -85,3 +85,51 @@ func (cache *PageCache) Get(pid, page int) ([]byte, bool) {
 	slog.Debug(fmt.Sprintf("Cache HIT: PID %d, Page %d (slot %d). Content: %s", pid, page, index, cache.Entries[index].Content))
 	return cache.Entries[index].Content, true
 }
+
+// Put añade una página a la caché o actualiza una existente.
+func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
+	cache.Mutex.Lock()
+	defer cache.Mutex.Unlock()
+
+	if !IsEnabled(cache.MaxEntries) {
+		slog.Debug("La cache se encuentra deshabilitada. Operación ignorada.")
+		return
+	}
+
+	key := getEntryKey(pid, pageNumber)
+
+	// Si ya existe: actualizar
+	if index, found := cache.PageMap[key]; found {
+		slog.Debug(fmt.Sprintf("Cache Update: PID %d, Page %d (slot %d). Contenido actualizado.", pid, pageNumber, index))
+		cache.Entries[index].Content = content
+		cache.Entries[index].ModifiedBit = true // Fue modificada en caché
+		cache.Entries[index].UseBit = true      // Fue accedida
+		return
+	}
+
+	//Si no hay espacio, se debe aplicar el algoritmo de sustitución
+	if len(cache.Entries) >= cache.MaxEntries {
+		cache.replaceVictim(pid, pageNumber, content)
+	}
+
+	//Si no existe pero hay espacio libre
+	newCacheEntry := models.CacheEntry{
+		PID:         pid,
+		PageNumber:  pageNumber,
+		Content:     content,
+		ModifiedBit: true,
+		UseBit:      true,
+	}
+	cache.Entries = append(cache.Entries, newCacheEntry)
+	//TODO: revisar cual vamos a usar, Result1 o Result2.
+	slog.Debug(fmt.Sprintf("Result1: %d", cache.Entries[len(cache.Entries)-1].PageNumber))
+	slog.Debug(fmt.Sprintf("Result2: %d", len(cache.Entries)-1))
+	cache.PageMap[key] = cache.Entries[len(cache.Entries)-1].PageNumber
+	cache.PageMap[key] = len(cache.Entries) - 1
+	slog.Debug(fmt.Sprintf("Cache Add: PID %d, Page %d en nuevo slot %d. Total: %d/%d", pid, pageNumber, len(cache.Entries)-1, len(cache.Entries), cache.MaxEntries))
+}
+
+func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte) {
+	slog.Debug(fmt.Sprintf("Caché llena. Aplicando algoritmo de reemplazo: %s", cache.Algorithm))
+	//TODO: implementar
+}
