@@ -123,9 +123,9 @@ func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
 	}
 	cache.Entries = append(cache.Entries, newCacheEntry)
 	//TODO: revisar cual vamos a usar, Result1 o Result2.
-	slog.Debug(fmt.Sprintf("Result1: %d", cache.Entries[len(cache.Entries)-1].PageNumber))
-	slog.Debug(fmt.Sprintf("Result2: %d", len(cache.Entries)-1))
-	cache.PageMap[key] = cache.Entries[len(cache.Entries)-1].PageNumber
+	//slog.Debug(fmt.Sprintf("Result1: %d", cache.Entries[len(cache.Entries)-1].PageNumber))
+	//slog.Debug(fmt.Sprintf("Result2: %d", len(cache.Entries)-1))
+	//cache.PageMap[key] = cache.Entries[len(cache.Entries)-1].PageNumber
 	cache.PageMap[key] = len(cache.Entries) - 1
 	slog.Debug(fmt.Sprintf("Cache Add: PID %d, Page %d en nuevo slot %d. Total: %d/%d", pid, pageNumber, len(cache.Entries)-1, len(cache.Entries), cache.MaxEntries))
 }
@@ -149,11 +149,12 @@ func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte
 
 	if victim.ModifiedBit {
 		slog.Debug(fmt.Sprintf("Víctima (PID %d, Page %d) modificada. Escribiendo a Memoria Principal.", victim.PID, victim.PageNumber))
-		request := models.ExecuteInstructionRequest{
-			Pid:    victim.PID,
-			Values: nil, //TODO: ver como le paso los datos para que lo escriba
-		}
-		ExecuteWrite(request)
+		//Para testear se debe comentar estas lineas (153-157)
+		//request := models.ExecuteInstructionRequest{
+		//	Pid:    victim.PID,
+		//	Values: nil, //TODO: ver como le paso los datos para que lo escriba
+		//}
+		//ExecuteWrite(request)
 	}
 
 	// Eliminar de pageMap antes de reemplazar en Entries
