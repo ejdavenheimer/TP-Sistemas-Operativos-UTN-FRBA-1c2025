@@ -231,6 +231,58 @@ func (cache *PageCache) findVictimIndexClockM() int {
 	}
 }
 
+// advanceHand mueve el puntero del reloj circularmente.
 func (cache *PageCache) advancePointer() {
 	cache.ClockPointer = (cache.ClockPointer + 1) % cache.MaxEntries
+}
+
+// RemoveProcess desalojar todas las páginas de un Proceso específico de la caché.
+// Las páginas modificadas se escriben de vuelta a la memoria principal.
+func (cache *PageCache) RemoveProcess(pid int) {
+	cache.Mutex.Lock()
+	defer cache.Mutex.Unlock()
+
+	if !IsEnabled(cache.MaxEntries) {
+		slog.Error(fmt.Sprintf("Se intento de desalojar proceso %d de caché deshabilitada. Operación ignorada.", pid))
+		return
+	}
+
+	slog.Debug(fmt.Sprintf("Desalojando páginas del Proceso %d de la caché.", pid))
+
+	newEntries := make([]models.CacheEntry, 0, cache.MaxEntries)
+	newMap := make(map[struct {
+		PID        int
+		PageNumber int
+	}]int)
+
+	for _, entry := range cache.Entries {
+		if entry.PID != pid {
+			// Mantener esta entrada y añadirla al nuevo slice y mapa
+			newEntries = append(newEntries, entry)
+			newMap[getEntryKey(entry.PID, entry.PageNumber)] = len(newEntries) - 1 // Actualizar índice en el nuevo mapa
+			continue
+		}
+
+		slog.Debug(fmt.Sprintf("DESALOJO: Encontrada página %d del Proceso %d. U=%t, M=%t.", entry.PageNumber, pid, entry.UseBit, entry.ModifiedBit))
+		if entry.ModifiedBit {
+			slog.Debug(fmt.Sprintf("DESALOJO: Página %d (Proceso %d) modificada. Escribiendo a Memoria Principal.", entry.PageNumber, pid))
+			request := models.ExecuteInstructionRequest{
+				Pid:    pid,
+				Values: nil, //TODO: ver como le paso los datos para que lo escriba
+			}
+			ExecuteWrite(request)
+		}
+	}
+
+	cache.Entries = newEntries
+	cache.PageMap = newMap
+
+	// Reajustar ClockHand: Si el tamaño de Entries cambió, el ClockHand podría estar fuera de rango
+	if cache.MaxEntries > 0 && len(cache.Entries) > 0 {
+		cache.ClockPointer = cache.ClockPointer % len(cache.Entries) // Asegura que esté dentro de los límites del nuevo tamaño
+	} else { // Si la caché está vacía o deshabilitada
+		cache.ClockPointer = 0
+	}
+
+	slog.Debug(fmt.Sprintf("Páginas del Proceso %d desalojadas. Entradas restantes en caché: %d", pid, len(cache.Entries)))
 }
