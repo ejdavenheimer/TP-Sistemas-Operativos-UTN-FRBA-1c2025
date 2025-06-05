@@ -21,7 +21,7 @@ func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.C
 	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", query, nil)
 
 	if err != nil {
-		slog.Error("error:", err)
+		slog.Error(fmt.Sprintf("error: %v", err))
 		panic(err)
 	}
 
@@ -31,7 +31,7 @@ func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.C
 	var instruction memoriaModel.InstructionsResponse
 	err = json.Unmarshal(responseBody, &instruction)
 	if err != nil {
-		slog.Error("error parseando el JSON: %v", err)
+		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
 		return memoriaModel.InstructionsResponse{}
 	}
 
@@ -45,7 +45,7 @@ func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models
 	body, err := json.Marshal(syscallRequest)
 
 	if err != nil {
-		slog.Error("error:", err)
+		slog.Error(fmt.Sprintf("error: %v", err))
 		return "error"
 	}
 
@@ -53,7 +53,7 @@ func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models
 	response, err := client.DoRequest(cpuConfig.PortKernel, cpuConfig.IpKernel, "POST", "kernel/syscall", body)
 
 	if err != nil {
-		slog.Error("error:", err)
+		slog.Error(fmt.Sprintf("error: %v", err))
 		return "error"
 	}
 
@@ -66,7 +66,7 @@ func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models
 
 	err = json.Unmarshal(responseBody, &kernelResp)
 	if err != nil {
-		slog.Error("error parseando respuesta del kernel:", err)
+		slog.Error(fmt.Sprintf("error parseando respuesta del kernel: %v", err))
 		return "error"
 	}
 
@@ -207,7 +207,7 @@ func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) me
 
 	var instructionResponse memoriaModel.InstructionResponse
 	if err != nil || response.StatusCode != http.StatusOK {
-		slog.Error("error:", err)
+		slog.Error(fmt.Sprintf("error: %v", err))
 		return instructionResponse
 	}
 
