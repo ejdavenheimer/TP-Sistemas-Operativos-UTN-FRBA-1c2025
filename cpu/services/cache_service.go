@@ -110,6 +110,7 @@ func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
 	//Si no hay espacio, se debe aplicar el algoritmo de sustitución
 	if len(cache.Entries) >= cache.MaxEntries {
 		cache.replaceVictim(pid, pageNumber, content)
+		return
 	}
 
 	//Si no existe pero hay espacio libre
@@ -131,5 +132,105 @@ func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
 
 func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte) {
 	slog.Debug(fmt.Sprintf("Caché llena. Aplicando algoritmo de reemplazo: %s", cache.Algorithm))
-	//TODO: implementar
+	var victimIndex int
+	switch models.CpuConfig.CacheReplacement {
+	case "CLOCK":
+
+		victimIndex = cache.findVictimIndexClock()
+	case "CLOCK-M":
+		victimIndex = cache.findVictimIndexClockM()
+	default:
+		//TODO: preguntar si puede suceder este caso
+		victimIndex = cache.ClockPointer //asigno por default
+	}
+
+	victim := cache.Entries[victimIndex]
+	slog.Debug(fmt.Sprintf("Víctima seleccionada (slot %d): PID %d, Page %d (U=%t, M=%t)", victimIndex, victim.PID, victim.PageNumber, victim.UseBit, victim.ModifiedBit))
+
+	if victim.ModifiedBit {
+		slog.Debug(fmt.Sprintf("Víctima (PID %d, Page %d) modificada. Escribiendo a Memoria Principal.", victim.PID, victim.PageNumber))
+		request := models.ExecuteInstructionRequest{
+			Pid:    victim.PID,
+			Values: nil, //TODO: ver como le paso los datos para que lo escriba
+		}
+		ExecuteWrite(request)
+	}
+
+	// Eliminar de pageMap antes de reemplazar en Entries
+	delete(cache.PageMap, getEntryKey(victim.PID, victim.PageNumber))
+
+	cache.Entries[victimIndex] = models.CacheEntry{
+		PID:         newPID,
+		PageNumber:  newPage,
+		Content:     newContent,
+		ModifiedBit: true,
+		UseBit:      true,
+	}
+
+	cache.PageMap[getEntryKey(victim.PID, victim.PageNumber)] = victimIndex //victim.PageNumber
+
+	slog.Debug(fmt.Sprintf("Nueva página (PID %d, Page %d) cargada en slot %d de caché.", newPID, newPage, victimIndex))
+	cache.advancePointer()
+}
+
+// findVictimIndexCLOCK implementa el algoritmo CLOCK.
+func (cache *PageCache) findVictimIndexClock() int {
+	for {
+		entry := &cache.Entries[cache.ClockPointer]
+
+		// Si bit de uso es 0, esta es la víctima
+		if !entry.UseBit {
+			ptr := cache.ClockPointer
+			return ptr
+		}
+
+		// Si bit de uso es 1, lo reseteo en 0 y avanzo el puntero
+		entry.UseBit = false
+		cache.advancePointer()
+	}
+}
+
+// findVictimIndexCLOCK_M implementa el algoritmo CLOCK-M.
+func (cache *PageCache) findVictimIndexClockM() int {
+	for {
+		startIndex := cache.ClockPointer
+
+		//Primer pasada: busca (0,0)
+		for i := 0; i < cache.MaxEntries; i++ {
+			entry := &cache.Entries[cache.ClockPointer]
+
+			if !entry.UseBit && !entry.ModifiedBit {
+				//encontro (0,0)
+				ptr := cache.ClockPointer
+				return ptr
+			}
+
+			// Si es (1,X), poner U=0
+			if entry.UseBit {
+				entry.UseBit = false
+			}
+
+			cache.advancePointer()
+		}
+
+		// Segunda pasada: Buscar (0,1)
+		// Todas las páginas (1,X) se han convertido en (0,X) en la primera pasada.
+		cache.ClockPointer = startIndex
+		for i := 0; i < cache.MaxEntries; i++ {
+			entry := &cache.Entries[cache.ClockPointer]
+			if !entry.UseBit && entry.ModifiedBit {
+				//encontro (0,1)
+				ptr := cache.ClockPointer
+				return ptr
+			}
+			cache.advancePointer()
+		}
+
+		// Si llegamos aquí, no se encontró (0,0) ni (0,1).
+		return cache.ClockPointer
+	}
+}
+
+func (cache *PageCache) advancePointer() {
+	cache.ClockPointer = (cache.ClockPointer + 1) % cache.MaxEntries
 }
