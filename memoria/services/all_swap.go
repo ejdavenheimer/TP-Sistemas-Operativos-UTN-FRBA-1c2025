@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
@@ -12,39 +13,44 @@ func PutProcessInSwap(pid int) error {
 	// Abrir (o crear) el archivo swapfile.bin en modo lectura/escritura
 	file, err := os.OpenFile(models.MemoryConfig.SwapFilePath, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		return fmt.Errorf("no se pudo abrir swapfile: %v", err)
+		slog.Error(fmt.Sprintf("no se pudo abrir swapfile: %v", err))
+		return err
 	}
 	defer file.Close()
 
 	// Obtener la lista de índices de frame para este PID
-	pf, exists := models.ProcessFramesTable[pid]
+	processFrames, exists := models.ProcessFramesTable[pid]
 	if !exists {
-		return fmt.Errorf("no se encontraron frames para el PID %d", pid)
+		slog.Error(fmt.Sprintf("no se encontraron frames para el PID %d", pid))
+		return err
 	}
 
 	// Llevar el cursor al final del archivo para escribir los datos al final
 	offset, err := file.Seek(0, io.SeekEnd)
 	if err != nil {
-		return fmt.Errorf("error posicionando el cursor al final de swapfile: %v", err)
+		slog.Error(fmt.Sprintf("error posicionando el cursor al final de swapfile: %v", err))
+		return err
 	}
 
 	var totalSize int64 = 0
 	frameSize := int64(models.MemoryConfig.PageSize)
 
 	// Por cada frame asignado al proceso, volcamos su contenido a SWAP y lo liberamos
-	for _, frameIndex := range pf.Frames {
+	for _, frameIndex := range processFrames.Frames {
 		frame := models.FrameTable[frameIndex]
 		start := int64(frame.StartAddr)
 		end := start + frameSize
 
 		if end > int64(len(models.UserMemory)) {
-			return fmt.Errorf("los límites del frame %d exceden UserMemory", frameIndex)
+			slog.Error(fmt.Sprintf("los límites del frame %d exceden UserMemory", frameIndex))
+			return err
 		}
 
 		data := models.UserMemory[start:end]
 		n, err := file.Write(data)
 		if err != nil {
-			return fmt.Errorf("error escribiendo frame %d en swapfile: %v", frameIndex, err)
+			slog.Error(fmt.Sprintf("error escribiendo frame %d en swapfile: %v", frameIndex, err))
+			return err
 		}
 		totalSize += int64(n)
 
@@ -97,21 +103,24 @@ func RemoveProcessInSwap(pid int) error {
 	// Abrir el archivo swapfile.bin para leer el contenido del proceso
 	file, err := os.Open(models.MemoryConfig.SwapFilePath)
 	if err != nil {
-		return fmt.Errorf("no se pudo abrir el archivo de swap: %v", err)
+		slog.Error(fmt.Sprintf("no se pudo abrir el archivo de swap: %v", err))
+		return err
 	}
 	defer file.Close()
 
 	// Mover el puntero de lectura al offset donde está el contenido del proceso
 	_, err = file.Seek(swapEntry.Offset, io.SeekStart)
 	if err != nil {
-		return fmt.Errorf("error al posicionarse en el offset %d del archivo swap: %v", swapEntry.Offset, err)
+		slog.Error(fmt.Sprintf("error al posicionarse en el offset %d del archivo swap: %v", swapEntry.Offset, err))
+		return err
 	}
 
 	// Leer el contenido del proceso desde el archivo swap
 	processData := make([]byte, swapEntry.Size)
 	_, err = io.ReadFull(file, processData)
 	if err != nil {
-		return fmt.Errorf("error al leer contenido del proceso desde SWAP: %v", err)
+		slog.Error(fmt.Sprintf("error al leer contenido del proceso desde SWAP: %v", err))
+		return err
 	}
 
 	// Escribir el contenido del proceso en UserMemory utilizando los frames libres encontrados
