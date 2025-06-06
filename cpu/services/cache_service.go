@@ -133,9 +133,8 @@ func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
 func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte) {
 	slog.Debug(fmt.Sprintf("Caché llena. Aplicando algoritmo de reemplazo: %s", cache.Algorithm))
 	var victimIndex int
-	switch models.CpuConfig.CacheReplacement {
+	switch cache.Algorithm {
 	case "CLOCK":
-
 		victimIndex = cache.findVictimIndexClock()
 	case "CLOCK-M":
 		victimIndex = cache.findVictimIndexClockM()
