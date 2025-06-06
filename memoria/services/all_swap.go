@@ -21,9 +21,14 @@ func PutProcessInSwap(pid int) error {
 	// Obtener la lista de índices de frame para este PID
 	processFrames, exists := models.ProcessFramesTable[pid]
 	if !exists {
-		slog.Error(fmt.Sprintf("no se encontraron frames para el PID %d", pid))
+		slog.Error(fmt.Sprintf("No está en tabla de frames el PID %d", pid))
 		return err
 	}
+
+	slog.Info("Iniciando suspensión de proceso", "PID", pid)
+
+	slog.Debug("Frames libres antes de swap-out", "cantidad", contarFramesLibres())
+	slog.Debug("Tamaño actual del archivo de swap", "bytes", obtenerTamanioSwap())
 
 	// Llevar el cursor al final del archivo para escribir los datos al final
 	offset, err := file.Seek(0, io.SeekEnd)
@@ -67,6 +72,11 @@ func PutProcessInSwap(pid int) error {
 	// Eliminar la entrada de ProcessFramesTable, ya no ocupa frames en memoria
 	delete(models.ProcessFramesTable, pid)
 
+	slog.Info(fmt.Sprintf("Proceso PID %d movido a swap. Offset: %d, Tamaño: %d", pid, offset, totalSize))
+	slog.Info(fmt.Sprintf("Frames liberados para PID %d", pid))
+	slog.Debug("Frames libres después de swap-out", "cantidad", contarFramesLibres())
+	slog.Debug("Tamaño del archivo de swap luego del guardado", "bytes", obtenerTamanioSwap())
+
 	// TODO: aquí se debe implementar la liberación de UserMemory y de la tabla de páginas
 	//     para el proceso 'pid'. Es decir:
 	//       • Liberar/llenar con ceros los bytes de UserMemory que correspondían a este PID
@@ -79,8 +89,14 @@ func RemoveProcessInSwap(pid int) error {
 	// Buscar la entrada del proceso en la tabla de swap
 	swapEntry, exists := models.ProcessSwapTable[pid]
 	if !exists {
-		return fmt.Errorf("el proceso con PID %d no se encuentra en SWAP", pid)
+		err := fmt.Errorf("el proceso con PID %d no se encuentra en SWAP", pid)
+		slog.Error(err.Error())
+		return err
 	}
+
+	slog.Info(fmt.Sprintf("Inicio RemoveProcessInSwap para PID %d", pid))
+	slog.Debug("Tamaño actual del archivo de swap", "bytes", obtenerTamanioSwap())
+	slog.Debug("Frames libres antes de swap-in", "cantidad", contarFramesLibres())
 
 	// Calcular cuántos frames necesita el proceso para volver a cargarse en memoria
 	frameSize := int64(models.MemoryConfig.PageSize)
@@ -123,6 +139,8 @@ func RemoveProcessInSwap(pid int) error {
 		return err
 	}
 
+	//ESTA PARTE CAMBIA TOTALMENTE CUANDO SE TENGA LA FUNCIÓN QUE CREA LA TABLA DE PÁGINAS DE
+	//UN PROCESO.
 	// Escribir el contenido del proceso en UserMemory utilizando los frames libres encontrados
 	for i, frameIdx := range freeFrames {
 		start := frameIdx * models.MemoryConfig.PageSize
@@ -142,8 +160,59 @@ func RemoveProcessInSwap(pid int) error {
 	// Eliminar el proceso de la tabla de procesos en swap
 	delete(models.ProcessSwapTable, pid)
 
-	// TODO: reconstruir la tabla de páginas para el proceso PID
-	// Esto depende del diseño jerárquico y debe realizarlo otro submódulo
+	slog.Info(fmt.Sprintf("Proceso PID %d removido de swap y cargado en UserMemory", pid))
+	slog.Info(fmt.Sprintf("Frames asignados al proceso PID %d: %v", pid, freeFrames))
+	slog.Debug("Frames libres después de swap-in", "cantidad", contarFramesLibres())
+	slog.Debug("Tamaño del archivo de swap luego del swap-in", "bytes", obtenerTamanioSwap())
 
 	return nil
+}
+
+func contarFramesLibres() int {
+	count := 0
+	for _, f := range models.FrameTable {
+		if f.IsFree {
+			count++
+		}
+	}
+	return count
+}
+
+func obtenerTamanioSwap() int64 {
+	info, err := os.Stat(models.MemoryConfig.SwapFilePath)
+	if err != nil {
+		slog.Warn("No se pudo obtener tamaño del archivo de swap", "error", err)
+		return -1
+	}
+	return info.Size()
+}
+
+func MockCargarProcesosEnMemoria() {
+	pageSize := models.MemoryConfig.PageSize
+
+	// Proceso 1 con dos páginas (frames 0 y 1)
+	models.ProcessFramesTable[1] = models.ProcessFrames{
+		PID:    1,
+		Frames: []int{0, 1},
+	}
+	for i, frameIdx := range models.ProcessFramesTable[1].Frames {
+		start := models.FrameTable[frameIdx].StartAddr
+		end := start + pageSize
+		copy(models.UserMemory[start:end], []byte(fmt.Sprintf("PID 1 - Frame %d", i)))
+		models.FrameTable[frameIdx].IsFree = false
+	}
+
+	// Proceso 2 con una página (frame 2)
+	models.ProcessFramesTable[2] = models.ProcessFrames{
+		PID:    2,
+		Frames: []int{2},
+	}
+	for i, frameIdx := range models.ProcessFramesTable[2].Frames {
+		start := models.FrameTable[frameIdx].StartAddr
+		end := start + pageSize
+		copy(models.UserMemory[start:end], []byte(fmt.Sprintf("PID 2 - Frame %d", i)))
+		models.FrameTable[frameIdx].IsFree = false
+	}
+
+	slog.Info("Mock: procesos 1 y 2 cargados en memoria")
 }

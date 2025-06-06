@@ -55,6 +55,19 @@ func InitMemory(configPath string, logPath string) {
 	models.UserMemory = make([]byte, models.MemoryConfig.MemorySize) //INICIALIZACIÓN DE MEMORIA
 	slog.Debug("Memoria inicializada", "tamaño", len(models.UserMemory))
 
+	// Inicializar FrameTable
+	pageSize := models.MemoryConfig.PageSize
+	memSize := models.MemoryConfig.MemorySize
+	framesCount := memSize / pageSize
+	models.FrameTable = make([]models.MemoryFrame, framesCount)
+	for i := 0; i < framesCount; i++ {
+		models.FrameTable[i] = models.MemoryFrame{
+			StartAddr: i * pageSize,
+			IsFree:    true,
+		}
+	}
+	slog.Debug("FrameTable inicializado", "cantidad_frames", framesCount)
+
 	CreateDirectory(models.MemoryConfig.DumpPath)
 	slog.Debug(fmt.Sprintf("Swap: %s", models.MemoryConfig.SwapFilePath))
 	_ = CreateFile(models.MemoryConfig.SwapFilePath, 0) //TODO: revisar, inicialmente va arrancar con tamaño 0

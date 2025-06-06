@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
 )
 
@@ -16,14 +17,14 @@ func PutProcessInSwapHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Recibe el PID del proceso a suspender
-	var pid int
-	if err := json.NewDecoder(r.Body).Decode(&pid); err != nil {
+	var req models.PIDRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		slog.Error("Invalid request", "error", err)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	services.PutProcessInSwap(pid)
+	services.PutProcessInSwap(req.PID)
 
 	w.WriteHeader(http.StatusOK) //RESPUESTA
 }
@@ -36,14 +37,14 @@ func RemoveProcessInSwapHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Recibe el PID del proceso a suspender
-	var pid int
-	if err := json.NewDecoder(r.Body).Decode(&pid); err != nil {
+	var req models.PIDRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		slog.Error("Invalid request", "error", err)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	services.RemoveProcessInSwap(pid)
+	services.RemoveProcessInSwap(req.PID)
 
 	w.WriteHeader(http.StatusOK) //RESPUESTA
 }

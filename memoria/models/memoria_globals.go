@@ -100,3 +100,7 @@ type SwapEntry struct {
 }
 
 var ProcessSwapTable = make(map[int]SwapEntry)
+
+type PIDRequest struct {
+	PID int `json:"pid"`
+}
