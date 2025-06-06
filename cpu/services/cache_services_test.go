@@ -6,13 +6,24 @@ import (
 	"testing"
 )
 
-func TestInitCache(t *testing.T) {
-	config.InitConfig("../../cpu/configs/cpu.json", &models.CpuConfig)
-	var cache *PageCache = InitCache()
+var testCache *PageCache
 
-	if cache == nil {
-		t.Errorf("Expected cache to not be nil")
+func TestMain(m *testing.M) {
+	// Configuración que se ejecuta una única vez antes de todos los tests
+	config.InitConfig("../../cpu/configs/cpu.json", &models.CpuConfig)
+	testCache = InitCache()
+
+	if testCache == nil {
+		panic("Expected cache to not be nil in TestMain") // Usa panic para fallos críticos en la configuración
 	}
+
+	m.Run()
+}
+
+func TestAlgorithmClock(t *testing.T) {
+	cache := testCache
+	cache.Algorithm = "CLOCK"
+	cache.MaxEntries = 3
 
 	cache.Put(0, 10, []byte("test 0"))
 	result, found := cache.Get(0, 10)
@@ -35,9 +46,22 @@ func TestInitCache(t *testing.T) {
 		t.Errorf("Expected cache to be 'test 1', got %s", string(result))
 	}
 
-	cache.Put(2, 20, []byte("test 2"))
+	cache.Put(1, 20, []byte("test 2"))
 	cache.Put(3, 30, []byte("test 3"))
 	cache.Put(4, 40, []byte("test 4"))
 	cache.Put(5, 50, []byte("test 5"))
+}
 
+// se prueba con (0,1)
+func TestAlgorithmClockM(t *testing.T) {
+	cache := testCache
+	cache.Algorithm = "CLOCK-M"
+	cache.MaxEntries = 3
+
+	cache.Put(0, 10, []byte("test 0"))
+	cache.Put(1, 20, []byte("test 1"))
+	cache.Put(1, 20, []byte("test 2"))
+	cache.Put(3, 30, []byte("test 3"))
+	cache.Put(4, 40, []byte("test 4"))
+	cache.Put(5, 50, []byte("test 5"))
 }
