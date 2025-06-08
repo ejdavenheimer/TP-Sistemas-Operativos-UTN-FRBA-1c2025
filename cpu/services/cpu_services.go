@@ -86,20 +86,29 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
 	//TODO: implementar lógica para WRITE
 	//CONVERSION DIR LOG A FISICA
-	dirLogica, err := strconv.Atoi(request.Values[1])
+	logicalAddress, err := strconv.Atoi(request.Values[1])
+	if err != nil {
+		slog.Error("Dirección lógica inválida")
+		return
+	}
+
 
 	if err != nil {
 		slog.Error("Error al convertir dirección lógica", "error", err)
 		return
 	}
 
-	dirFisica := TranslateAddress(request.Pid, dirLogica)
+	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
+	if physicalAddress == -1{
+		slog.Warn("Instrucción READ no puede continuar: diección invalida")
+		increase_PC()
+		return
+	}
 
 	//SOLICITUD DE ESCRITURA
 	writeReq := models.WriteRequest{
 		PID:             request.Pid,
-		LogicalAddr:     dirLogica,
-		PhysicalAddress: dirFisica,
+		PhysicalAddress: physicalAddress,
 		Data:            request.Values[2],
 	}
 
@@ -122,7 +131,7 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 		return
 	}
 
-	slog.Info("Escritura realizada con éxito", "direccion_fisica", dirFisica, "dato", request.Values[2])
+	slog.Info("Escritura realizada con éxito", "direccion_fisica", physicalAddress, "dato", request.Values[2])
 
 	increase_PC()
 }
@@ -145,6 +154,11 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 	}
 
 	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
+	if physicalAddress == -1{
+		slog.Warn("Instrucción READ no puede continuar: diección invalida")
+		increase_PC()
+		return
+	}
 
 	readRequest := models.MemoryReadRequest{
 		Pid:             request.Pid,
