@@ -32,6 +32,8 @@ func main() {
 	http.HandleFunc("POST /memoria/buscarFrame", memoryHandler.SearchFrameHandler)
 	http.HandleFunc("POST /memoria/cargarpcb", memoryHandler.ReserveMemoryHandler)
 	http.HandleFunc("POST /memoria/write", memoryHandler.WriteHandler)
+	http.HandleFunc("GET /memoria/framesOcupados", memoryHandler.FramesInUseHandler)
+
 	//Liberar espacio de memoria de un PCB
 	http.HandleFunc("POST /memoria/liberarpcb", memoryHandler.DeleteContextHandler)
 	slog.Debug("Memoria lista")
