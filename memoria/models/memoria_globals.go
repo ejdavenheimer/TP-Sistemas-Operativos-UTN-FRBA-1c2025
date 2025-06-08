@@ -37,15 +37,9 @@ type InstructionRequest struct {
 }
 
 type MemoryInstructionRequest struct {
-	Pid              int
-	PhysicalAddress  int
-	Size             int
-}
-
-type Process struct {
-	Pid         int
-	BaseAddress int
-	Size        int
+	Pid             uint   `json:"pid"`
+    PhysicalAddress int    `json:"physicalAddress"`
+    Size            int    `json:"size"`
 }
 
 type Metrics struct {
@@ -57,8 +51,16 @@ type Metrics struct {
 	Writes int
 }
 
+type Process struct {
+	Pid         uint
+	Size        int
+	Pages       int // cantidad de páginas que va a usar
+	Metrics     *Metrics // metricas del proceso
+}
+// Maps para procesos y métricas
 var ProcessMetrics = make(map[uint]*Metrics)
-var ProcessTable = make(map[int]Process)
+var ProcessTable = make(map[uint]*Process)
+
 type DumpMemoryRequest struct {
 	Pid  uint
 	Size int
@@ -68,13 +70,43 @@ type DumpMemoryResponse struct {
 	Result string
 }
 
-var MemoryConfig *Config
-var InstructionsMap map[uint][]string
-var NextFreeAddress int = 0
-var UserMemory []byte //Espacio contiguo de memoria de usuario
-var PageTables = make(map[uint]map[int]interface{})
-
 type WriteRequest struct {
 	Address int    `json:"address"`
 	Data    string `json:"data"`
 }
+
+var MemoryConfig *Config
+var InstructionsMap map[uint][]string
+
+//Para buscar frames ocupados
+type FrameUsage struct {
+	Frame int  `json:"frame"`
+	Pid   uint `json:"pid"`
+}
+
+type FramesInUseResponse struct {
+	Frames []FrameUsage `json:"frames"`
+}
+
+//Espacio contiguo en memoria principal (usuario)
+var UserMemory []byte
+
+//Tabla jerarquica multinivel
+type PageEntry struct {
+	Frame    int  // Número de marco físico en UserMemory
+	Presence bool // Presente en memoria física
+	Use      bool // Bit de uso para reemplazo
+	Modified bool // Bit de modificación
+}
+
+// PageTableLevel representa un nodo de la tabla de páginas multinivel.
+// Puede ser un nodo interno con referecia a niveles inferiores o el nodo 
+// que contiene una entrada (Entry) con la información del marco físico.
+type PageTableLevel struct {
+	IsLeaf   bool // cuando es true es el nodo que contiene la entrada
+	SubTables map[int]*PageTableLevel // Si no es el último nodo va a apuntar a un nodo inferior
+	Entry    *PageEntry             // Si es el último nodo, contiene la entrada que apunta al marco físico
+}
+
+var PageTables = make(map[uint]*PageTableLevel)
+var FreeFrames []bool // true si el frame está libre, false si está ocupado
