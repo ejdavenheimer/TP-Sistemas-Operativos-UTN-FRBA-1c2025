@@ -58,12 +58,20 @@ func TranslateAddress(pid int, logicalAddress int) int {
 		}
 		slog.Info(fmt.Sprintf("PID: %d - TLB MISS - Página: %d", pid, pageNumber))
 		frame := tlb_miss(pid, pageNumber)
+		if frame == -1 {
+			slog.Warn("Violación de memoria detectada (TLB MISS)", "pid", pid, "page", pageNumber)
+			return -1
+		}
 		insert_tlb(pid, pageNumber, frame)
 		return frame*pageSize + offset
 	}
 	// TLB desactivada
 	slog.Info(fmt.Sprintf("PID: %d - TLB desactivada - Traducción completa - Pagina: %d", pid, pageNumber))
 	frame := tlb_miss(pid, pageNumber)
+	if frame == -1 {
+		slog.Warn("Violación de memoria detectada (TLB MISS)", "pid", pid, "page", pageNumber)
+		return -1
+	}
 	return frame*pageSize + offset
 
 }
