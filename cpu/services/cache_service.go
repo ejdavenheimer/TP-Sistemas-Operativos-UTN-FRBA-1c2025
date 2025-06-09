@@ -122,10 +122,6 @@ func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
 		UseBit:      true,
 	}
 	cache.Entries = append(cache.Entries, newCacheEntry)
-	//TODO: revisar cual vamos a usar, Result1 o Result2.
-	//slog.Debug(fmt.Sprintf("Result1: %d", cache.Entries[len(cache.Entries)-1].PageNumber))
-	//slog.Debug(fmt.Sprintf("Result2: %d", len(cache.Entries)-1))
-	//cache.PageMap[key] = cache.Entries[len(cache.Entries)-1].PageNumber
 	cache.PageMap[key] = len(cache.Entries) - 1
 	slog.Debug(fmt.Sprintf("Cache Add: PID %d, Page %d en nuevo slot %d. Total: %d/%d", pid, pageNumber, len(cache.Entries)-1, len(cache.Entries), cache.MaxEntries))
 }
@@ -266,11 +262,11 @@ func (cache *PageCache) RemoveProcess(pid int) {
 		slog.Debug(fmt.Sprintf("DESALOJO: Encontrada página %d del Proceso %d. U=%t, M=%t.", entry.PageNumber, pid, entry.UseBit, entry.ModifiedBit))
 		if entry.ModifiedBit {
 			slog.Debug(fmt.Sprintf("DESALOJO: Página %d (Proceso %d) modificada. Escribiendo a Memoria Principal.", entry.PageNumber, pid))
-			request := models.ExecuteInstructionRequest{
-				Pid:    pid,
-				Values: nil, //TODO: ver como le paso los datos para que lo escriba
-			}
-			ExecuteWrite(request)
+			//request := models.ExecuteInstructionRequest{
+			//	Pid:    pid,
+			//	Values: nil, //TODO: ver como le paso los datos para que lo escriba
+			//}
+			//ExecuteWrite(request)
 		}
 	}
 
