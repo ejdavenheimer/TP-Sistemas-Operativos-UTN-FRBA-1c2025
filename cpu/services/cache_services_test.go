@@ -20,6 +20,22 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
+func TestCacheMiss(t *testing.T) {
+	cache := testCache
+	cache.MaxEntries = 0
+
+	result, found := cache.Get(1, 10)
+	if found || result != nil {
+		t.Fatalf("Expected cache to not be found")
+	}
+
+	cache.MaxEntries = 3
+	result, found = cache.Get(1, 10)
+	if found || result != nil {
+		t.Fatalf("Expected cache to not be found")
+	}
+}
+
 func TestAlgorithmClock(t *testing.T) {
 	cache := testCache
 	cache.Algorithm = "CLOCK"
@@ -64,4 +80,15 @@ func TestAlgorithmClockM(t *testing.T) {
 	cache.Put(3, 30, []byte("test 3"))
 	cache.Put(4, 40, []byte("test 4"))
 	cache.Put(5, 50, []byte("test 5"))
+}
+
+func TestPageCache_RemoveProcess(t *testing.T) {
+	cache := testCache
+	cache.MaxEntries = 3
+
+	cache.Put(0, 10, []byte("test 0"))
+	cache.Put(1, 20, []byte("test 1"))
+	cache.Put(2, 30, []byte("test 2"))
+
+	cache.RemoveProcess(1)
 }
