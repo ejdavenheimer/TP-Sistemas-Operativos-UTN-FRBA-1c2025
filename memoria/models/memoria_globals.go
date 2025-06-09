@@ -2,7 +2,7 @@ package models
 
 type Config struct {
 	PortMemory     int    `json:"port_memory"`
-	IpMemory       string  `json:"ip_memory"`
+	IpMemory       string `json:"ip_memory"`
 	MemorySize     int    `json:"memory_size"`
 	PageSize       int    `json:"page_size"`
 	EntriesPerPage int    `json:"entries_per_page"`
@@ -37,9 +37,9 @@ type InstructionRequest struct {
 }
 
 type MemoryInstructionRequest struct {
-	Pid              int
-	PhysicalAddress  int
-	Size             int
+	Pid             int
+	PhysicalAddress int
+	Size            int
 }
 
 type Process struct {
@@ -49,16 +49,17 @@ type Process struct {
 }
 
 type Metrics struct {
-	PageTableAccesses int
+	PageTableAccesses  int
 	InstructionFetches int
-	SwapsOut int
-	SwapsIn int
-	Reads int
-	Writes int
+	SwapsOut           int
+	SwapsIn            int
+	Reads              int
+	Writes             int
 }
 
 var ProcessMetrics = make(map[uint]*Metrics)
 var ProcessTable = make(map[int]Process)
+
 type DumpMemoryRequest struct {
 	Pid  uint
 	Size int
@@ -77,4 +78,29 @@ var PageTables = make(map[uint]map[int]interface{})
 type WriteRequest struct {
 	Address int    `json:"address"`
 	Data    string `json:"data"`
+}
+
+type MemoryFrame struct {
+	StartAddr int  // Dirección inicial en UserMemory
+	IsFree    bool // Si el frame está disponible
+}
+
+var FrameTable []MemoryFrame
+
+type ProcessFrames struct {
+	PID    int
+	Frames []int
+}
+
+var ProcessFramesTable = make(map[int]ProcessFrames)
+
+type SwapEntry struct {
+	Offset int64 // posición inicial en archivo
+	Size   int64 // tamaño en bytes del bloque de frames
+}
+
+var ProcessSwapTable = make(map[int]SwapEntry)
+
+type PIDRequest struct {
+	PID int `json:"pid"`
 }

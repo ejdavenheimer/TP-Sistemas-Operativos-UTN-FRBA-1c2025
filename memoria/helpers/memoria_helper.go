@@ -2,12 +2,13 @@ package helpers
 
 import (
 	"fmt"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
 	"log/slog"
 	"os"
 	"time"
+
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
 )
 
 // CreateDirectory crea un directorio en el path especificado.
@@ -24,7 +25,7 @@ func CreateDirectory(dir string) {
 
 // CreateFile crea el archivo
 func CreateFile(fileName string, size int) error {
-	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, 0666)
 
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al crear el archivo: %v", err))
@@ -54,9 +55,22 @@ func InitMemory(configPath string, logPath string) {
 	models.UserMemory = make([]byte, models.MemoryConfig.MemorySize) //INICIALIZACIÓN DE MEMORIA
 	slog.Debug("Memoria inicializada", "tamaño", len(models.UserMemory))
 
+	// Inicializar FrameTable
+	pageSize := models.MemoryConfig.PageSize
+	memSize := models.MemoryConfig.MemorySize
+	framesCount := memSize / pageSize
+	models.FrameTable = make([]models.MemoryFrame, framesCount)
+	for i := 0; i < framesCount; i++ {
+		models.FrameTable[i] = models.MemoryFrame{
+			StartAddr: i * pageSize,
+			IsFree:    true,
+		}
+	}
+	slog.Debug("FrameTable inicializado", "cantidad_frames", framesCount)
+
 	CreateDirectory(models.MemoryConfig.DumpPath)
 	slog.Debug(fmt.Sprintf("Swap: %s", models.MemoryConfig.SwapFilePath))
-	_ = CreateFile(models.MemoryConfig.SwapFilePath, 0) //TODO: revisar, inicialmente va arrancar con tamaño 0 
+	_ = CreateFile(models.MemoryConfig.SwapFilePath, 0) //TODO: revisar, inicialmente va arrancar con tamaño 0
 }
 
 func GetDumpName(pid uint) string {

@@ -168,6 +168,22 @@ test_mandar_interrupcion_kernel() {
         }"
 }
 
+test_swap_in() {
+    echo -e "${VERDE}Ejecutando SWAP IN (sacar de swap a memoria)${NC}"
+    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    curl --location --request POST http://localhost:8002/memoria/swapIn \
+        --header 'Content-Type: application/json' \
+        --data "{\"pid\": $pid}"
+}
+
+test_swap_out() {
+    echo -e "${VERDE}Ejecutando SWAP OUT (mover proceso a swap)${NC}"
+    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    curl --location --request POST http://localhost:8002/memoria/swapOut \
+        --header 'Content-Type: application/json' \
+        --data "{\"pid\": $pid}"
+}
+
 while true; do
     echo -e "${AMARILLO}1.${NC} Obtener intrucción IO"
     echo -e "${AMARILLO}2.${NC} Ejecutando instrucción IO desde CPU (EXEC)"
@@ -180,6 +196,8 @@ while true; do
     echo -e "${AMARILLO}9.${NC} Finalizar proceso desde Kernel"
     echo -e "${AMARILLO}10.${NC} Solicitar la interrupción de un proceso desde Kernel a CPU"
     echo -e "${AMARULLI}11.${NC} Ejecutando instrucción DUMP_MEMORY"
+    echo -e "${AMARILLO}12.${NC} Ejecutar SWAP IN (cargar proceso desde swap a memoria)"
+    echo -e "${AMARILLO}13.${NC} Ejecutar SWAP OUT (mover proceso de memoria a swap)"
     echo -e "${ROJO}s.${NC} Salir"
     echo
     read -p "$(echo -e ${AMARILLO}Opción:${NC} )" opcion
@@ -196,6 +214,8 @@ while true; do
         9) test_finalizar_proceso_kernel ;;
         10) test_mandar_interrupcion_kernel ;;
         11) test_ejecutar_dump_memory ;;
+        12) test_swap_in ;;
+        13) test_swap_out ;;
         s) echo -e "${ROJO}Saliendo...${NC}"; break ;;
         *) echo -e "${ROJO}Opción no válida${NC}" ;;
     esac
