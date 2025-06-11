@@ -8,7 +8,6 @@ import (
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
-	"net/http"
 )
 
 var (
@@ -48,6 +47,8 @@ func TranslateAddress(pid int, logicalAddress int) int {
 	pageSize := models.MemConfig.PageSize
 	pageNumber := logicalAddress / pageSize
 	offset := logicalAddress % pageSize
+    
+	slog.Debug("Traducción de dirección", "pid", pid, "logical", logicalAddress, "pageNumber", pageNumber, "pageSize", pageSize)
 
 	//Verifica que la tlb no este desactivada
 	if tlbMaxSize > 0 {
@@ -72,6 +73,7 @@ func TranslateAddress(pid int, logicalAddress int) int {
 		slog.Warn("Violación de memoria detectada (TLB MISS)", "pid", pid, "page", pageNumber)
 		return -1
 	}
+	slog.Debug("RequestMemoryFrame", "pid", pid, "frame", frame)
 	return frame*pageSize + offset
 
 }
@@ -85,6 +87,7 @@ func tlb_miss(pid int, pageNumber int) int {
 		entry := (pageNumber / intPow(entriesPerPage, numLevels-level)) % entriesPerPage
 		entries = append(entries, entry)
 	}
+	slog.Debug("Índices de página calculados", "pageNumber", pageNumber, "entries", entries)
 	return RequestMemoryFrame(pid, entries)
 }
 
@@ -178,41 +181,4 @@ func intPow(base, exp int) int {
 		exp--
 	}
 	return result
-}
-
-func WriteToMemory(pid int, address int, data string, config *models.Config) error {
-	writeReq := models.WriteRequest{
-		PID:             pid,
-		LogicalAddr:     address,
-		PhysicalAddress: TranslateAddress(pid, address),
-		Data:            data,
-	}
-
-	body, err := json.Marshal(writeReq)
-	if err != nil {
-		slog.Error("Failed to serialize write request", "error", err)
-		return err
-	}
-	slog.Debug("Write request sent to memory",
-		"address", address,
-		"data_length", len(data),
-	)
-
-	//PETICION HTTP
-	resp, err := client.DoRequest(
-		config.PortMemory,
-		config.IpMemory,
-		"POST",
-		"memoria/write",
-		body,
-	)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		slog.Error("Memory write failed",
-			"error", err,
-			"status_code", resp.StatusCode,
-		)
-		return err
-	}
-
-	return nil
 }

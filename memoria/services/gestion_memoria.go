@@ -105,9 +105,6 @@ func MapPageToFrame(pid uint, pageNumber int, frame int) error {
 
 	// Último nivel (hoja): insertar PageEntry
 	lastIdx := indices[numLevels-1]
-	if current.SubTables[lastIdx] != nil {
-		return fmt.Errorf("entrada de página ya mapeada para página %d", pageNumber)
-	}
 	if _, exists := current.SubTables[lastIdx]; exists {
 		return fmt.Errorf("entrada de página ya mapeada para página %d (PID %d)", pageNumber, pid)
 	}
@@ -120,6 +117,7 @@ func MapPageToFrame(pid uint, pageNumber int, frame int) error {
 			Modified: false,
 		},
 	}
+	//slog.Debug(fmt.Sprintf("Tabla de páginas %v",current))
 
 	return nil
 }
@@ -198,13 +196,14 @@ func SearchFrame(pid uint, pages []int) int {
 	}
 
 	for _, pageNumber := range pages {
-		slog.Debug("BUSCANDO FRAME")
+		//slog.Debug(fmt.Sprintf("BUSCANDO FRAME %d", pages))
 		frame, err := getFrameFromPageNumber(pageTableRoot, pageNumber)
 		if err == nil && frame != -1 {
 			// Retornamos el primer frame válido encontrado
 			slog.Debug(fmt.Sprintf("Frame enviado a CPU:%d", frame))
 			return frame
 		}
+		slog.Debug("NO SE ENCONTRO EL FRAME")
 		
 	}
 	// Si no se encontró ningún frame para las páginas consultadas
@@ -225,20 +224,27 @@ func FindPageEntry(root *models.PageTableLevel, pageNumber int) (*models.PageEnt
 	indices := getPageIndices(pageNumber, models.MemoryConfig.NumberOfLevels, models.MemoryConfig.EntriesPerPage)
 
 	for i, index := range indices {
-		if currentLevel.IsLeaf {
-			if currentLevel.Entry != nil && currentLevel.Entry.Presence {
-				return currentLevel.Entry, nil
-			} else {
-				return nil, fmt.Errorf("entrada de página no presente o no asignada")
+		// Si estamos en el último índice, deberíamos encontrar una hoja
+		if i == len(indices)-1 {
+			nextLevel, exists := currentLevel.SubTables[index]
+			if !exists || nextLevel == nil || !nextLevel.IsLeaf {
+				return nil, fmt.Errorf("entrada de página no encontrada o no es hoja")
 			}
+			if nextLevel.Entry != nil && nextLevel.Entry.Presence {
+				return nextLevel.Entry, nil
+			}
+			return nil, fmt.Errorf("entrada de página no presente o no asignada")
 		}
+
+		// Navegamos niveles intermedios
 		nextLevel, exists := currentLevel.SubTables[index]
 		if !exists {
 			return nil, fmt.Errorf("nivel %d, índice %d no existe", i, index)
 		}
 		currentLevel = nextLevel
 	}
-	return nil, fmt.Errorf("estructura incompleta")
+
+	return nil, fmt.Errorf("estructura incompleta o sin hoja final")
 }
 
 // De acuerdo a la cantidad de niveles de la tabla y la cantidad de entradas por nivel.
@@ -249,6 +255,7 @@ func getPageIndices(pageNumber int, levels int, entriesPerLevel int) []int {
 		indices[i] = pageNumber % entriesPerLevel
 		pageNumber /= entriesPerLevel
 	}
+	//slog.Debug("Índices de página calculados", "indices", indices)
 	return indices
 }
 
@@ -259,7 +266,7 @@ func AllocateFrame() int {
 	for i, free := range models.FreeFrames {
 		if free {
 			models.FreeFrames[i] = false
-			slog.Debug("Frame asignado", slog.Int("frame", i))
+			//slog.Debug("Frame asignado", slog.Int("frame", i))
 			return i
 		}
 	}
