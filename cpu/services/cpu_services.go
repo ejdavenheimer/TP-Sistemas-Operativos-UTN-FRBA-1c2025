@@ -13,6 +13,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"bytes"
+	"encoding/base64"
 )
 
 func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionsResponse {
@@ -86,20 +88,29 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
 	//TODO: implementar lógica para WRITE
 	//CONVERSION DIR LOG A FISICA
-	dirLogica, err := strconv.Atoi(request.Values[1])
+	logicalAddress, err := strconv.Atoi(request.Values[1])
+	if err != nil {
+		slog.Error("Dirección lógica inválida")
+		return
+	}
+
 
 	if err != nil {
 		slog.Error("Error al convertir dirección lógica", "error", err)
 		return
 	}
 
-	dirFisica := TranslateAddress(request.Pid, dirLogica)
+	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
+	if physicalAddress == -1{
+		slog.Warn("Instrucción READ no puede continuar: diección invalida")
+		increase_PC()
+		return
+	}
 
 	//SOLICITUD DE ESCRITURA
 	writeReq := models.WriteRequest{
 		PID:             request.Pid,
-		LogicalAddr:     dirLogica,
-		PhysicalAddress: dirFisica,
+		PhysicalAddress: physicalAddress,
 		Data:            request.Values[2],
 	}
 
@@ -122,8 +133,8 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 		return
 	}
 
-	slog.Info("Escritura realizada con éxito", "direccion_fisica", dirFisica, "dato", request.Values[2])
-
+	slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: ESCRIBIR - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, writeReq.Data))
+	
 	increase_PC()
 }
 
@@ -145,6 +156,11 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 	}
 
 	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
+	if physicalAddress == -1{
+		slog.Warn("Instrucción READ no puede continuar: diección invalida")
+		increase_PC()
+		return
+	}
 
 	readRequest := models.MemoryReadRequest{
 		Pid:             request.Pid,
@@ -170,14 +186,19 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 		os.Exit(1)
 	}
 
-	var memoryValue string
-	defer response.Body.Close()
-	if err := json.NewDecoder(response.Body).Decode(&memoryValue); err != nil {
-		slog.Error("No se pudo leer el valor de memoria")
-		return
-	}
-
-	slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, memoryValue))
+	var memoryValue []byte
+    defer response.Body.Close()
+    if err := json.NewDecoder(response.Body).Decode(&memoryValue); err != nil {
+	   slog.Error("No se pudo leer el valor de memoria")
+	   return
+    }
+    
+    cleanData := bytes.Trim(memoryValue, "\x00")
+	dataBase64 := base64.StdEncoding.EncodeToString(memoryValue)
+    
+    slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, string(cleanData)))
+    slog.Debug(fmt.Sprintf("Valor (hex): %x", memoryValue))
+	slog.Debug(fmt.Sprintf("Valor (base64): %s", dataBase64))
 	increase_PC()
 }
 
