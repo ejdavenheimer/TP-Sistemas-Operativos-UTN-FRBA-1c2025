@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // TODO: deprecado, borrar
@@ -102,13 +103,16 @@ func MemoryConfigHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
-	var request models.MemoryInstructionRequest
+	var request models.ReadRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		slog.Error("Error al decodificar")
 		return
 	}
+
+	// Delay de memoria
+	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 	
 	value, err := services.Read(uint(request.Pid), request.PhysicalAddress, request.Size)
     if err != nil {
@@ -202,7 +206,7 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 	var request struct {
         Pid             uint   `json:"pid"`
         PhysicalAddress int    `json:"physical_address"`
-        Data            []byte `json:"data"`
+        Data            string `json:"data"`
     }
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -210,14 +214,19 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
+
+    // Delay de memoria
+    time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
+
 	//EJECUCION ESCRITURA
-	if err := services.WriteToMemory(request.Pid, request.PhysicalAddress, request.Data); err != nil {
+	dataBytes := []byte(request.Data)
+	if err := services.WriteToMemory(request.Pid, request.PhysicalAddress, dataBytes); err != nil {
 		slog.Error("WRITE failed", "error", err)
 		http.Error(w, "Write failed", http.StatusInternalServerError)
 		return
 	}
 
-	slog.Info(fmt.Sprintf("## PID: <%d> - <Write> - Dir. Física: <%d> - Tamaño: <%d>", request.Pid, request.PhysicalAddress, len(request.Data)))
+	slog.Info(fmt.Sprintf("## PID: <%d> - <Write> - Dir. Física: <%d> - Dato: <%s>", request.Pid, request.PhysicalAddress, request.Data))
 	w.WriteHeader(http.StatusOK) //RESPUESTA
 }
 
