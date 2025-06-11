@@ -72,20 +72,12 @@ type MemoryReadRequest struct {
 	Size            int
 }
 
-// DEFINICION DE ERRORES
-var ErrInvalidInstruction = errors.New("invalid instruction")
-var ErrInvalidAddress = errors.New("invalid address")
-
-// ESTRUCTRURA DE LA INSTRUCCION WRITE
-type WriteInstruction struct {
-	Opcode   string
-	Operands []string
-}
-
-// ESTRUCTURA DE SOLICITUD WRITE
 type WriteRequest struct {
 	PID             int
-	LogicalAddr     int
 	Data            string
 	PhysicalAddress int
 }
+
+// DEFINICION DE ERRORES
+var ErrInvalidInstruction = errors.New("invalid instruction")
+var ErrInvalidAddress = errors.New("invalid address")
