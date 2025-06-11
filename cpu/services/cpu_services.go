@@ -13,6 +13,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"bytes"
+	"encoding/base64"
 )
 
 func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionsResponse {
@@ -131,8 +133,8 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 		return
 	}
 
-	slog.Info("Escritura realizada con éxito", "direccion_fisica", physicalAddress, "dato", request.Values[2])
-
+	slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: ESCRIBIR - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, writeReq.Data))
+	
 	increase_PC()
 }
 
@@ -184,14 +186,19 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 		os.Exit(1)
 	}
 
-	var memoryValue string
-	defer response.Body.Close()
-	if err := json.NewDecoder(response.Body).Decode(&memoryValue); err != nil {
-		slog.Error("No se pudo leer el valor de memoria")
-		return
-	}
-
-	slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, memoryValue))
+	var memoryValue []byte
+    defer response.Body.Close()
+    if err := json.NewDecoder(response.Body).Decode(&memoryValue); err != nil {
+	   slog.Error("No se pudo leer el valor de memoria")
+	   return
+    }
+    
+    cleanData := bytes.Trim(memoryValue, "\x00")
+	dataBase64 := base64.StdEncoding.EncodeToString(memoryValue)
+    
+    slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, string(cleanData)))
+    slog.Debug(fmt.Sprintf("Valor (hex): %x", memoryValue))
+	slog.Debug(fmt.Sprintf("Valor (base64): %s", dataBase64))
 	increase_PC()
 }
 
