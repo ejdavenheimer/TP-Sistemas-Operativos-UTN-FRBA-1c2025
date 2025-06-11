@@ -36,7 +36,8 @@ type InstructionRequest struct {
 	PathName string
 }
 
-type MemoryInstructionRequest struct {
+//Para READ
+type ReadRequest struct {
 	Pid             uint   `json:"pid"`
     PhysicalAddress int    `json:"physicalAddress"`
     Size            int    `json:"size"`
@@ -68,11 +69,6 @@ type DumpMemoryRequest struct {
 
 type DumpMemoryResponse struct {
 	Result string
-}
-
-type WriteRequest struct {
-	Address int    `json:"address"`
-	Data    string `json:"data"`
 }
 
 var MemoryConfig *Config
