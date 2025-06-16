@@ -47,8 +47,20 @@ func TranslateAddress(pid int, logicalAddress int) int {
 	pageSize := models.MemConfig.PageSize
 	pageNumber := logicalAddress / pageSize
 	offset := logicalAddress % pageSize
-    
+
 	slog.Debug("Traducción de dirección", "pid", pid, "logical", logicalAddress, "pageNumber", pageNumber, "pageSize", pageSize)
+
+	// Verifica que la cache se encuentre activado
+	if IsEnabled(Cache.MaxEntries) {
+		content, found := Cache.Get(pid, logicalAddress) //TODO: revisar que hace con el content
+
+		// Cache MISS, no lo encuentra en la caché
+		if !found {
+			Cache.Put(pid, logicalAddress, content) //TODO: revisar de donde sale el contenido
+		}
+	}
+
+	// Si la cache esta desactiva va a buscar en la TLB
 
 	//Verifica que la tlb no este desactivada
 	if tlbMaxSize > 0 {
