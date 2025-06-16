@@ -75,6 +75,7 @@ func (cache *PageCache) Get(pid, page int) ([]byte, bool) {
 	defer cache.Mutex.Unlock()
 
 	if !IsEnabled(cache.MaxEntries) {
+		slog.Debug("La cache se encuentra deshabilitada. Operación ignorada.")
 		return nil, false
 	}
 

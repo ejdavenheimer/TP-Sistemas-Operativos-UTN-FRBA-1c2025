@@ -68,7 +68,7 @@ func TestAlgorithmClock(t *testing.T) {
 	cache.Put(5, 50, []byte("test 5"))
 }
 
-// se prueba con (0,1)
+// Se prueba con (0,1)
 func TestAlgorithmClockM(t *testing.T) {
 	cache := testCache
 	cache.Algorithm = "CLOCK-M"
