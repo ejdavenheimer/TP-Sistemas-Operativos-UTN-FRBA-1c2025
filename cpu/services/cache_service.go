@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
 	"log/slog"
 	"sync"
 )
@@ -22,7 +23,13 @@ type PageCache struct {
 	}]int
 }
 
-func InitCache() *PageCache {
+var Cache *PageCache
+
+func InitCache() {
+	Cache = SetupCache()
+}
+
+func SetupCache() *PageCache {
 	maxEntries := models.CpuConfig.CacheEntries
 
 	//Debería ser un valor positivo pero si llega a venir negativo lo pongo en 0
@@ -142,14 +149,13 @@ func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte
 	victim := cache.Entries[victimIndex]
 	slog.Debug(fmt.Sprintf("Víctima seleccionada (slot %d): PID %d, Page %d (U=%t, M=%t)", victimIndex, victim.PID, victim.PageNumber, victim.UseBit, victim.ModifiedBit))
 
-	if victim.ModifiedBit {
+	if victim.ModifiedBit && cache.Algorithm == "CLOCK" {
 		slog.Debug(fmt.Sprintf("Víctima (PID %d, Page %d) modificada. Escribiendo a Memoria Principal.", victim.PID, victim.PageNumber))
-		//Para testear se debe comentar estas lineas (153-157)
-		//request := models.ExecuteInstructionRequest{
-		//	Pid:    victim.PID,
-		//	Values: nil, //TODO: ver como le paso los datos para que lo escriba
-		//}
-		//ExecuteWrite(request)
+		err := services.WriteToMemory(uint(victim.PID), victim.PageNumber, newContent)
+		if err != nil {
+			slog.Error(fmt.Sprintf("WRITE failed, unable to write to memory: %v", err))
+			return
+		}
 	}
 
 	// Eliminar de pageMap antes de reemplazar en Entries
@@ -262,11 +268,11 @@ func (cache *PageCache) RemoveProcess(pid int) {
 		slog.Debug(fmt.Sprintf("DESALOJO: Encontrada página %d del Proceso %d. U=%t, M=%t.", entry.PageNumber, pid, entry.UseBit, entry.ModifiedBit))
 		if entry.ModifiedBit {
 			slog.Debug(fmt.Sprintf("DESALOJO: Página %d (Proceso %d) modificada. Escribiendo a Memoria Principal.", entry.PageNumber, pid))
-			//request := models.ExecuteInstructionRequest{
-			//	Pid:    pid,
-			//	Values: nil, //TODO: ver como le paso los datos para que lo escriba
-			//}
-			//ExecuteWrite(request)
+			err := services.WriteToMemory(uint(pid), entry.PageNumber, entry.Content)
+			if err != nil {
+				slog.Error(fmt.Sprintf("WRITE failed, unable to write to memory: %v", err))
+				return
+			}
 		}
 	}
 

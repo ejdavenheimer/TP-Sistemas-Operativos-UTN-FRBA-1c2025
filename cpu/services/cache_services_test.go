@@ -11,7 +11,7 @@ var testCache *PageCache
 func TestMain(m *testing.M) {
 	// Configuración que se ejecuta una única vez antes de todos los tests
 	config.InitConfig("../../cpu/configs/cpu.json", &models.CpuConfig)
-	testCache = InitCache()
+	testCache = SetupCache()
 
 	if testCache == nil {
 		panic("Expected cache to not be nil in TestMain") // Usa panic para fallos críticos en la configuración
