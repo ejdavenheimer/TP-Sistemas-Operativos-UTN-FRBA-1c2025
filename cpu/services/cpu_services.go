@@ -86,17 +86,10 @@ func ExecuteNoop(request models.ExecuteInstructionRequest) {
 
 func ExecuteWrite(request models.ExecuteInstructionRequest) {
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
-	//TODO: implementar lógica para WRITE
 	//CONVERSION DIR LOG A FISICA
 	logicalAddress, err := strconv.Atoi(request.Values[1])
 	if err != nil {
-		slog.Error("Dirección lógica inválida")
-		return
-	}
-
-
-	if err != nil {
-		slog.Error("Error al convertir dirección lógica", "error", err)
+		slog.Error(fmt.Sprintf("Dirección lógica inválida, error: %v", err))
 		return
 	}
 
