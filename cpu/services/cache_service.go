@@ -6,6 +6,7 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
 	"log/slog"
 	"sync"
+	"time"
 )
 
 // PageCache representa la caché de páginas de la CPU.
@@ -71,6 +72,8 @@ func getEntryKey(pid, pageNumber int) struct {
 // Get intenta obtener una página de la caché.
 // Retorna el contenido de la página y true si es un caché hit.
 func (cache *PageCache) Get(pid, page int) ([]byte, bool) {
+	time.Sleep(time.Duration(models.CpuConfig.CacheDelay) * time.Millisecond)
+
 	cache.Mutex.Lock()
 	defer cache.Mutex.Unlock()
 
@@ -96,6 +99,8 @@ func (cache *PageCache) Get(pid, page int) ([]byte, bool) {
 
 // Put añade una página a la caché o actualiza una existente.
 func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
+	time.Sleep(time.Duration(models.CpuConfig.CacheDelay) * time.Millisecond)
+
 	cache.Mutex.Lock()
 	defer cache.Mutex.Unlock()
 
