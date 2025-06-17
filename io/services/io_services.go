@@ -35,10 +35,31 @@ func ConnectToKernel(ioName string, ioConfig *models.Config) {
 		ioConfig.IpKernel, ioConfig.PortKernel))
 }
 
+func notifyKernel(pid int, message string, ioConfig *models.Config) {
+	//Crea y codifica la request de conexion a Kernel
+	var request = models.DeviceResponse{Pid: pid, Reason: message}
+	body, err := json.Marshal(request)
+
+	if err != nil {
+		slog.Error(fmt.Sprintf("error: %v", err))
+		panic(err)
+	}
+
+	slog.Debug("Se envía notificación de finalización de dispositivo.")
+	//Envia la request de conexion a Kernel
+	_, err = client.DoRequest(ioConfig.PortKernel, ioConfig.IpKernel, "POST", "kernel/dispositivo-finalizado", body)
+
+	if err != nil {
+		slog.Error(fmt.Sprintf("error: %v", err))
+		panic(err)
+	}
+}
+
 func Sleep(pid int, suspensionTime int) {
 	slog.Debug("Inicio de operación IO", "pid", pid, "duración_ms", suspensionTime)
 	slog.Debug(fmt.Sprintf("[%d] zzzzzzzzzz", pid))
 	time.Sleep(time.Duration(suspensionTime) * time.Millisecond)
 	slog.Debug("quién me desperto?? (mirada que juzga)")
 	slog.Debug("Fin de operación IO", "pid", pid)
+	notifyKernel(pid, "Fin de IO", models.IoConfig)
 }
