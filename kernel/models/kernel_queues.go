@@ -20,3 +20,5 @@ var QueueBlocked = &list.ArrayList[PCB]{}
 // Colas del Planificador de Mediano Plazo
 var QueueSuspReady = &list.ArrayList[PCB]{}
 var QueueSuspBlocked = &list.ArrayList[PCB]{}
+
+//var PCBsEnEjecucion map[int]*PCB //map[PID]PCB

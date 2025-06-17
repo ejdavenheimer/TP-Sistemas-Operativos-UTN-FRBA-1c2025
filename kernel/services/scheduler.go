@@ -20,7 +20,6 @@ func StartScheduler() {
 	SchedulerState = models.EstadoPlanificadorActivo
 	slog.Info("Planificador iniciado.")
 	go longTermScheduler()
-	go StartShortTermScheduler()
 }
 
 // Planificador de largo plazo
@@ -32,7 +31,7 @@ func longTermScheduler() {
 		}
 
 		//0. Finalizar procesos pendientes en EXIT
-		if models.QueueExit.Size() > 0{
+		if models.QueueExit.Size() > 0 {
 			FinishProcess()
 			continue
 		}
@@ -43,9 +42,9 @@ func longTermScheduler() {
 			//	process := &pcb
 			//	admitProcess(process, models.QueueSuspReady, "SUSP_READY")
 			//	time.Sleep(500 * time.Millisecond)
-				continue
+			continue
 		}
-        
+
 		//2. Si no hay nada en NEW espera
 		if models.QueueNew.Size() == 0 {
 			time.Sleep(500 * time.Millisecond)
@@ -79,7 +78,7 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB], es
 	process.EstadoActual = models.EstadoReady
 	process.UltimoCambio = time.Now()
 	models.QueueReady.Add(*process)
-    
+
 	//log obligatorio
 	slog.Info(fmt.Sprintf("## PID %d pasa de %s a READY", process.PID, estadoOrigen))
 	runScheduler()
@@ -132,8 +131,8 @@ func scheduleShortestFirst() {
 		return slice[i].Size < slice[j].Size
 	})
 
+	process := slice[0] // Proceso con menor tamaño (primer elemento ordenado)
 	// Verificar si hay suficiente memoria para el primer proceso en la cola NEW
-	process := slice[0]
 	err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
 	if err != nil {
 		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)

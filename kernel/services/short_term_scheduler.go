@@ -17,13 +17,14 @@ import (
 func StartShortTermScheduler() {
 	go func() {
 		for {
-			if models.QueueReady.Size() > 0 {
+			<-models.NotifyReady // Espera bloqueado hasta recibir señal
+			for models.QueueReady.Size() > 0 {
 				ok := SelectToExecute()
 				if !ok {
 					slog.Debug("No se pudo seleccionar ningún proceso para ejecutar.")
+					break // Si no hay CPU libre, salgo del for interno y espero nueva señal
 				}
 			}
-			time.Sleep(500 * time.Millisecond)
 		}
 	}()
 }
@@ -43,15 +44,8 @@ func SelectToExecute() bool {
 	var index int = -1 // inicializo en -1, valor default si da error
 	var err error
 
-	switch models.KernelConfig.SchedulerAlgorithm {
-	case "FIFO":
-		pcb, err = models.QueueReady.Get(0) //obtengo el proceso a ejecutar, el primero de la cola READY
-		index = 0
-	case "SJF":
-		pcb, index, err = getShortestJob()
-	case "SRT":
-		pcb, index, err = getShortestJob()
-	}
+	pcb, err = models.QueueReady.Get(0)
+	index = 0
 
 	if err != nil {
 		slog.Warn("Error obteniendo proceso de la cola READY:", "error", err)
@@ -70,7 +64,15 @@ func SelectToExecute() bool {
 	slog.Debug(fmt.Sprintf("Asignando proceso PID=%d a CPU ID=%d", pcb.PID, cpu.Id))
 
 	go func(pcb *models.PCB, cpu cpuModels.CpuN, key string) {
+		inicioEjecucion := time.Now()
 		result := ExecuteProcess(pcb, cpu)
+		tiempoEjecutado := time.Since(inicioEjecucion)
+
+		if models.KernelConfig.SchedulerAlgorithm == "SJF" || models.KernelConfig.SchedulerAlgorithm == "SRT" {
+			pcb.RafagaReal = float32(tiempoEjecutado.Milliseconds())
+			// Est(n+1)        =                α          * R(n)           + (1 - α)                      * Est(n)
+			pcb.RafagaEstimada = models.KernelConfig.Alpha*pcb.RafagaReal + (1-models.KernelConfig.Alpha)*pcb.RafagaEstimada
+		}
 
 		switch result.StatusCodePCB {
 		case models.NeedFinish:
@@ -159,22 +161,22 @@ func TransitionState(pcb *models.PCB, oldState models.Estado, newState models.Es
 	pcb.UltimoCambio = time.Now()
 }
 
-func getShortestJob() (models.PCB, int, error) {
-	if models.QueueReady.Size() == 0 {
-		return models.PCB{}, -1, fmt.Errorf("Cola READY vacía")
-	}
-	shortestIndex := 0
-	shortestJob, _ := models.QueueReady.Get(shortestIndex)
+// func getShortestJob() (models.PCB, int, error) { // Recorre todos los procesos de la cola READY y devuelve el PCB con la menor RafagaEstimada
+// 	if models.QueueReady.Size() == 0 {
+// 		return models.PCB{}, -1, fmt.Errorf("Cola READY vacía")
+// 	}
+// 	shortestIndex := 0
+// 	procesoMenorRafaga, _ := models.QueueReady.Get(shortestIndex)
 
-	for i := 1; i < models.QueueReady.Size(); i++ {
-		job, _ := models.QueueReady.Get(i)
-		if job.Rafaga < shortestJob.Rafaga {
-			shortestJob = job
-			shortestIndex = i
-		}
-	}
-	return shortestJob, shortestIndex, nil
-}
+// 	for i := 1; i < models.QueueReady.Size(); i++ {
+// 		procesoIterado, _ := models.QueueReady.Get(i)
+// 		if procesoIterado.RafagaEstimada < procesoMenorRafaga.RafagaEstimada {
+// 			procesoMenorRafaga = procesoIterado
+// 			shortestIndex = i
+// 		}
+// 	}
+// 	return procesoMenorRafaga, shortestIndex, nil
+// }
 
 func AddProcessToReady(pcb *models.PCB) {
 	switch models.KernelConfig.SchedulerAlgorithm {
@@ -183,16 +185,16 @@ func AddProcessToReady(pcb *models.PCB) {
 		models.QueueReady.Add(*pcb)
 
 	case "SJF", "SRT": // Inserto ordenadamente en la cola READY, ordenada por Rafaga ascendente
-		inserted := false
+		procesoInsertado := false
 		for i := 0; i < models.QueueReady.Size(); i++ {
-			proc, _ := models.QueueReady.Get(i)
-			if pcb.Rafaga < proc.Rafaga {
+			procesoIterado, _ := models.QueueReady.Get(i)
+			if pcb.RafagaEstimada < procesoIterado.RafagaEstimada {
 				models.QueueReady.Insert(i, *pcb) // Inserto el proceso en la posición i
-				inserted = true
+				procesoInsertado = true
 				break
 			}
 		}
-		if !inserted { // Si no se insertó antes, lo agrego al final
+		if !procesoInsertado { // Si no se insertó antes, lo agrego al final
 			models.QueueReady.Add(*pcb)
 		}
 
@@ -200,4 +202,11 @@ func AddProcessToReady(pcb *models.PCB) {
 			InterruptExec(*pcb) // Pido interrupción si corresponde
 		}
 	}
+	select {
+	case models.NotifyReady <- 1:
+		// Se pudo enviar la notificación
+	default:
+		// Ya hay una notificación pendiente, no hacemos nada
+	}
+
 }
