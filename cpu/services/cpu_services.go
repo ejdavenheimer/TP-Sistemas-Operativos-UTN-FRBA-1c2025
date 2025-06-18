@@ -93,14 +93,47 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 		return
 	}
 
+	value := request.Values[2]
+	pageSize := models.MemConfig.PageSize
+	pageNumber := logicalAddress / pageSize
+	offset := logicalAddress % pageSize
+
+	// Traducción de dirección
 	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
 	if physicalAddress == -1{
-		slog.Warn("Instrucción READ no puede continuar: diección invalida")
+		slog.Warn("Instrucción WRITE no puede continuar: diección invalida")
 		increase_PC()
 		return
 	}
 
-	//SOLICITUD DE ESCRITURA
+	// Si la cache esta activa
+	if IsEnabled(){
+		content, found := Cache.Get(request.Pid, pageNumber)
+		slog.Debug("Buscando en la cache")
+		if !found{
+			content = getPageFromMemory(request.Pid, pageNumber)
+			if content == nil {
+				slog.Error("No se pudo traer la página desde memoria")
+				return
+			}
+			Cache.Put(request.Pid, pageNumber, content)
+			content, _ = Cache.Get(request.Pid, pageNumber) // Reobtener la referencia
+		}
+		entryKey := getEntryKey(request.Pid, pageNumber)
+		idx := Cache.PageMap[entryKey]
+		entry := &Cache.Entries[idx]
+
+		entry.LockerBit = true
+		copy(entry.Content[offset:], []byte(value))
+		entry.ModifiedBit = true
+		entry.LockerBit = false
+    
+		slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: ESCRIBIR - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, value))
+		increase_PC()
+		return
+	}
+
+	// Caché deshabilitada: escritura directa a memoria
 	writeReq := models.WriteRequest{
 		PID:             request.Pid,
 		PhysicalAddress: physicalAddress,
@@ -148,6 +181,9 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 		return
 	}
 
+	pageSize := models.MemConfig.PageSize
+	pageNumber := logicalAddress / pageSize
+	offset := logicalAddress % pageSize
 	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
 	if physicalAddress == -1{
 		slog.Warn("Instrucción READ no puede continuar: diección invalida")
@@ -155,6 +191,36 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 		return
 	}
 
+	// Si la cache esta activa
+	if IsEnabled(){
+		content, found := Cache.Get(request.Pid, pageNumber)
+		slog.Debug("Buscando en cache")
+		if !found{
+			content = getPageFromMemory(request.Pid, pageNumber)
+			if content == nil {
+				slog.Error("No se pudo traer la página desde memoria")
+				return
+			}
+			Cache.Put(request.Pid, pageNumber, content)
+			content, _ = Cache.Get(request.Pid, pageNumber) // Reobtener la referencia
+		}
+
+		entryKey := getEntryKey(request.Pid, pageNumber)
+		idx := Cache.PageMap[entryKey]
+		entry := &Cache.Entries[idx]
+
+		entry.LockerBit = true
+		data := content[offset : offset+size]
+		cleanData := bytes.Trim(data, "\x00")
+		entry.UseBit = true
+		entry.LockerBit = false
+    
+		slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, string(cleanData)))
+		increase_PC()
+		return
+	}
+    
+	// Si la cache no esta activa: lee desde memoria
 	readRequest := models.MemoryReadRequest{
 		Pid:             request.Pid,
 		PhysicalAddress: physicalAddress,
@@ -193,6 +259,33 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
     slog.Debug(fmt.Sprintf("Valor (hex): %x", memoryValue))
 	slog.Debug(fmt.Sprintf("Valor (base64): %s", dataBase64))
 	increase_PC()
+}
+
+func getPageFromMemory(pid int, pageNumber int) []byte {
+	type PageRequest struct {
+		PID        uint `json:"pid"`
+		PageNumber int `json:"page_number"`
+	}
+	type PageResponse struct {
+		Content []byte `json:"content"`
+	}
+
+	req := PageRequest{PID: uint(pid), PageNumber: pageNumber}
+	body, _ := json.Marshal(req)
+
+	resp, err := client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST", "memoria/leerPagina", body)
+	if err != nil {
+		slog.Error("Error solicitando página completa", "error", err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var res PageResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		slog.Error("Error decodificando página", "error", err)
+		return nil
+	}
+	return res.Content
 }
 
 func ExecuteGoto(request models.ExecuteInstructionRequest) {
