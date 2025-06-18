@@ -36,3 +36,6 @@ __debug_bin*
 
 # idea files
 **/.idea
+
+**/swapfile.bin
+**/dump_files

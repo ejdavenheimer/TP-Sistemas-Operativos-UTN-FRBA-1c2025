@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 	"log/slog"
 	"net/http"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/services"
+	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 )
 
@@ -30,16 +32,36 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 		var isFinished bool = false
 		for !models.InterruptControl.InterruptPending && !isFinished {
 			fetchResult := services.Fetch(request, cpuConfig)
-			if fetchResult == "" {
+
+			if fetchResult.Instruction == "" {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			services.DecodeAndExecute(instructionRequest.Pid, fetchResult, cpuConfig, &isFinished)
+
+			services.DecodeAndExecute(instructionRequest.Pid, fetchResult.Instruction, cpuConfig, &isFinished)
+
+			if !isFinished && fetchResult.IsLast {
+				isFinished = fetchResult.IsLast
+			}
+
 			request.PC = int(models.CpuRegisters.PC)
 		}
 
+		response := kernelModel.PCBExecuteRequest{
+			PID: request.Pid,
+			PC:  request.PC,
+		}
+
+		if models.InterruptControl.InterruptPending {
+			response.StatusCodePCB = kernelModel.NeedInterrupt
+		}
+
+		if isFinished && !models.InterruptControl.InterruptPending {
+			response.StatusCodePCB = kernelModel.NeedFinish
+		}
+
 		models.InterruptControl.InterruptPending = false
-		//w.WriteHeader(http.StatusOK)
+		server.SendJsonResponse(w, response)
 	}
 }
 

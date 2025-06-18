@@ -19,8 +19,8 @@ import (
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-	ConfigPath = "./configs/kernel.json" //"kernel/configs/kernel.json"
-	LogPath    = "./kernel.log"          //"./logs/kernel.log"
+	ConfigPath = "kernel/configs/kernel.json" //"./configs/kernel.json"
+	LogPath    = "./logs/kernel.log"          //"./kernel.log"
 )
 
 var pcb *models.PCB
@@ -46,8 +46,8 @@ func main() {
 	slog.Debug(fmt.Sprintf("Port Kernel: %d", models.KernelConfig.PortKernel))
 
 	go services.MediumTermScheduler()
-	go services.StartScheduler()
 	go services.StartShortTermScheduler()
+	go services.StartScheduler()
 
 	// Iniciar el proceso
 	pcb, err = services.InitProcess(pseudocodeFile, processSize, additionalArgs)
@@ -55,15 +55,13 @@ func main() {
 		slog.Error("Error al iniciar proceso", "err", err)
 		return
 	}
-
+	
 	/* ----------> ENDPOINTS <----------*/
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Kernel"))
 	http.HandleFunc("GET /kernel", handlers.HandshakeHandler("Kernel en funcionamiento 🚀"))
 	http.HandleFunc("GET /kernel/dispositivos-conectados", kernelHandler.GetDevicesMapHandlers())
 	http.HandleFunc("GET /kernel/cpus-conectadas", kernelHandler.GetCpuMapHandlers())
-	http.HandleFunc("GET /kernel/dispositivos-conectados", kernelHandler.GetDevicesMap())
 	http.HandleFunc("POST /kernel/dispositivos", kernelHandler.ConnectIoHandler())
-	http.HandleFunc("POST /kernel/dispositivos", kernelHandler.DeviceRegisterHandler())
 	http.HandleFunc("POST /kernel/syscall", kernelHandler.ExecuteSyscallHandler())
 	http.HandleFunc("POST /kernel/cpus", kernelHandler.ConnectCpuHandler())
 	http.HandleFunc("POST /kernel/informar-io-finalizada", kernelHandler.FinishExecIOHandler())

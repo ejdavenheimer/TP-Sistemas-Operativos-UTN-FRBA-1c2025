@@ -10,18 +10,25 @@ import (
 	"strings"
 )
 
-func GeInstruction(pid uint, pc uint, path string) (string, error) {
+var (
+    ErrProcessNotFound = errors.New("proceso no encontrado")
+    ErrMemoryViolation = errors.New("violacion de memoria")
+    ErrInvalidRead     = errors.New("lectura invalida")
+)
+
+func GeInstruction(pid uint, pc uint, path string) (string, bool, error) {
 	err := GetInstructionsByPid(pid, path, models.InstructionsMap)
 	if err != nil {
-		return "", errors.New("instruction not found")
+		return "", false, errors.New("instruction not found")
 	}
 
 	instructions, exists := models.InstructionsMap[pid]
 	if !exists || uint32(pc) >= uint32(len(instructions)) {
-		return "", errors.New("instruction not found")
+		return "", false, errors.New("instruction not found")
 	}
 	instruction := instructions[pc]
-	return instruction, nil
+	isLast := pc == uint(len(instructions))-1
+	return instruction, isLast, nil
 }
 
 // Toma de a un archivo a la vez y guarda las instrucciones en un map l
@@ -91,45 +98,73 @@ func FindScriptByID(dir string, pid string) (string, error) {
 	return "", fmt.Errorf("no se encontró archivo con ID %s no encontrado", pid)
 }
 
-func Read(physicalAddress int, size int) (string, error) {
-	//if physicalAddress < 0 || physicalAddress+size > len(models.UserMemory) {
-	//	return "", fmt.Errorf("acceso fuera de los límites de memoria")
-	//}
-	//return string(models.UserMemory[physicalAddress : physicalAddress+size]), nil
-	return "DATOS FIJOS PARA PRUEBA", nil
+func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
+    process, ok := models.ProcessTable[pid]
+    if !ok {
+        return nil, ErrProcessNotFound
+    }
+    slog.Debug(fmt.Sprintf("PID: %d - Dirección física solicitada: %d - Tamaño: %d\n", pid, physicalAddress, size))
+
+    if size <= 0 || size > models.MemoryConfig.PageSize {
+        return nil, ErrInvalidRead
+    }
+
+    maxAddress := process.Pages * models.MemoryConfig.PageSize
+    if physicalAddress < 0 || physicalAddress+size > maxAddress {
+        return nil, ErrMemoryViolation
+    }
+
+    data, err := readFromMemory(physicalAddress, size)
+    if err != nil {
+        return nil, err
+    }
+
+    return data, nil
 }
 
-func HandleWrite(address int, data string) error {
-	slog.Debug("Entrando a HandleWrite", "address", address, "data", data)
+func readFromMemory(physicalAddress int, size int) ([]byte, error) {
+    // Verifico que la dirección y el tamaño estén dentro del rango válido
+    if physicalAddress < 0 || physicalAddress+size > len(models.UserMemory) {
+        return nil, fmt.Errorf("dirección fuera de rango")
+    }
+
+    // Copio la porción de memoria solicitada
+    data := make([]byte, size)
+    copy(data, models.UserMemory[physicalAddress:physicalAddress+size])
+
+    return data, nil
+}
+
+func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
+	memoryLock.Lock()
+	defer memoryLock.Unlock()
+	// Verificar que el proceso existe
+    if _, ok := models.ProcessTable[pid]; !ok {
+		return fmt.Errorf("proceso %d no encontrado", pid)
+	}
 
 	// Validación límites de memoria
-	if address < 0 || address >= len(models.UserMemory) {
-		slog.Error("Dirección inválida de escritura", "address", address)
-		return errors.New("invalid memory address")
+	if physicalAddress < 0 || physicalAddress+len(data) > len(models.UserMemory) {
+		return fmt.Errorf("violación de memoria física en dirección %d", physicalAddress)
 	}
 
-	// Validación de escritura
-	if address+len(data) > len(models.UserMemory) {
-		slog.Error("La escritura excede los límites de la memoria", "address", address, "length", len(data))
-		return errors.New("write exceeds memory bounds")
-	}
+	// Escribir en memoria física
+	copy(models.UserMemory[physicalAddress:physicalAddress+len(data)], data)
 
-	procesoValido := false
-	for _, proc := range models.ProcessTable {
-		if address >= proc.BaseAddress && address+len(data) <= proc.BaseAddress+proc.Size {
-			procesoValido = true
-			break
-		}
-	}
-	if !procesoValido {
-		slog.Warn("Escritura fuera del rango de procesos existentes", "address", address)
-		return errors.New("write out of process bounds")
-	}
+	// Obtener número de página a partir de dirección física
+	pageSize := models.MemoryConfig.PageSize
+	pageNumber := physicalAddress / pageSize
 
-	for i := 0; i < len(data); i++ {
-		models.UserMemory[address+i] = data[i]
+	// Marcar bit de modificación
+	root := models.PageTables[pid]
+	entry, err := FindPageEntry(root, pageNumber)
+	if err != nil {
+		return fmt.Errorf("no se encontró entrada de página: %v", err)
 	}
-
-	slog.Info("Escritura realizada con éxito", "address", address, "length", len(data))
+	entry.Modified = true
+	// Actualizar métricas
+	if metrics, ok := models.ProcessMetrics[pid]; ok {
+		metrics.Writes++
+	}
 	return nil
 }

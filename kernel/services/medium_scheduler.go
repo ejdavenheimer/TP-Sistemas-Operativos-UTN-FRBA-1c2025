@@ -17,13 +17,13 @@ func MediumTermScheduler() {
 	slog.Info("Planificador de mediano plazo iniciado.")
 	/////////////////////////////////////////////////////
 	//BORRAR DESPUÉS ESTE PCB, es solo de prueba
-	var pcb = models.PCB{
-		PID:            1,
-		Size:           5,
-		PseudocodePath: "./scripts/prueba2",
-	}
+	//var pcb = models.PCB{
+	//	PID:            1,
+	//	Size:           5,
+	//	PseudocodePath: "./scripts/prueba2",
+	//}
 	/////////////////////////////////////////////////////
-	models.QueueSuspReady.Add(pcb)
+	//models.QueueSuspReady.Add(pcb)
 	for {
 		//Si ambas colas están vacías, vuelve a mirar en otro momento
 
@@ -66,12 +66,12 @@ func movePrincipalMemoryToSwap() {
 	slog.Info("Iniciando solicitud para mover el proceso de memoria principal a SWAP", slog.Int("PID", pcb.PID))
 
 	//Conectarse con memoria y enviar PCB
-	bodyRequest, err := json.Marshal(pcb)
+	bodyRequest, err := json.Marshal(pcb.PID)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al pasar a formato json el pcb: %v", err))
 		panic(err)
 	}
-	url := fmt.Sprintf("http://%s:%d/memoria/swap", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
+	url := fmt.Sprintf("http://%s:%d/memoria/swapIn", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
 	slog.Debug("Enviando PCB a memoria", slog.String("url", url))
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(bodyRequest))
