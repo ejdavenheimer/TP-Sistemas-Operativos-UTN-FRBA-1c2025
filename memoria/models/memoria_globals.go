@@ -55,7 +55,7 @@ type Metrics struct {
 type Process struct {
 	Pid         uint
 	Size        int
-	Pages       int // cantidad de páginas que va a usar
+	Pages       []PageEntry
 	Metrics     *Metrics // metricas del proceso
 }
 // Maps para procesos y métricas
