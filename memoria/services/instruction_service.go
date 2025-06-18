@@ -109,7 +109,7 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
         return nil, ErrInvalidRead
     }
 
-    maxAddress := process.Pages * models.MemoryConfig.PageSize
+    maxAddress := len(process.Pages) * models.MemoryConfig.PageSize
     if physicalAddress < 0 || physicalAddress+size > maxAddress {
         return nil, ErrMemoryViolation
     }
