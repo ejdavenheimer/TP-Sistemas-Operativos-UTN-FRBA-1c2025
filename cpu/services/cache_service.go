@@ -54,8 +54,8 @@ func SetupCache() *PageCache {
 }
 
 // IsEnabled verifica si la caché de páginas está habilitada.
-func IsEnabled(maxEntries int) bool {
-	return maxEntries > 0
+func IsEnabled() bool {
+	return models.CpuConfig.CacheEntries > 0 && Cache != nil
 }
 
 // getEntryKey genera una clave única para el mapa interno.
@@ -77,7 +77,7 @@ func (cache *PageCache) Get(pid, page int) ([]byte, bool) {
 	cache.Mutex.Lock()
 	defer cache.Mutex.Unlock()
 
-	if !IsEnabled(cache.MaxEntries) {
+	if !IsEnabled() {
 		slog.Debug("La cache se encuentra deshabilitada. Operación ignorada.")
 		return nil, false
 	}
@@ -104,7 +104,7 @@ func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
 	cache.Mutex.Lock()
 	defer cache.Mutex.Unlock()
 
-	if !IsEnabled(cache.MaxEntries) {
+	if !IsEnabled() {
 		slog.Debug("La cache se encuentra deshabilitada. Operación ignorada.")
 		return
 	}
@@ -133,6 +133,7 @@ func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
 		Content:     content,
 		ModifiedBit: true,
 		UseBit:      true,
+		LockerBit:   false,
 	}
 	cache.Entries = append(cache.Entries, newCacheEntry)
 	cache.PageMap[key] = len(cache.Entries) - 1
@@ -173,6 +174,7 @@ func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte
 		Content:     newContent,
 		ModifiedBit: true,
 		UseBit:      true,
+		LockerBit:   false,
 	}
 
 	cache.PageMap[getEntryKey(victim.PID, victim.PageNumber)] = victimIndex //victim.PageNumber
@@ -185,6 +187,12 @@ func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte
 func (cache *PageCache) findVictimIndexClock() int {
 	for {
 		entry := &cache.Entries[cache.ClockPointer]
+        
+		// Si bit de lockeo es true no puede ser reemplazada
+		if entry.LockerBit {
+			cache.advancePointer()
+			continue
+		}
 
 		// Si bit de uso es 0, esta es la víctima
 		if !entry.UseBit {
@@ -206,6 +214,12 @@ func (cache *PageCache) findVictimIndexClockM() int {
 		//Primer pasada: busca (0,0)
 		for i := 0; i < cache.MaxEntries; i++ {
 			entry := &cache.Entries[cache.ClockPointer]
+            
+			// Si bit de lockeo es true no puede ser reemplazada
+			if entry.LockerBit {
+				cache.advancePointer()
+				continue
+			}
 
 			if !entry.UseBit && !entry.ModifiedBit {
 				//encontro (0,0)
@@ -250,7 +264,7 @@ func (cache *PageCache) RemoveProcess(pid int) {
 	cache.Mutex.Lock()
 	defer cache.Mutex.Unlock()
 
-	if !IsEnabled(cache.MaxEntries) {
+	if !IsEnabled() {
 		slog.Error(fmt.Sprintf("Se intento de desalojar proceso %d de caché deshabilitada. Operación ignorada.", pid))
 		return
 	}

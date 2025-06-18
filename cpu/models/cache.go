@@ -8,5 +8,6 @@ type CacheEntry struct {
 	Content     []byte // Contenido de la página (bytes)
 	UseBit      bool   // Bit de Uso (U): true si la página fue accedida recientemente
 	ModifiedBit bool   // Bit de Modificación (M): true si la página fue escrita en caché
+	LockerBit   bool   // Bit de bloqueo: true esta siendo leida o escrita por lo que no puede ser reemplazada
 	//TiempoCarga time.Time // Momento en que la página fue cargada en caché
 }
