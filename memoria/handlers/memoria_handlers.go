@@ -277,6 +277,8 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 	// Obtener el contenido del frame en memoria física
 	pageSize := models.MemoryConfig.PageSize
 	frameStart := entry.Frame * pageSize
+	services.UpdatePageBit(request.Pid, frameStart, "use")
+	services.IncrementMetric(request.Pid, "reads")  
 	frameEnd := frameStart + pageSize
 
 	if frameEnd > len(models.UserMemory) {
