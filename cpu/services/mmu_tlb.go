@@ -50,18 +50,6 @@ func TranslateAddress(pid int, logicalAddress int) int {
 
 	slog.Debug("Traducción de dirección", "pid", pid, "logical", logicalAddress, "pageNumber", pageNumber, "pageSize", pageSize)
 
-	// Verifica que la cache se encuentre activado
-	if IsEnabled(Cache.MaxEntries) {
-		content, found := Cache.Get(pid, logicalAddress) //TODO: revisar que hace con el content
-
-		// Cache MISS, no lo encuentra en la caché
-		if !found {
-			Cache.Put(pid, logicalAddress, content) //TODO: revisar de donde sale el contenido
-		}
-	}
-
-	// Si la cache esta desactiva va a buscar en la TLB
-
 	//Verifica que la tlb no este desactivada
 	if tlbMaxSize > 0 {
 		if frame, ok := searchTLB(pid, pageNumber); ok {
@@ -152,6 +140,9 @@ func insert_tlb(pid int, pagina int, frame int) {
 	}
 
 	tlb[victimIndex] = entry
+	slog.Debug(fmt.Sprintf("TLB reemplazo: Reemplazando entrada PID %d - Página %d por PID %d - Página %d",
+	tlb[victimIndex].PID, tlb[victimIndex].PageNumber,
+	entry.PID, entry.PageNumber))
 }
 
 func RequestMemoryFrame(pid int, entries []int) int {
@@ -193,4 +184,18 @@ func intPow(base, exp int) int {
 		exp--
 	}
 	return result
+}
+
+// Elimina las TLBs de los procesos que sean finalizados.
+func RemoveTLBEntriesByPID(pid int) {
+	tlbMutex.Lock()
+	defer tlbMutex.Unlock()
+
+	filtered := make([]models.TLBEntry, 0, len(tlb))
+	for _, entry := range tlb {
+		if entry.PID != pid {
+			filtered = append(filtered, entry)
+		}
+	}
+	tlb = filtered
 }
