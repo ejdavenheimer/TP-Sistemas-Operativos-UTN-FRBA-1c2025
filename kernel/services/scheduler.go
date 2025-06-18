@@ -39,8 +39,8 @@ func longTermScheduler() {
 			//	pcb, _ := models.QueueSuspReady.Get(0)
 			//	process := &pcb
 			//	admitProcess(process, models.QueueSuspReady, "SUSP_READY")
-			//	time.Sleep(500 * time.Millisecond)
-				continue
+			time.Sleep(500 * time.Millisecond)
+			continue
 		}
         
 		//2. Si no hay nada en NEW espera
@@ -59,9 +59,7 @@ func longTermScheduler() {
 		}
 
 		// 4. Planificación normal (algoritmo configurado)
-		pcb, _ := models.QueueNew.Get(0)
-		process := &pcb
-		admitProcess(process, models.QueueNew, "NEW")
+		runScheduler()
 	}
 }
 
@@ -71,15 +69,26 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB], es
 		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
 		return
 	}
-
-	fromQueue.Remove(0)
+    index := findProcessIndexByPID(fromQueue, process.PID)
+    if index != -1 {
+	    fromQueue.Remove(index)
+    }
 	process.EstadoActual = models.EstadoReady
 	process.UltimoCambio = time.Now()
 	models.QueueReady.Add(*process)
     
 	//log obligatorio
-	slog.Info(fmt.Sprintf("## PID %d pasa de %s a READY", process.PID, estadoOrigen))
-	runScheduler()
+	slog.Info(fmt.Sprintf("## PID %d Pasa del estado NEW al estado %s", process.PID, process.EstadoActual))
+}
+
+func findProcessIndexByPID(queue *list.ArrayList[models.PCB], pid int) int {
+	for i := 0; i < queue.Size(); i++ {
+		p, _ := queue.Get(i)
+		if p.PID == pid {
+			return i
+		}
+	}
+	return -1 // no encontrado
 }
 
 func runScheduler() {
@@ -99,46 +108,30 @@ func scheduleFIFO() {
 		return
 	}
 
-	process, _ := models.QueueNew.Get(0)
-	err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
-	if err != nil {
-		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
-		return
-	}
-
-	models.QueueNew.Remove(0) // Elimina el primer proceso de la cola NEW
-	process.EstadoActual = models.EstadoReady
-	models.QueueReady.Add(process)
-	//log obligatorio
-	slog.Info(fmt.Sprintf("## PID %d Pasa del estado NEW al estado %s", process.PID, process.EstadoActual))
+	pcb, _ := models.QueueNew.Get(0)
+	process := &pcb
+	admitProcess(process, models.QueueNew, "NEW")
 }
 
 func scheduleShortestFirst() {
 	if models.QueueNew.Size() == 0 {
 		return
 	}
-	minProcess, _ := models.QueueNew.Get(0)
-	indexProcess := 0
 
-	for i:= 1; i < models.QueueNew.Size(); i++{
-        process,_ := models.QueueNew.Get(i)
-		if process.Size < minProcess.Size {
-			minProcess = process
-			indexProcess = i
+	indexMin := 0
+	minProcess, _ := models.QueueNew.Get(0)
+
+	for i := 1; i < models.QueueNew.Size(); i++ {
+		proc, _ := models.QueueNew.Get(i)
+		if proc.Size < minProcess.Size {
+			minProcess = proc
+			indexMin = i
 		}
 	}
 
-	err := requestMemorySpace(minProcess.PID, minProcess.Size, minProcess.PseudocodePath)
-	if err != nil {
-		slog.Warn("Memoria insuficiente para proceso", "PID", minProcess.PID)
-		return
-	}
-
-	// Si hay espacio, mover a READY
-	// Eliminar solo el primer proceso (más chico) de la cola NEW
-	models.QueueNew.Remove(indexProcess) // Eliminar el primer proceso de la cola NEW
-	minProcess.EstadoActual = models.EstadoReady
-	models.QueueReady.Add(minProcess) // Agregarlo a la cola READY
-	//log obligatorio
-	slog.Info(fmt.Sprintf("## PID %d Pasa del estado NEW al estado %s", minProcess.PID, minProcess.EstadoActual))
+	process, _ := models.QueueNew.Get(indexMin)
+	processPtr := &process
+	admitProcess(processPtr, models.QueueNew, "NEW")
 }
+
+
