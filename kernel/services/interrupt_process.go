@@ -16,7 +16,7 @@ func InterruptExec(pcb models.PCB) {
 
 	if pcb.Rafaga < processToInterrupt.PIDRafaga {
 		//SI ES POSITIVO, SE CONECTA AL ENDPOINT DE CPU PARA PEDIRLE QUE DESALOJE AL PROCESO TAL
-		SendInterruption(processToInterrupt.PIDExecuting, processToInterrupt.Port, processToInterrupt.Ip)
+		SendInterruption(uint(processToInterrupt.PIDExecuting), processToInterrupt.Port, processToInterrupt.Ip)
 
 		//ORDENAR LA COLA - esto debe hacer el planificador siempre, acá no iría
 	}
@@ -24,8 +24,8 @@ func InterruptExec(pcb models.PCB) {
 	//DEJA QUE EL PLANI VUELVA A EJECUTAR, ASI EJECUTA AL QUE SOLICITÓ INTERRUPCIÓN YA QUE ES MÁS CHICO
 }
 
-func SendInterruption(pid int, portCpu int, ipCpu string) {
-	slog.Info("Iniciando pedido de interrupción del proceso", slog.Int("PID", pid))
+func SendInterruption(pid uint, portCpu int, ipCpu string) {
+	slog.Info("Iniciando pedido de interrupción del proceso", "PID", pid)
 	//Conectarse con cpu y enviar PID
 	bodyRequest, err := json.Marshal(pid)
 	if err != nil {

@@ -18,7 +18,7 @@ func FinishProcess() {
 	 	return
 	}
 
-	slog.Info("Iniciando finalización del proceso", slog.Int("PID", pcb.PID))
+	slog.Info("Iniciando finalización del proceso", "PID", pcb.PID)
 	//Conectarse con memoria y enviar PCB
 	bodyRequest, err := json.Marshal(pcb)
 	if err != nil {
@@ -43,7 +43,7 @@ func FinishProcess() {
 
 	//Logear métricas
 	slog.Info("Métricas de estado",
-		slog.Int("PID", pcb.PID),
+		"PID", pcb.PID,
 		slog.Int("NEW_COUNT", int(pcb.ME[models.EstadoNew])),
 		slog.Int("NEW_TIME", int(pcb.MT[models.EstadoNew])),
 		slog.Int("READY_COUNT", pcb.ME[models.EstadoReady]),

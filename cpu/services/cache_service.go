@@ -19,7 +19,7 @@ type PageCache struct {
 	//PageSize     int          // Tamaño de cada página (para leer de memoria)
 	// Mapa para búsqueda rápida: {PID + PageNumber} -> Índice en Entries
 	PageMap map[struct {
-		PID        int
+		PID        uint
 		PageNumber int
 	}]int
 }
@@ -44,7 +44,7 @@ func SetupCache() *PageCache {
 		Algorithm:    models.CpuConfig.CacheReplacement,
 		ClockPointer: 0,
 		PageMap: make(map[struct {
-			PID        int
+			PID        uint
 			PageNumber int
 		}]int),
 	}
@@ -59,19 +59,19 @@ func IsEnabled() bool {
 }
 
 // getEntryKey genera una clave única para el mapa interno.
-func getEntryKey(pid, pageNumber int) struct {
-	PID        int
+func getEntryKey(pid uint, pageNumber int) struct {
+	PID        uint
 	PageNumber int
 } {
 	return struct {
-		PID        int
+		PID        uint
 		PageNumber int
 	}{PID: pid, PageNumber: pageNumber}
 }
 
 // Get intenta obtener una página de la caché.
 // Retorna el contenido de la página y true si es un caché hit.
-func (cache *PageCache) Get(pid, page int) ([]byte, bool) {
+func (cache *PageCache) Get(pid uint, page int) ([]byte, bool) {
 	time.Sleep(time.Duration(models.CpuConfig.CacheDelay) * time.Millisecond)
 
 	cache.Mutex.Lock()
@@ -98,7 +98,7 @@ func (cache *PageCache) Get(pid, page int) ([]byte, bool) {
 }
 
 // Put añade una página a la caché o actualiza una existente.
-func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
+func (cache *PageCache) Put(pid uint, pageNumber int, content []byte) {
 	time.Sleep(time.Duration(models.CpuConfig.CacheDelay) * time.Millisecond)
 
 	cache.Mutex.Lock()
@@ -140,7 +140,7 @@ func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
 	slog.Debug(fmt.Sprintf("Cache Add: PID %d, Page %d en nuevo slot %d. Total: %d/%d", pid, pageNumber, len(cache.Entries)-1, len(cache.Entries), cache.MaxEntries))
 }
 
-func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte) {
+func (cache *PageCache) replaceVictim(newPID uint, newPage int, newContent []byte) {
 	slog.Debug(fmt.Sprintf("Caché llena. Aplicando algoritmo de reemplazo: %s", cache.Algorithm))
 	var victimIndex int
 	switch cache.Algorithm {
@@ -260,7 +260,7 @@ func (cache *PageCache) advancePointer() {
 
 // RemoveProcess desalojar todas las páginas de un Proceso específico de la caché.
 // Las páginas modificadas se escriben de vuelta a la memoria principal.
-func (cache *PageCache) RemoveProcess(pid int) {
+func (cache *PageCache) RemoveProcess(pid uint) {
 	cache.Mutex.Lock()
 	defer cache.Mutex.Unlock()
 
@@ -273,7 +273,7 @@ func (cache *PageCache) RemoveProcess(pid int) {
 
 	newEntries := make([]models.CacheEntry, 0, cache.MaxEntries)
 	newMap := make(map[struct {
-		PID        int
+		PID        uint
 		PageNumber int
 	}]int)
 

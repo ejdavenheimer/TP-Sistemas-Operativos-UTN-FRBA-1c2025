@@ -9,7 +9,7 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 )
 
-func PutProcessInSwap(pid int) error {
+func PutProcessInSwap(pid uint) error {
 	// Abrir (o crear) el archivo swapfile.bin en modo lectura/escritura
 	file, err := os.OpenFile(models.MemoryConfig.SwapFilePath, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
@@ -85,7 +85,7 @@ func PutProcessInSwap(pid int) error {
 	return nil
 }
 
-func RemoveProcessInSwap(pid int) error {
+func RemoveProcessInSwap(pid uint) error {
 	// Buscar la entrada del proceso en la tabla de swap
 	swapEntry, exists := models.ProcessSwapTable[pid]
 	if !exists {

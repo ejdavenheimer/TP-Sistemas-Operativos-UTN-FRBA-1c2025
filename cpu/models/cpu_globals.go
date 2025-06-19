@@ -20,7 +20,7 @@ type Config struct {
 var CpuConfig *Config
 
 type TLBEntry struct {
-	PID         int
+	PID         uint
 	PageNumber  int
 	FrameNumber int
 	LastUsed    int64 //contador para LRU
@@ -35,7 +35,7 @@ type MemoryConfig struct {
 var MemConfig *MemoryConfig
 
 type ExecuteInstructionRequest struct {
-	Pid    int
+	Pid    uint
 	Values []string
 }
 
@@ -61,19 +61,19 @@ type CpuN struct {
 	Ip           string
 	Id           int
 	IsFree       bool
-	PIDExecuting int
+	PIDExecuting uint
 	PIDRafaga    float32
 }
 
 // Para la instrucción READ
 type MemoryReadRequest struct {
-	Pid             int
+	Pid             uint
 	PhysicalAddress int
 	Size            int
 }
 
 type WriteRequest struct {
-	PID             int
+	PID             uint
 	Data            string
 	PhysicalAddress int
 }

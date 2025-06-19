@@ -63,7 +63,7 @@ func movePrincipalMemoryToSwap() {
 	//Armar estructura a enviar
 	var pcb, _ = models.QueueSuspBlocked.Get(0)
 
-	slog.Info("Iniciando solicitud para mover el proceso de memoria principal a SWAP", slog.Int("PID", pcb.PID))
+	slog.Info("Iniciando solicitud para mover el proceso de memoria principal a SWAP", "PID", pcb.PID)
 
 	//Conectarse con memoria y enviar PCB
 	bodyRequest, err := json.Marshal(pcb.PID)

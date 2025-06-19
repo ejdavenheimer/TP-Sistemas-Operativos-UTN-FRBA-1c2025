@@ -25,12 +25,12 @@ type Config struct {
 var KernelConfig *Config
 
 type DeviceRequest struct {
-	Pid            int
+	Pid            uint
 	SuspensionTime int
 }
 
 type SyscallRequest struct {
-	Pid    int
+	Pid    uint
 	Type   string
 	Values []string
 }
@@ -52,7 +52,7 @@ const (
 )
 
 type PCB struct {
-	PID            int                      // Identificador único del proceso
+	PID            uint                      // Identificador único del proceso
 	ParentPID      int                      // Identificador del proceso padre
 	PC             int                      // Program Counter
 	ME             map[Estado]int           // Métricas de Estado: cuántas veces pasó por cada estado
@@ -65,7 +65,7 @@ type PCB struct {
 }
 
 type MemoryRequest struct {
-	PID  int    `json:"pid"`
+	PID  uint    `json:"pid"`
 	Size int    `json:"size"`
 	Path string `json:"path"`
 }
@@ -78,7 +78,7 @@ const (
 )
 
 type PCBExecuteRequest struct {
-	PID           int
+	PID           uint
 	PC            int
 	StatusCodePCB StatusCodePCB
 }

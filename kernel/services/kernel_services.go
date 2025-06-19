@@ -16,7 +16,7 @@ import (
 )
 
 // este servicio le solicita al dispositivo que duerme por el tiempo que le pasemos.
-func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
+func SleepDevice(pid uint, timeSleep int, device ioModel.Device) error {
 	//Crea y codifica la request de conexion a Kernel
 	var request = models.DeviceRequest{Pid: pid, SuspensionTime: timeSleep}
 	body, err := json.Marshal(request)
@@ -128,7 +128,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		}
 
 		// Paso en pid del padre como primer argumento
-		additionalArgs := []string{strconv.Itoa(parentPID)}
+		additionalArgs := []string{fmt.Sprintf("%d", parentPID)}
 		pcb, err := InitProcess(pseudocodeFile, processSize, additionalArgs)
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
@@ -167,7 +167,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 	}
 }
 
-func EndProcess(pid int, reason string) {
+func EndProcess(pid uint, reason string) {
 	slog.Debug(fmt.Sprintf("[%d] Finaliza el proceso - Motivo: %s", pid, reason))
 
 	pcb, _, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
@@ -186,7 +186,7 @@ func EndProcess(pid int, reason string) {
 	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", pid))
 }
 
-func BlockedProcess(pid int, reason string) {
+func BlockedProcess(pid uint, reason string) {
 	slog.Debug(fmt.Sprintf("[%d] Se bloquea el proceso el proceso - Motivo: %s", pid, reason))
 	pcb, _, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
 		return pcb.PID == pid
@@ -210,14 +210,14 @@ func DumpServices(pid uint, size int) {
 		return
 	}
 
-	BlockedProcess(int(pid), "dumping services")
+	BlockedProcess(pid, "dumping services")
 
 	response, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/dump-memory", body)
 	var dumpMemoryResponse memoriaModel.DumpMemoryResponse
 
 	if err != nil || response.StatusCode != 200 {
 		slog.Error(fmt.Sprintf("error: %v", err))
-		EndProcess(int(pid), "DUMP MEMORY")
+		EndProcess(pid, "DUMP MEMORY")
 		return
 	}
 
@@ -231,7 +231,7 @@ func DumpServices(pid uint, size int) {
 	}
 
 	pcb, _, exists := models.QueueBlocked.Find(func(pcb models.PCB) bool {
-		return pcb.PID == int(pid)
+		return pcb.PID == pid
 	})
 
 	if !exists {

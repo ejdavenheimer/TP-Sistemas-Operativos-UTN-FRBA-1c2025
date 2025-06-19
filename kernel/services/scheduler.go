@@ -81,7 +81,7 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB], es
 	slog.Info(fmt.Sprintf("## PID %d Pasa del estado NEW al estado %s", process.PID, process.EstadoActual))
 }
 
-func findProcessIndexByPID(queue *list.ArrayList[models.PCB], pid int) int {
+func findProcessIndexByPID(queue *list.ArrayList[models.PCB], pid uint) int {
 	for i := 0; i < queue.Size(); i++ {
 		p, _ := queue.Get(i)
 		if p.PID == pid {

@@ -70,7 +70,11 @@ func ConectToKernel(nombre, ip string, puerto int) {
 		slog.Info("Petición recibida", "mensaje", strings.TrimSpace(linea))
 
 		// Analiza el tiempo de la peticion 
-		var pid, tiempo int
+		var (
+			pid uint
+		    tiempo int
+		)
+			
 		_, err = fmt.Sscanf(linea, "PID: %*d|TIEMPO_IO: %d", &pid, &tiempo)
 		if err != nil {
 			slog.Warn("Petición inválida", "detalle", linea)

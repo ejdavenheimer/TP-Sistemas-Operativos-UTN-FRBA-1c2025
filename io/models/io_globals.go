@@ -21,10 +21,10 @@ type Device struct {
 }
 
 type DeviceResponse struct {
-	Pid    int
+	Pid    uint
 	Reason string
 }
 type IORequest struct {
-	PID int `json:"pid"`
+	PID uint `json:"pid"`
 	TimeIO int `json:"tiempo"`
 }

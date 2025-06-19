@@ -9,7 +9,7 @@ import (
 )
 
 type loNecesario struct {
-	PID    int
+	PID    uint
 	Puerto int
 	IP     string
 }

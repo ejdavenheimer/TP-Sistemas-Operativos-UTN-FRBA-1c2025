@@ -35,7 +35,7 @@ func ConnectToKernel(ioName string, ioConfig *models.Config) {
 		ioConfig.IpKernel, ioConfig.PortKernel))
 }
 
-func Sleep(pid int, suspensionTime int) {
+func Sleep(pid uint, suspensionTime int) {
 	slog.Debug("Inicio de operación IO", "pid", pid, "duración_ms", suspensionTime)
 	slog.Debug(fmt.Sprintf("[%d] zzzzzzzzzz", pid))
 	time.Sleep(time.Duration(suspensionTime) * time.Millisecond)

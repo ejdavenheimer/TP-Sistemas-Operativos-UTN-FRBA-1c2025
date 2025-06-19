@@ -7,11 +7,15 @@ import (
 	"time"
 	"os"
 	"strconv"
+	"sync"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 )
 
-var nextPID int
+var (
+    nextPID uint = 0
+    pidMutex sync.Mutex
+)
 
 func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string) (*models.PCB, error) {
 	_, err := os.Stat(pseudocodeFile)
@@ -58,7 +62,7 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 	return pcb, nil
 }
 // Envía una solicitud a Memoria para asignar espacio y cargar instrucciones
-func requestMemorySpace(pid int, processSize int, pseudocodePath string) error {
+func requestMemorySpace(pid uint, processSize int, pseudocodePath string) error {
     request := models.MemoryRequest{
         PID: pid,
         Size: processSize,
@@ -79,9 +83,13 @@ func requestMemorySpace(pid int, processSize int, pseudocodePath string) error {
 }
 
 
-func generatePID() int {
-    nextPID++
-    return nextPID - 1
+func generatePID() uint {
+	pidMutex.Lock()
+    defer pidMutex.Unlock()
+
+    pid := nextPID
+	nextPID++
+    return pid
 }
 func updateStateMetrics(pcb *models.PCB, estado models.Estado) {
     // Incrementa el contador de veces que el proceso estuvo en ese estado

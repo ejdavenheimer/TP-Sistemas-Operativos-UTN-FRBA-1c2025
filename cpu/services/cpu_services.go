@@ -261,7 +261,7 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 	increase_PC()
 }
 
-func getPageFromMemory(pid int, pageNumber int) []byte {
+func getPageFromMemory(pid uint, pageNumber int) []byte {
 	type PageRequest struct {
 		PID        uint `json:"pid"`
 		PageNumber int `json:"page_number"`
@@ -270,7 +270,7 @@ func getPageFromMemory(pid int, pageNumber int) []byte {
 		Content []byte `json:"content"`
 	}
 
-	req := PageRequest{PID: uint(pid), PageNumber: pageNumber}
+	req := PageRequest{PID: pid, PageNumber: pageNumber}
 	body, _ := json.Marshal(req)
 
 	resp, err := client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST", "memoria/leerPagina", body)
@@ -335,7 +335,7 @@ func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) me
 	return instructionResponse
 }
 
-func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, isFinished *bool) {
+func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, isFinished *bool) {
 	value := strings.Split(instructions, " ")
 
 	var syscallRequest kernelModel.SyscallRequest
