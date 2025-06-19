@@ -66,6 +66,7 @@ func main() {
 	http.HandleFunc("PUT /kernel/proceso", kernelHandler.UpdateProcessHandler())
 	http.HandleFunc("POST /kernel/proceso", kernelHandler.AddProcessHandler())
 	http.HandleFunc("POST /kernel/dispositivos", kernelHandler.ConnectIoHandler())
+	http.HandleFunc("POST /kernel/dispositivo-finalizado", kernelHandler.FinishDeviceHandler())
 	http.HandleFunc("POST /kernel/syscall", kernelHandler.ExecuteSyscallHandler())
 	http.HandleFunc("POST /kernel/cpus", kernelHandler.ConnectCpuHandler())
 	http.HandleFunc("POST /kernel/informar-io-finalizada", kernelHandler.FinishExecIOHandler())

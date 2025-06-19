@@ -3,13 +3,13 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"net/http"
-
 	cpuModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/services"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
+	"log/slog"
+	"net/http"
 )
 
 func ConnectIoHandler() func(http.ResponseWriter, *http.Request) {
@@ -74,6 +74,22 @@ func GetCpuMapHandlers() func(http.ResponseWriter, *http.Request) {
 		}
 	}
 }
+
+func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		var device ioModel.DeviceResponse
+		err := json.NewDecoder(request.Body).Decode(&device)
+
+		if err != nil {
+			http.Error(writer, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		services.FinishDevice(device.Pid, device.Reason)
+		server.SendJsonResponse(writer, device)
+	}
+}
+
 func DeviceRegisterHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request models.Device
@@ -96,7 +112,8 @@ func DeviceRegisterHandler() http.HandlerFunc {
 		json.NewEncoder(w).Encode(map[string]string{"status": "OK"})
 	}
 }
-//EJECUTA UNA SYSCALL IO 
+
+// EJECUTA UNA SYSCALL IO
 func ExecuteSyscallIOHandler() func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		var syscallRequest models.SyscallRequest

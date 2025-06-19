@@ -244,3 +244,19 @@ func DumpServices(pid uint, size int) {
 
 	slog.Debug(fmt.Sprintf("Response: %s", dumpMemoryResponse.Result))
 }
+
+func FinishDevice(pid int, reason string) {
+	slog.Warn("TODO: Implementar")
+	//deviceRequested, index, _ := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
+	//	return syscallRequest.Values[0] == d.Name && !d.IsFree
+	//})
+	//deviceRequested.IsFree = true
+	//err = models.ConnectedDeviceList.Set(index, deviceRequested)
+	//if err != nil {
+	//	slog.Error(fmt.Sprintf("error: %v", err))
+	//	return
+	//}
+	//server.SendJsonResponse(writer, map[string]interface{}{
+	//	"action": "continue",
+	//})
+}
