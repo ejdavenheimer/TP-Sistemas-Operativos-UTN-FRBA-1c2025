@@ -55,12 +55,16 @@ func main() {
 		slog.Error("Error al iniciar proceso", "err", err)
 		return
 	}
-	
+
 	/* ----------> ENDPOINTS <----------*/
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Kernel"))
 	http.HandleFunc("GET /kernel", handlers.HandshakeHandler("Kernel en funcionamiento 🚀"))
 	http.HandleFunc("GET /kernel/dispositivos-conectados", kernelHandler.GetDevicesMapHandlers())
 	http.HandleFunc("GET /kernel/cpus-conectadas", kernelHandler.GetCpuMapHandlers())
+	http.HandleFunc("GET /kernel/proceso", kernelHandler.GetProcessHandler())
+	http.HandleFunc("GET /kernel/procesos", kernelHandler.GetAllHandler())
+	http.HandleFunc("PUT /kernel/proceso", kernelHandler.UpdateProcessHandler())
+	http.HandleFunc("POST /kernel/proceso", kernelHandler.AddProcessHandler())
 	http.HandleFunc("POST /kernel/dispositivos", kernelHandler.ConnectIoHandler())
 	http.HandleFunc("POST /kernel/syscall", kernelHandler.ExecuteSyscallHandler())
 	http.HandleFunc("POST /kernel/cpus", kernelHandler.ConnectCpuHandler())
@@ -71,7 +75,7 @@ func main() {
 	http.HandleFunc("POST /kernel/finalizarProceso", kernelHandler.FinishProcessHandler)
 	http.HandleFunc("POST /kernel/ejecutarProceso", kernelHandler.ExecuteProcessHandler)
 
-	//Iniciacialización del servidor
+	//Inicialización del servidor
 	err = server.InitServer(models.KernelConfig.PortKernel)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error initializing server: %v", err))
