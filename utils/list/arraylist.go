@@ -1,6 +1,8 @@
 package list
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // List Definir la interfaz List
 type List[T any] interface {
@@ -10,6 +12,7 @@ type List[T any] interface {
 	Find(predicate func(T) bool) (T, int, bool)          // Permite buscar un elemento de la lista dado un predicado.
 	ForEach(callback func(T))                            // A cada elemento de la lista se le va aplicar la función que le pase
 	Get(index int) (T, error)                            // Obtener un elemento a partir de un índice dado
+	GetAll() []T                                         // Retorna todos los elementos que se encuentra en la lista
 	Insert(index int, item T) error                      // Insertar un elemento en el índice dado
 	Pop() (T, error)                                     // Remover el último elemento de la lista
 	Remove(index int)                                    // Eliminar un elemento en el índice dado
@@ -322,4 +325,15 @@ func (list *ArrayList[T]) ForEach(callback func(T)) {
 	for _, item := range list.items {
 		callback(item)
 	}
+}
+
+// GetAll retorna una copia de todos los elementos que se encuentra en la lista
+func (list *ArrayList[T]) GetAll() []T {
+	//list.mu.Lock() // Bloquear el mutex
+	//defer list.mu.Unlock() // Asegurar que se libere
+
+	// Crear una copia del slice para evitar que modificaciones externas afecten la lista interna
+	itemsCopy := make([]T, len(list.items))
+	copy(itemsCopy, list.items)
+	return itemsCopy
 }
