@@ -85,7 +85,7 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		services.FinishDevice(device.Pid, device.Reason)
+		services.FinishDevice(device.Port)
 		server.SendJsonResponse(writer, device)
 	}
 }

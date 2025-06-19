@@ -37,6 +37,7 @@ func SleepHandler() func(http.ResponseWriter, *http.Request) {
 		response := ioModel.DeviceResponse{
 			Pid:    deviceRequest.Pid,
 			Reason: "Solicitud recibida", //"Fin de IO",
+			Port:   ioModel.IoConfig.PortIo,
 		}
 
 		server.SendJsonResponse(writer, response)

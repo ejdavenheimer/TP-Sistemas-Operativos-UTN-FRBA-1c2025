@@ -111,19 +111,22 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		}
 
 		//Acá se tendría que bloquear el proceso
-
-		deviceRequested, index, _ = models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
-			return syscallRequest.Values[0] == d.Name && !d.IsFree
-		})
-		deviceRequested.IsFree = true
-		err = models.ConnectedDeviceList.Set(index, deviceRequested)
-		if err != nil {
-			slog.Error(fmt.Sprintf("error: %v", err))
-			return
-		}
 		server.SendJsonResponse(writer, map[string]interface{}{
-			"action": "continue",
+			"action": "block",
 		})
+
+		//deviceRequested, index, _ = models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
+		//	return syscallRequest.Values[0] == d.Name && !d.IsFree
+		//})
+		//deviceRequested.IsFree = true
+		//err = models.ConnectedDeviceList.Set(index, deviceRequested)
+		//if err != nil {
+		//	slog.Error(fmt.Sprintf("error: %v", err))
+		//	return
+		//}
+		//server.SendJsonResponse(writer, map[string]interface{}{
+		//	"action": "continue",
+		//})
 	case "INIT_PROC":
 		if len(syscallRequest.Values) < 2 {
 			slog.Error("INIT_PROC necesita 2 parametros: path y tamaño")
@@ -259,18 +262,18 @@ func DumpServices(pid uint, size int) {
 	slog.Debug(fmt.Sprintf("Response: %s", dumpMemoryResponse.Result))
 }
 
-func FinishDevice(pid int, reason string) {
-	slog.Warn("TODO: Implementar")
-	//deviceRequested, index, _ := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
-	//	return syscallRequest.Values[0] == d.Name && !d.IsFree
-	//})
-	//deviceRequested.IsFree = true
-	//err = models.ConnectedDeviceList.Set(index, deviceRequested)
-	//if err != nil {
-	//	slog.Error(fmt.Sprintf("error: %v", err))
-	//	return
-	//}
-	//server.SendJsonResponse(writer, map[string]interface{}{
-	//	"action": "continue",
-	//})
+func FinishDevice(port int) bool {
+	deviceRequested, index, _ := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
+		return port == d.Port && !d.IsFree
+	})
+
+	deviceRequested.IsFree = true
+
+	err := models.ConnectedDeviceList.Set(index, deviceRequested)
+	if err != nil {
+		slog.Error(fmt.Sprintf("error: %v", err))
+		return false
+	}
+
+	return true
 }
