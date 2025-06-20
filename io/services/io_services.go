@@ -37,7 +37,7 @@ func ConnectToKernel(ioName string, ioConfig *models.Config) {
 
 func notifyKernel(pid int, message string, ioConfig *models.Config) {
 	//Crea y codifica la request de conexion a Kernel
-	var request = models.DeviceResponse{Pid: pid, Reason: message}
+	var request = models.DeviceResponse{Pid: pid, Reason: message, Port: ioConfig.PortIo}
 	body, err := json.Marshal(request)
 
 	if err != nil {
