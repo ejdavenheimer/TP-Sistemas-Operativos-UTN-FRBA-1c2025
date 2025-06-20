@@ -85,15 +85,21 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		isSuccess := services.FinishDevice(device.Port)
+		isSuccess, pid := services.FinishDevice(device.Port)
 
 		if !isSuccess {
 			slog.Error("Qué rompimos? :(")
 			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
 			return
 		}
+		var state models.Estado = models.EstadoReady
 
-		_, isSuccess, err = services.MoveProcessToState(device.Pid, models.EstadoReady)
+		if device.Reason == "KILL" {
+			slog.Debug("Se murió :(")
+			state = models.EstadoExit
+		}
+
+		_, isSuccess, err = services.MoveProcessToState(pid, state)
 
 		if !isSuccess || err != nil {
 			slog.Error("Qué rompimos? :(")

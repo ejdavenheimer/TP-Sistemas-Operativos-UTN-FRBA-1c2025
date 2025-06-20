@@ -39,18 +39,6 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 		return errors.New("respuesta inválida")
 	}
 
-	//TODO: revisar
-	if err != nil {
-		EndProcess(pid, "Dispositivo desconectado")
-		result, index, _ := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
-			return device.Port == d.Port
-		})
-		slog.Debug(fmt.Sprintf("Se va a desconectar el dispositivo %s.", result.Name))
-		models.ConnectedDeviceList.Remove(index)
-
-		return errors.New("dispositivo desconectado")
-	}
-
 	responseBody, _ := io.ReadAll(response.Body)
 	slog.Debug(fmt.Sprintf("Response: %s", string(responseBody)))
 
@@ -98,6 +86,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		}
 
 		deviceRequested.IsFree = false
+		deviceRequested.PID = syscallRequest.Pid
 		err := models.ConnectedDeviceList.Set(index, deviceRequested)
 		if err != nil {
 			slog.Error(fmt.Sprintf("error: %v", err))
@@ -267,14 +256,14 @@ func DumpServices(pid uint, size int) {
 	slog.Debug(fmt.Sprintf("Response: %s", dumpMemoryResponse.Result))
 }
 
-func FinishDevice(port int) bool {
+func FinishDevice(port int) (bool, int) {
 	deviceRequested, index, _ := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
 		return port == d.Port && !d.IsFree
 	})
 
 	if index == -1 {
 		slog.Debug("No se encontró el dispositivo")
-		return false
+		return false, -1
 	}
 
 	deviceRequested.IsFree = true
@@ -282,8 +271,8 @@ func FinishDevice(port int) bool {
 	err := models.ConnectedDeviceList.Set(index, deviceRequested)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error: %v", err))
-		return false
+		return false, -1
 	}
 
-	return true
+	return true, deviceRequested.PID
 }

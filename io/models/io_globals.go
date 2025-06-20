@@ -1,6 +1,9 @@
 package models
 
-import "sync"
+import (
+	"os"
+	"sync"
+)
 
 type Config struct {
 	IpKernel   string `json:"ip_kernel"`
@@ -18,6 +21,7 @@ type Device struct {
 	Ip     string
 	Port   int
 	IsFree bool
+	PID    int
 }
 
 type DeviceResponse struct {
@@ -30,3 +34,5 @@ type IORequest struct {
 	PID    int `json:"pid"`
 	TimeIO int `json:"tiempo"`
 }
+
+var Shutdown = make(chan os.Signal, 1)
