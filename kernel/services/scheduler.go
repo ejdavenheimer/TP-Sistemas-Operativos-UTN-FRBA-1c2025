@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"log/slog"
-	"sort"
 	"time"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
@@ -40,7 +39,7 @@ func longTermScheduler() {
 			//	pcb, _ := models.QueueSuspReady.Get(0)
 			//	process := &pcb
 			//	admitProcess(process, models.QueueSuspReady, "SUSP_READY")
-			//	time.Sleep(500 * time.Millisecond)
+			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
@@ -119,32 +118,18 @@ func scheduleShortestFirst() {
 		return
 	}
 
+	indexMin := 0
+	minProcess, _ := models.QueueNew.Get(0)
+
 	for i := 1; i < models.QueueNew.Size(); i++ {
-		process, _ := models.QueueNew.Get(i)
-		if process.Size < minProcess.Size {
-			minProcess = process
-			indexProcess = i
+		proc, _ := models.QueueNew.Get(i)
+		if proc.Size < minProcess.Size {
+			minProcess = proc
+			indexMin = i
 		}
 	}
 
-	// Ordenar los procesos por tamaño (ascendente)
-	sort.Slice(slice, func(i, j int) bool {
-		return slice[i].Size < slice[j].Size
-	})
-
-	process := slice[0] // Proceso con menor tamaño (primer elemento ordenado)
-	// Verificar si hay suficiente memoria para el primer proceso en la cola NEW
-	err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
-	if err != nil {
-		slog.Warn("Memoria insuficiente para proceso", "PID", minProcess.PID)
-		return
-	}
-
-	// Si hay espacio, mover a READY
-	// Eliminar solo el primer proceso (más chico) de la cola NEW
-	models.QueueNew.Remove(indexProcess) // Eliminar el primer proceso de la cola NEW
-	minProcess.EstadoActual = models.EstadoReady
-	models.QueueReady.Add(minProcess) // Agregarlo a la cola READY
-	//log obligatorio
-	slog.Info(fmt.Sprintf("## PID %d Pasa del estado NEW al estado %s", minProcess.PID, minProcess.EstadoActual))
+	process, _ := models.QueueNew.Get(indexMin)
+	processPtr := &process
+	admitProcess(processPtr, models.QueueNew, "NEW")
 }
