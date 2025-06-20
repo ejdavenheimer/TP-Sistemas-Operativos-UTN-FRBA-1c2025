@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"strconv"
+
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
-	"io"
-	"log/slog"
-	"net/http"
-	"strconv"
 )
 
 // este servicio le solicita al dispositivo que duerme por el tiempo que le pasemos.
@@ -51,8 +52,8 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 	}
 	slog.Debug(fmt.Sprintf("Response: %s", deviceResponse.Reason))
 
-	slog.Info(fmt.Sprintf("Enviando syscall a dispositivo %s (%s:%d) - PID: %d - Tiempo: %dms", 
-	device.Name, device.Ip, device.Port, pid, timeSleep))
+	slog.Info(fmt.Sprintf("Enviando syscall a dispositivo %s (%s:%d) - PID: %d - Tiempo: %dms",
+		device.Name, device.Ip, device.Port, pid, timeSleep))
 	return nil
 }
 
@@ -65,7 +66,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return syscallRequest.Values[0] == d.Name && d.IsFree
 		})
 
-			if exists {
+		if exists {
 			sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
 			SleepDevice(0, sleepTime, deviceRequested)
 		}
@@ -141,7 +142,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			"action": "continue",
 		})
 	case "DUMP_MEMORY":
-		pcb, index, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+		pcb, index, exists := models.QueueExec.Find(func(pcb *models.PCB) bool {
 			return pcb.PID == syscallRequest.Pid
 		})
 		if !exists || index == -1 {
@@ -170,7 +171,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 func EndProcess(pid int, reason string) {
 	slog.Debug(fmt.Sprintf("[%d] Finaliza el proceso - Motivo: %s", pid, reason))
 
-	pcb, _, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+	pcb, _, exists := models.QueueExec.Find(func(pcb *models.PCB) bool {
 		return pcb.PID == pid
 	})
 
@@ -188,7 +189,7 @@ func EndProcess(pid int, reason string) {
 
 func BlockedProcess(pid int, reason string) {
 	slog.Debug(fmt.Sprintf("[%d] Se bloquea el proceso el proceso - Motivo: %s", pid, reason))
-	pcb, _, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+	pcb, _, exists := models.QueueExec.Find(func(pcb *models.PCB) bool {
 		return pcb.PID == pid
 	})
 

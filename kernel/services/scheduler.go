@@ -40,11 +40,7 @@ func longTermScheduler() {
 			//	pcb, _ := models.QueueSuspReady.Get(0)
 			//	process := &pcb
 			//	admitProcess(process, models.QueueSuspReady, "SUSP_READY")
-<<<<<<< HEAD
 			//	time.Sleep(500 * time.Millisecond)
-=======
-			time.Sleep(500 * time.Millisecond)
->>>>>>> origin/dev
 			continue
 		}
 
@@ -74,10 +70,10 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB], es
 		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
 		return
 	}
-    index := findProcessIndexByPID(fromQueue, process.PID)
-    if index != -1 {
-	    fromQueue.Remove(index)
-    }
+	index := findProcessIndexByPID(fromQueue, process.PID)
+	if index != -1 {
+		fromQueue.Remove(index)
+	}
 	process.EstadoActual = models.EstadoReady
 	process.UltimoCambio = time.Now()
 	models.QueueReady.Add(*process)
@@ -123,7 +119,6 @@ func scheduleShortestFirst() {
 		return
 	}
 
-<<<<<<< HEAD
 	for i := 1; i < models.QueueNew.Size(); i++ {
 		process, _ := models.QueueNew.Get(i)
 		if process.Size < minProcess.Size {
@@ -152,22 +147,4 @@ func scheduleShortestFirst() {
 	models.QueueReady.Add(minProcess) // Agregarlo a la cola READY
 	//log obligatorio
 	slog.Info(fmt.Sprintf("## PID %d Pasa del estado NEW al estado %s", minProcess.PID, minProcess.EstadoActual))
-=======
-	indexMin := 0
-	minProcess, _ := models.QueueNew.Get(0)
-
-	for i := 1; i < models.QueueNew.Size(); i++ {
-		proc, _ := models.QueueNew.Get(i)
-		if proc.Size < minProcess.Size {
-			minProcess = proc
-			indexMin = i
-		}
-	}
-
-	process, _ := models.QueueNew.Get(indexMin)
-	processPtr := &process
-	admitProcess(processPtr, models.QueueNew, "NEW")
->>>>>>> origin/dev
 }
-
-

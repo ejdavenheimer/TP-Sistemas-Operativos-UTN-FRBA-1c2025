@@ -102,7 +102,13 @@ var NotifyReady = make(chan int, 1)
 
 func GetPCBConMayorRafagaRestante() *PCB {
 	var max *PCB
-	for _, pcb := range PCBsEnEjecucion {
+	size := QueueExec.Size() // Guarda el tamaño actual de la lista QueueExec
+
+	for i := 0; i < size; i++ {
+		pcb, err := QueueExec.Get(i)
+		if err != nil {
+			continue
+		}
 		rafagaRestante := pcb.RafagaEstimada - pcb.RafagaReal
 		if max == nil || rafagaRestante > (max.RafagaEstimada-max.RafagaReal) {
 			max = pcb
