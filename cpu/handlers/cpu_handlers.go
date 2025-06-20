@@ -28,8 +28,10 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 			PC:       instructionRequest.PC,
 			PathName: instructionRequest.PathName,
 		}
+
 		models.CpuRegisters.PC = uint(request.PC)
-		var isFinished bool = false
+		var isFinished, isBlocked bool = false, false
+
 		for !models.InterruptControl.InterruptPending && !isFinished {
 			fetchResult := services.Fetch(request, cpuConfig)
 
@@ -38,7 +40,7 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 				return
 			}
 
-			services.DecodeAndExecute(instructionRequest.Pid, fetchResult.Instruction, cpuConfig, &isFinished)
+			services.DecodeAndExecute(instructionRequest.Pid, fetchResult.Instruction, cpuConfig, &isFinished, &isBlocked)
 
 			if !isFinished && fetchResult.IsLast {
 				isFinished = fetchResult.IsLast
@@ -54,10 +56,17 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 
 		if models.InterruptControl.InterruptPending {
 			response.StatusCodePCB = kernelModel.NeedInterrupt
+			slog.Debug("ExecuteProcessHandler need interrupt")
 		}
 
-		if isFinished && !models.InterruptControl.InterruptPending {
+		if isBlocked {
+			response.StatusCodePCB = kernelModel.NeedReplan //TODO: chequear esto con emer
+			slog.Debug("ExecuteProcessHandler need re-plan")
+		}
+
+		if isFinished && !isBlocked && !models.InterruptControl.InterruptPending {
 			response.StatusCodePCB = kernelModel.NeedFinish
+			slog.Debug("ExecuteProcessHandler need finish")
 		}
 
 		models.InterruptControl.InterruptPending = false
@@ -85,9 +94,9 @@ func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Re
 
 		instructions, _ := instructionResponse.Instruction[uint(instructionRequest.Pid)]
 		models.CpuRegisters.PC = 0
-		var isFinished bool = false
+		var isFinished, isBlocked bool = false, false
 		for _, instr := range instructions {
-			services.DecodeAndExecute(instructionRequest.Pid, instr, cpuConfig, &isFinished)
+			services.DecodeAndExecute(instructionRequest.Pid, instr, cpuConfig, &isFinished, &isBlocked)
 		}
 	}
 }
