@@ -27,18 +27,16 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 	}
 
 	//Envia la request de conexion a Kernel
+	slog.Info(fmt.Sprintf("Enviando syscall a dispositivo %s (%s:%d) - PID: %d - Tiempo: %dms",
+		device.Name, device.Ip, device.Port, pid, timeSleep))
+
 	response, err := client.DoRequest(device.Port, device.Ip, "POST", "io", body)
 	var deviceResponse ioModel.DeviceResponse
 
-	if err != nil {
-		EndProcess(pid, "Dispositivo desconectado")
-		result, index, _ := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
-			return device.Port == d.Port
-		})
-		slog.Debug(fmt.Sprintf("Se va a desconectar el dispositivo %s.", result.Name))
-		models.ConnectedDeviceList.Remove(index)
-
-		return errors.New("dispositivo desconectado")
+	if response.StatusCode != 200 {
+		slog.Error(fmt.Sprintf("status code: %d", response.StatusCode))
+		panic(response.Status)
+		return errors.New("respuesta inválida")
 	}
 
 	responseBody, _ := io.ReadAll(response.Body)
@@ -49,10 +47,11 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
 		return err
 	}
+
 	slog.Debug(fmt.Sprintf("Response: %s", deviceResponse.Reason))
 
-	slog.Info(fmt.Sprintf("Enviando syscall a dispositivo %s (%s:%d) - PID: %d - Tiempo: %dms", 
-	device.Name, device.Ip, device.Port, pid, timeSleep))
+	// se bloquea proceso
+	BlockedProcess(pid, deviceResponse.Reason)
 	return nil
 }
 
@@ -61,29 +60,33 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 	slog.Info(fmt.Sprintf("## %d - Solicitó syscall: %s", syscallRequest.Pid, syscallName))
 	switch syscallName {
 	case "IO":
+		// Primero chequea si existe el dispositivo
 		deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
-			return syscallRequest.Values[0] == d.Name && d.IsFree
+			return syscallRequest.Values[0] == d.Name
 		})
-
-			if exists {
-			sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
-			SleepDevice(0, sleepTime, deviceRequested)
-		}
-
-		if index == -1 {
-			slog.Debug("El dispositivo se encuentra ocupado...")
-			BlockedProcess(syscallRequest.Pid, fmt.Sprintf("El dispositivo %s no se encuentra disponible", syscallRequest.Type))
-			return
-		}
 
 		if !exists || deviceRequested.Name == "" {
 			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
-			http.Error(writer, "Dispositivo no conectado.", http.StatusNotFound)
 			EndProcess(syscallRequest.Pid, fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
+			server.SendJsonResponse(writer, map[string]interface{}{
+				"action": "exit",
+			})
+			return
+		}
+
+		// Chequeo si el dispositivo se encuentra libre
+		// En caso de que no se encuentre libre se deberá bloquear el proceso.
+		if !deviceRequested.IsFree {
+			slog.Debug("El dispositivo se encuentra ocupado...")
+			BlockedProcess(syscallRequest.Pid, fmt.Sprintf("El dispositivo %s no se encuentra disponible", syscallRequest.Type))
+			server.SendJsonResponse(writer, map[string]interface{}{
+				"action": "block",
+			})
 			return
 		}
 
 		deviceRequested.IsFree = false
+		deviceRequested.PID = syscallRequest.Pid
 		err := models.ConnectedDeviceList.Set(index, deviceRequested)
 		if err != nil {
 			slog.Error(fmt.Sprintf("error: %v", err))
@@ -93,22 +96,15 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		device := ioModel.Device{Ip: deviceRequested.Ip, Port: deviceRequested.Port, Name: syscallRequest.Values[0]}
 		sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
 		err = SleepDevice(syscallRequest.Pid, sleepTime, device)
+
 		if err != nil {
 			slog.Error(fmt.Sprintf("error: %v", err))
 			return
 		}
 
-		deviceRequested, index, _ = models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
-			return syscallRequest.Values[0] == d.Name && !d.IsFree
-		})
-		deviceRequested.IsFree = true
-		err = models.ConnectedDeviceList.Set(index, deviceRequested)
-		if err != nil {
-			slog.Error(fmt.Sprintf("error: %v", err))
-			return
-		}
+		//Acá se bloquea el proceso
 		server.SendJsonResponse(writer, map[string]interface{}{
-			"action": "continue",
+			"action": "block",
 		})
 	case "INIT_PROC":
 		if len(syscallRequest.Values) < 2 {
@@ -174,23 +170,38 @@ func EndProcess(pid int, reason string) {
 		return pcb.PID == pid
 	})
 
-	slog.Debug(fmt.Sprintf("Current execution: %v", pcb.PID))
-
 	if !exists {
 		slog.Error("No se encontró al proceso")
 		return
 	}
 
-	pcb.EstadoActual = models.EstadoExit
-	models.QueueExit.Add(pcb)
+	pcb, isSuccess, err := MoveProcessToState(pcb.PID, models.EstadoExit)
+
+	if !isSuccess || err != nil {
+		slog.Error(fmt.Sprintf("No se encontro  el proceso <%d>", pid))
+		return
+	}
+
+	slog.Debug(fmt.Sprintf("El proceso <%d> se encuentra en estado %s", pcb.PID, pcb.EstadoActual))
+
+	//pcb.EstadoActual = models.EstadoExit
+	//models.QueueExit.Add(pcb)
 	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", pid))
 }
 
 func BlockedProcess(pid int, reason string) {
 	slog.Debug(fmt.Sprintf("[%d] Se bloquea el proceso el proceso - Motivo: %s", pid, reason))
-	pcb, _, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+	// Para que un proceso se bloquee tiene que estar en ejecución.
+	pcb, index, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
 		return pcb.PID == pid
 	})
+
+	if index == -1 {
+		slog.Error(fmt.Sprintf("No se encontro  el proceso <%d>", index))
+		return
+	}
+
+	models.QueueExec.Remove(index)
 
 	if !exists {
 		slog.Error(fmt.Sprintf("No se encontro el proceso <%d>", pid))
@@ -243,4 +254,25 @@ func DumpServices(pid uint, size int) {
 	models.QueueReady.Add(pcb)
 
 	slog.Debug(fmt.Sprintf("Response: %s", dumpMemoryResponse.Result))
+}
+
+func FinishDevice(port int) (bool, int) {
+	deviceRequested, index, _ := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
+		return port == d.Port && !d.IsFree
+	})
+
+	if index == -1 {
+		slog.Debug("No se encontró el dispositivo")
+		return false, -1
+	}
+
+	deviceRequested.IsFree = true
+
+	err := models.ConnectedDeviceList.Set(index, deviceRequested)
+	if err != nil {
+		slog.Error(fmt.Sprintf("error: %v", err))
+		return false, -1
+	}
+
+	return true, deviceRequested.PID
 }

@@ -12,7 +12,7 @@ import (
 type Config struct {
 	IpMemory           string  `json:"ip_memory"`
 	PortMemory         int     `json:"port_memory"`
-	IpKernel           string     `josn:"ip_kernel"`
+	IpKernel           string  `json:"ip_kernel"`
 	PortKernel         int     `json:"port_kernel"`
 	SchedulerAlgorithm string  `json:"scheduler_algorithm"`
 	NewAlgorithm       string  `json:"new_algorithm"`
@@ -43,12 +43,13 @@ var ConnectedCpuMap = helpers.CpuMap{M: make(map[string]cpuModels.CpuN)}
 type Estado string
 
 const (
-	EstadoNew             Estado = "NEW"
-	EstadoReady           Estado = "READY"
-	EstadoExecuting       Estado = "EXECUTING"
-	EstadoBlocked         Estado = "BLOCKED"
-	EstadoExit            Estado = "EXIT"
-	EstadoSuspendidoReady Estado = "SUSPREADY"
+	EstadoNew               Estado = "NEW"
+	EstadoReady             Estado = "READY"
+	EstadoExecuting         Estado = "EXECUTING"
+	EstadoBlocked           Estado = "BLOCKED"
+	EstadoExit              Estado = "EXIT"
+	EstadoSuspendidoReady   Estado = "SUSPREADY"
+	EstadoSuspendidoBlocked Estado = "SUSPEND_BLOCKED"
 )
 
 type PCB struct {
@@ -92,7 +93,17 @@ const (
 )
 
 type Device struct {
-    Name string `json:"name"`
-    Ip   string `json:"ip"`
-    Port int    `json:"port"`
+	Name string `json:"name"`
+	Ip   string `json:"ip"`
+	Port int    `json:"port"`
+}
+
+type ProcessResponse struct {
+	Pid          int    `json:"pid"`
+	EstadoActual Estado `json:"estadoActual"`
+}
+
+type ProcessRequest struct {
+	Pid          int    `json:"pid"`
+	EstadoActual Estado `json:"estadoActual"`
 }
