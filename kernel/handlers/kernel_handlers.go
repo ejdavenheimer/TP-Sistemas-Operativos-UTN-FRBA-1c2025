@@ -85,7 +85,22 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		services.FinishDevice(device.Port)
+		isSuccess := services.FinishDevice(device.Port)
+
+		if !isSuccess {
+			slog.Error("Qué rompimos? :(")
+			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
+			return
+		}
+
+		_, isSuccess, err = services.MoveProcessToState(device.Pid, models.EstadoReady)
+
+		if !isSuccess || err != nil {
+			slog.Error("Qué rompimos? :(")
+			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
+			return
+		}
+
 		server.SendJsonResponse(writer, device)
 	}
 }

@@ -282,6 +282,11 @@ func FinishDevice(port int) bool {
 		return port == d.Port && !d.IsFree
 	})
 
+	if index == -1 {
+		slog.Debug("No se encontró el dispositivo")
+		return false
+	}
+
 	deviceRequested.IsFree = true
 
 	err := models.ConnectedDeviceList.Set(index, deviceRequested)
