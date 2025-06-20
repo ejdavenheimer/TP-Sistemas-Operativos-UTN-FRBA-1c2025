@@ -86,7 +86,6 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 
-		if index == -1 {
 		// Chequeo si el dispositivo se encuentra libre
 		// En caso de que no se encuentre libre se deberá bloquear el proceso.
 		if !deviceRequested.IsFree {
