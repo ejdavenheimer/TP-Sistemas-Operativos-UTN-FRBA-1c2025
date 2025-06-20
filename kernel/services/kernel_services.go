@@ -72,25 +72,29 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 	slog.Info(fmt.Sprintf("## %d - Solicitó syscall: %s", syscallRequest.Pid, syscallName))
 	switch syscallName {
 	case "IO":
+		// Primero chequea si existe el dispositivo
 		deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
-			return syscallRequest.Values[0] == d.Name && d.IsFree
+			return syscallRequest.Values[0] == d.Name
 		})
-
-		//if exists {
-		//	sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
-		//	_ = SleepDevice(0, sleepTime, deviceRequested)
-		//}
-
-		if index == -1 {
-			slog.Debug("El dispositivo se encuentra ocupado...")
-			BlockedProcess(syscallRequest.Pid, fmt.Sprintf("El dispositivo %s no se encuentra disponible", syscallRequest.Type))
-			return
-		}
 
 		if !exists || deviceRequested.Name == "" {
 			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
-			http.Error(writer, "Dispositivo no conectado.", http.StatusNotFound)
 			EndProcess(syscallRequest.Pid, fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
+			server.SendJsonResponse(writer, map[string]interface{}{
+				"action": "exit",
+			})
+			return
+		}
+
+		if index == -1 {
+		// Chequeo si el dispositivo se encuentra libre
+		// En caso de que no se encuentre libre se deberá bloquear el proceso.
+		if !deviceRequested.IsFree {
+			slog.Debug("El dispositivo se encuentra ocupado...")
+			BlockedProcess(syscallRequest.Pid, fmt.Sprintf("El dispositivo %s no se encuentra disponible", syscallRequest.Type))
+			server.SendJsonResponse(writer, map[string]interface{}{
+				"action": "block",
+			})
 			return
 		}
 
@@ -110,23 +114,10 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 
-		//Acá se tendría que bloquear el proceso
+		//Acá se bloquea el proceso
 		server.SendJsonResponse(writer, map[string]interface{}{
 			"action": "block",
 		})
-
-		//deviceRequested, index, _ = models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
-		//	return syscallRequest.Values[0] == d.Name && !d.IsFree
-		//})
-		//deviceRequested.IsFree = true
-		//err = models.ConnectedDeviceList.Set(index, deviceRequested)
-		//if err != nil {
-		//	slog.Error(fmt.Sprintf("error: %v", err))
-		//	return
-		//}
-		//server.SendJsonResponse(writer, map[string]interface{}{
-		//	"action": "continue",
-		//})
 	case "INIT_PROC":
 		if len(syscallRequest.Values) < 2 {
 			slog.Error("INIT_PROC necesita 2 parametros: path y tamaño")
@@ -205,8 +196,8 @@ func EndProcess(pid int, reason string) {
 
 	slog.Debug(fmt.Sprintf("El proceso <%d> se encuentra en estado %s", pcb.PID, pcb.EstadoActual))
 
-	pcb.EstadoActual = models.EstadoExit
-	models.QueueExit.Add(pcb)
+	//pcb.EstadoActual = models.EstadoExit
+	//models.QueueExit.Add(pcb)
 	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", pid))
 }
 
