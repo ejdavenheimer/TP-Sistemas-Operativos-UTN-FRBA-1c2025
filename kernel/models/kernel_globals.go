@@ -1,6 +1,7 @@
 package models
 
 import (
+	"sync"
 	"time"
 
 	cpuModels "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
@@ -16,7 +17,7 @@ type Config struct {
 	PortKernel         int     `json:"port_kernel"`
 	SchedulerAlgorithm string  `json:"scheduler_algorithm"`
 	NewAlgorithm       string  `json:"new_algorithm"`
-	Alpha              float64 `json:"alpha"`
+	Alpha              float32 `json:"alpha"`
 	InitialEstimate    int     `json:"initial_estimate"`
 	SuspensionTime     int     `json:"suspension_time"`
 	LogLevel           string  `json:"log_level"`
@@ -38,7 +39,7 @@ type SyscallRequest struct {
 var ConnectedDevicesMap = helpers.DeviceMap{M: make(map[string]models.Device)} //TODO: borrar despues
 var ConnectedDeviceList list.ArrayList[models.Device]
 
-var ConnectedCpuMap = helpers.CpuMap{M: make(map[string]cpuModels.CpuN)}
+var ConnectedCpuMap = helpers.CpuMap{M: make(map[string]*cpuModels.CpuN)}
 
 type Estado string
 
@@ -61,8 +62,10 @@ type PCB struct {
 	EstadoActual   Estado                   // Para saber en qué estado está actualmente
 	UltimoCambio   time.Time                // Para medir el tiempo que pasa en cada estado
 	PseudocodePath string
-	Rafaga         float32
-	Size           int
+	RafagaReal     float32    // Duración real de la rafaga actual
+	Size           int        // Tamaño del proceso en memoria
+	RafagaEstimada float32    // Estimación de la próxima rafaga
+	Mutex          sync.Mutex // Mutex para proteger concurrencia
 }
 
 type MemoryRequest struct {
@@ -107,3 +110,5 @@ type ProcessRequest struct {
 	Pid          int    `json:"pid"`
 	EstadoActual Estado `json:"estadoActual"`
 }
+
+var NotifyReady = make(chan int, 1)

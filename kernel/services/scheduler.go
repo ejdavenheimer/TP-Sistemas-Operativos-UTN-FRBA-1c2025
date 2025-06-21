@@ -29,7 +29,7 @@ func longTermScheduler() {
 		}
 
 		//0. Finalizar procesos pendientes en EXIT
-		if models.QueueExit.Size() > 0{
+		if models.QueueExit.Size() > 0 {
 			FinishProcess()
 			continue
 		}
@@ -42,7 +42,7 @@ func longTermScheduler() {
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
-        
+
 		//2. Si no hay nada en NEW espera
 		if models.QueueNew.Size() == 0 {
 			time.Sleep(500 * time.Millisecond)
@@ -69,14 +69,14 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB], es
 		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
 		return
 	}
-    index := findProcessIndexByPID(fromQueue, process.PID)
-    if index != -1 {
-	    fromQueue.Remove(index)
-    }
+	index := findProcessIndexByPID(fromQueue, process.PID)
+	if index != -1 {
+		fromQueue.Remove(index)
+	}
 	process.EstadoActual = models.EstadoReady
 	process.UltimoCambio = time.Now()
 	models.QueueReady.Add(*process)
-    
+
 	//log obligatorio
 	slog.Info(fmt.Sprintf("## PID %d Pasa del estado NEW al estado %s", process.PID, process.EstadoActual))
 }
@@ -133,5 +133,3 @@ func scheduleShortestFirst() {
 	processPtr := &process
 	admitProcess(processPtr, models.QueueNew, "NEW")
 }
-
-

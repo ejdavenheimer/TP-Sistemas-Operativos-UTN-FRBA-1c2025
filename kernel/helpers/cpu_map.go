@@ -10,27 +10,27 @@ import (
 
 type CpuMap struct {
 	mx sync.Mutex
-	M  map[string]models.CpuN
+	M  map[string]*models.CpuN
 }
 
-func (sMap *CpuMap) Set(key string, value models.CpuN) {
+func (sMap *CpuMap) Set(key string, value *models.CpuN) {
 	sMap.mx.Lock()
 	sMap.M[key] = value
 	sMap.mx.Unlock()
 }
 
-func (sMap *CpuMap) Delete(key string) models.CpuN {
+func (sMap *CpuMap) Delete(key string) *models.CpuN {
 	sMap.mx.Lock()
-	var pcb = sMap.M[key]
+	cpu := sMap.M[key]
 	delete(sMap.M, key)
 	sMap.mx.Unlock()
 
-	return pcb
+	return cpu
 }
 
-func (sMap *CpuMap) Get(key string) (models.CpuN, bool) {
+func (sMap *CpuMap) Get(key string) (*models.CpuN, bool) {
 	sMap.mx.Lock()
-	var cpu, find = sMap.M[key]
+	cpu, find := sMap.M[key]
 	sMap.mx.Unlock()
 
 	return cpu, find
@@ -51,18 +51,17 @@ func (sMap *CpuMap) GetAll() {
 	}
 }
 
-func (sMap *CpuMap) GetFirstFree() (models.CpuN, bool) {
+func (sMap *CpuMap) GetFirstFree() (*models.CpuN, bool) {
 	sMap.mx.Lock()
 	defer sMap.mx.Unlock()
 
-	for key, cpu := range sMap.M {
+	for _, cpu := range sMap.M {
 		if cpu.IsFree {
 			cpu.IsFree = false // Marcar como ocupada
-			sMap.M[key] = cpu  // Actualizar el map
 			return cpu, true
 		}
 	}
-	return models.CpuN{}, false
+	return nil, false
 }
 
 func (sMap *CpuMap) MarkAsFree(id string) {
@@ -70,22 +69,33 @@ func (sMap *CpuMap) MarkAsFree(id string) {
 	defer sMap.mx.Unlock()
 	if cpu, ok := sMap.M[id]; ok {
 		cpu.IsFree = true
-		sMap.M[id] = cpu
 	}
 }
 
-func (sMap *CpuMap) GetMaxRafagaPCBExecuting() models.CpuN {
-	sMap.mx.Lock()
-	defer sMap.mx.Unlock()
+func (cpuMap *CpuMap) GetCPUByPid(pid int) *models.CpuN {
+	cpuMap.mx.Lock()
+	defer cpuMap.mx.Unlock()
 
-	var max models.CpuN
-	max.PIDRafaga = -1 // Valor imposible para inicializar
-
-	for _, cpu := range sMap.M {
-		if !cpu.IsFree && cpu.PIDRafaga > max.PIDRafaga {
-			max = cpu
+	for _, cpu := range cpuMap.M {
+		if cpu.PIDExecuting == pid {
+			return cpu
 		}
 	}
-
-	return max
+	return nil
 }
+
+// func (sMap *CpuMap) GetMaxRafagaPCBExecuting() models.CpuN {
+// 	sMap.mx.Lock()
+// 	defer sMap.mx.Unlock()
+
+// 	var max models.CpuN
+// 	max.PIDRafaga = -1 // Valor imposible para inicializar
+
+// 	for _, cpu := range sMap.M {
+// 		if !cpu.IsFree && cpu.PIDRafaga > max.PIDRafaga {
+// 			max = cpu
+// 		}
+// 	}
+
+// 	return max
+// }

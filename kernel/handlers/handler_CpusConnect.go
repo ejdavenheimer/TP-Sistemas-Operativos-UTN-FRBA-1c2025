@@ -27,7 +27,7 @@ func ConnectCpuHandler() func(http.ResponseWriter, *http.Request) {
 
 		//Guarda el dispositivo en el map de dispositivos conectados
 		key := strconv.Itoa(cpuConnected.Id)
-		models.ConnectedCpuMap.Set(key, cpuConnected)
+		models.ConnectedCpuMap.Set(key, &cpuConnected)
 		writer.WriteHeader(http.StatusOK)
 	}
 }
