@@ -12,11 +12,11 @@ import (
 type Config struct {
 	IpMemory           string  `json:"ip_memory"`
 	PortMemory         int     `json:"port_memory"`
-	IpKernel           int     `json:"ip_kernel"`
+	IpKernel           string  `json:"ip_kernel"`
 	PortKernel         int     `json:"port_kernel"`
 	SchedulerAlgorithm string  `json:"scheduler_algorithm"`
 	NewAlgorithm       string  `json:"new_algorithm"`
-	Alpha              float32 `json:"alpha"`
+	Alpha              float64 `json:"alpha"`
 	InitialEstimate    int     `json:"initial_estimate"`
 	SuspensionTime     int     `json:"suspension_time"`
 	LogLevel           string  `json:"log_level"`
@@ -43,12 +43,13 @@ var ConnectedCpuMap = helpers.CpuMap{M: make(map[string]*cpuModels.CpuN)}
 type Estado string
 
 const (
-	EstadoNew             Estado = "NEW"
-	EstadoReady           Estado = "READY"
-	EstadoExecuting       Estado = "EXECUTING"
-	EstadoBlocked         Estado = "BLOCKED"
-	EstadoExit            Estado = "EXIT"
-	EstadoSuspendidoReady Estado = "SUSPREADY"
+	EstadoNew               Estado = "NEW"
+	EstadoReady             Estado = "READY"
+	EstadoExecuting         Estado = "EXECUTING"
+	EstadoBlocked           Estado = "BLOCKED"
+	EstadoExit              Estado = "EXIT"
+	EstadoSuspendidoReady   Estado = "SUSPREADY"
+	EstadoSuspendidoBlocked Estado = "SUSPEND_BLOCKED"
 )
 
 type PCB struct {
@@ -98,6 +99,16 @@ type Device struct {
 	Port int    `json:"port"`
 }
 
+type ProcessResponse struct {
+	Pid          int    `json:"pid"`
+	EstadoActual Estado `json:"estadoActual"`
+}
+
+type ProcessRequest struct {
+	Pid          int    `json:"pid"`
+	EstadoActual Estado `json:"estadoActual"`
+}
+
 var NotifyReady = make(chan int, 1)
 
 func GetPCBConMayorRafagaRestante() *PCB {
@@ -111,7 +122,7 @@ func GetPCBConMayorRafagaRestante() *PCB {
 		}
 		rafagaRestante := pcb.RafagaEstimada - pcb.RafagaReal
 		if max == nil || rafagaRestante > (max.RafagaEstimada-max.RafagaReal) {
-			max = pcb
+			max = &pcb
 		}
 	}
 	return max

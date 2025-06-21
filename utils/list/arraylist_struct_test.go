@@ -53,6 +53,15 @@ func TestArrayList(t *testing.T) {
 	}
 }
 
+func TestArrayList_GetAll(t *testing.T) {
+	setupPersons()
+
+	newList := persons.GetAll()
+	if len(newList) != 3 {
+		t.Errorf("Expected size 3, got %d", persons.Size())
+	}
+}
+
 func setupPersons() {
 	persons = ArrayList[Person]{}
 	for i := 1; i <= 3; i++ {

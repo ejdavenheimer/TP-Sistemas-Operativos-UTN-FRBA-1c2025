@@ -1,17 +1,17 @@
 package handlers
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/services"
 	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
-	"net/http"
-	"bufio"
-	"strings"
 	"log/slog"
-	"fmt"
 	"net"
+	"net/http"
+	"strings"
 )
 
 func SleepHandler() func(http.ResponseWriter, *http.Request) {
@@ -30,13 +30,14 @@ func SleepHandler() func(http.ResponseWriter, *http.Request) {
 		}
 
 		//--------- EJECUTA ---------
-		services.Sleep(deviceRequest.Pid, deviceRequest.SuspensionTime)
+		go services.Sleep(deviceRequest.Pid, deviceRequest.SuspensionTime)
 
 		//--------- RESPUESTA ---------
 
 		response := ioModel.DeviceResponse{
 			Pid:    deviceRequest.Pid,
-			Reason: "Fin de IO",
+			Reason: "Solicitud recibida", //"Fin de IO",
+			Port:   ioModel.IoConfig.PortIo,
 		}
 
 		server.SendJsonResponse(writer, response)
@@ -44,8 +45,8 @@ func SleepHandler() func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-//CONEXION CON EL KERNEL 
-func ConectToKernel(nombre, ip string, puerto int) { 
+// CONEXION CON EL KERNEL
+func ConectToKernel(nombre, ip string, puerto int) {
 	direccion := net.JoinHostPort(ip, fmt.Sprintf("%d", puerto))
 	conn, err := net.Dial("tcp", direccion) //Establece conexion TCP con el Kernel
 	if err != nil {
@@ -66,10 +67,10 @@ func ConectToKernel(nombre, ip string, puerto int) {
 			slog.Error("Error leyendo petición del Kernel", "error", err)
 			break
 		}
-		linea= strings.TrimSpace(linea)
+		linea = strings.TrimSpace(linea)
 		slog.Info("Petición recibida", "mensaje", strings.TrimSpace(linea))
 
-		// Analiza el tiempo de la peticion 
+		// Analiza el tiempo de la peticion
 		var pid, tiempo int
 		_, err = fmt.Sscanf(linea, "PID: %*d|TIEMPO_IO: %d", &pid, &tiempo)
 		if err != nil {
