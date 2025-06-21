@@ -32,7 +32,7 @@ func CreateFile(fileName string, size int) (*os.File, error) {
 		return nil, err
 	}
 
-	defer file.Close()
+	//defer file.Close()
 
 	// Se ajusta el tamaño del archivo
 	err = file.Truncate(int64(size))
