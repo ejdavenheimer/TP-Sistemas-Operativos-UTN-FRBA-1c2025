@@ -12,7 +12,7 @@ import (
 
 func InterruptExec(pcb models.PCB) {
 	//Busca el proceso (PCB) que se esta ejecutando con la mayor rafaga restante estimada
-	processToInterrupt := models.GetPCBConMayorRafagaRestante()
+	processToInterrupt := GetPCBConMayorRafagaRestante()
 
 	// Validar que exista proceso para interrumpir
 	if processToInterrupt == nil {
@@ -52,4 +52,21 @@ func SendInterruption(pid int, portCpu int, ipCpu string) {
 	} else {
 		slog.Warn("CPU respondió con error al desalojar el PCB", slog.Int("status", resp.StatusCode))
 	}
+}
+
+func GetPCBConMayorRafagaRestante() *models.PCB { // De los procesos en ejecución
+	var max *models.PCB
+	size := models.QueueExec.Size() // Guarda el tamaño actual de la lista QueueExec
+
+	for i := 0; i < size; i++ {
+		pcb, err := models.QueueExec.Get(i)
+		if err != nil {
+			continue
+		}
+		rafagaRestante := pcb.RafagaEstimada - pcb.RafagaReal
+		if max == nil || rafagaRestante > (max.RafagaEstimada-max.RafagaReal) {
+			max = &pcb
+		}
+	}
+	return max
 }

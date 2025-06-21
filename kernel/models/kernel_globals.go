@@ -1,6 +1,7 @@
 package models
 
 import (
+	"sync"
 	"time"
 
 	cpuModels "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
@@ -16,7 +17,7 @@ type Config struct {
 	PortKernel         int     `json:"port_kernel"`
 	SchedulerAlgorithm string  `json:"scheduler_algorithm"`
 	NewAlgorithm       string  `json:"new_algorithm"`
-	Alpha              float64 `json:"alpha"`
+	Alpha              float32 `json:"alpha"`
 	InitialEstimate    int     `json:"initial_estimate"`
 	SuspensionTime     int     `json:"suspension_time"`
 	LogLevel           string  `json:"log_level"`
@@ -61,9 +62,10 @@ type PCB struct {
 	EstadoActual   Estado                   // Para saber en qué estado está actualmente
 	UltimoCambio   time.Time                // Para medir el tiempo que pasa en cada estado
 	PseudocodePath string
-	RafagaReal     float32 // Duración real de la rafaga actual
-	Size           int     // Tamaño del proceso en memoria
-	RafagaEstimada float32 // Estimación de la próxima rafaga
+	RafagaReal     float32    // Duración real de la rafaga actual
+	Size           int        // Tamaño del proceso en memoria
+	RafagaEstimada float32    // Estimación de la próxima rafaga
+	Mutex          sync.Mutex // Mutex para proteger concurrencia
 }
 
 type MemoryRequest struct {
@@ -110,20 +112,3 @@ type ProcessRequest struct {
 }
 
 var NotifyReady = make(chan int, 1)
-
-func GetPCBConMayorRafagaRestante() *PCB {
-	var max *PCB
-	size := QueueExec.Size() // Guarda el tamaño actual de la lista QueueExec
-
-	for i := 0; i < size; i++ {
-		pcb, err := QueueExec.Get(i)
-		if err != nil {
-			continue
-		}
-		rafagaRestante := pcb.RafagaEstimada - pcb.RafagaReal
-		if max == nil || rafagaRestante > (max.RafagaEstimada-max.RafagaReal) {
-			max = &pcb
-		}
-	}
-	return max
-}

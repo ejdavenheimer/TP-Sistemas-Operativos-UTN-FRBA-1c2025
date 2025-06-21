@@ -3,13 +3,14 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"net/http"
+
 	cpuModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/services"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
-	"log/slog"
-	"net/http"
 )
 
 func ConnectIoHandler() func(http.ResponseWriter, *http.Request) {
@@ -61,7 +62,7 @@ func GetCpuMapHandlers() func(http.ResponseWriter, *http.Request) {
 		var cpus []cpuModel.CpuN
 
 		for _, cpu := range models.ConnectedCpuMap.M {
-			cpus = append(cpus, cpu)
+			cpus = append(cpus, *cpu)
 			slog.Debug(fmt.Sprintf("CPU: %v", cpu))
 		}
 

@@ -61,7 +61,7 @@ func SelectToExecute() bool {
 	models.ConnectedCpuMap.Set(key, cpu)
 
 	slog.Debug("CPU marcada como ocupada", "cpu_id", cpu.Id, "pid", cpu.PIDExecuting)
-	slog.Debug(fmt.Sprintf("Asignando proceso PID=%d a CPU ID=%d", pcb.PID, cpu.Id))
+	slog.Debug("Asignando proceso a CPU", "pid", pcb.PID, "cpu_id", cpu.Id)
 
 	go func(pcb *models.PCB, cpu cpuModels.CpuN, key string) {
 		inicioEjecucion := time.Now()
@@ -92,7 +92,7 @@ func SelectToExecute() bool {
 
 		// Liberar CPU
 		models.ConnectedCpuMap.MarkAsFree(key)
-	}(&pcb, cpu, key)
+	}(&pcb, *cpu, key)
 
 	return true
 }
@@ -140,6 +140,13 @@ func TransitionState(pcb *models.PCB, oldState models.Estado, newState models.Es
 		return
 	}
 
+	pcb.Mutex.Lock()
+	defer pcb.Mutex.Unlock()
+
+	if newState == models.EstadoBlocked {
+		go StartSuspensionTimer(pcb)
+	}
+
 	if pcb.ME == nil {
 		pcb.ME = make(map[models.Estado]int)
 	}
@@ -161,22 +168,28 @@ func TransitionState(pcb *models.PCB, oldState models.Estado, newState models.Es
 	pcb.UltimoCambio = time.Now()
 }
 
-// func getShortestJob() (models.PCB, int, error) { // Recorre todos los procesos de la cola READY y devuelve el PCB con la menor RafagaEstimada
-// 	if models.QueueReady.Size() == 0 {
-// 		return models.PCB{}, -1, fmt.Errorf("Cola READY vacía")
-// 	}
-// 	shortestIndex := 0
-// 	procesoMenorRafaga, _ := models.QueueReady.Get(shortestIndex)
+func StartSuspensionTimer(pcb *models.PCB) {
+	slog.Debug("Timer iniciado para posible suspensión de proceso", "PID", pcb.PID)
 
-// 	for i := 1; i < models.QueueReady.Size(); i++ {
-// 		procesoIterado, _ := models.QueueReady.Get(i)
-// 		if procesoIterado.RafagaEstimada < procesoMenorRafaga.RafagaEstimada {
-// 			procesoMenorRafaga = procesoIterado
-// 			shortestIndex = i
-// 		}
-// 	}
-// 	return procesoMenorRafaga, shortestIndex, nil
-// }
+	time.Sleep(time.Duration(models.KernelConfig.SuspensionTime) * time.Millisecond)
+
+	pcb.Mutex.Lock()
+	defer pcb.Mutex.Unlock()
+
+	// Si todavía está en estado BLOCKED, debe pasar a SUSP.BLOCKED
+	if pcb.EstadoActual == models.EstadoBlocked {
+		// Pasamos a SUSP.BLOCKED
+		slog.Info(fmt.Sprintf("## (%d) - Proceso pasa a SUSP.BLOCKED", pcb.PID))
+		TransitionState(pcb, models.EstadoBlocked, models.EstadoSuspendidoBlocked)
+
+		models.QueueBlocked.Remove(pcb.PID)
+		models.QueueSuspBlocked.Add(*pcb)
+
+		// Informar al módulo MEMORIA para que lo pase a SWAP
+		go movePrincipalMemoryToSwap()
+
+	}
+}
 
 func AddProcessToReady(pcb *models.PCB) {
 	switch models.KernelConfig.SchedulerAlgorithm {
