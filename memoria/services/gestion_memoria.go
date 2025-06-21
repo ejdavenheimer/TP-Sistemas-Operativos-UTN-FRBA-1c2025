@@ -1,11 +1,12 @@
 package services
 
 import (
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
-	"log/slog"
-	"sync"
-	"math"
 	"fmt"
+	"log/slog"
+	"math"
+	"sync"
+
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 )
 
 var memoryLock sync.Mutex
@@ -14,7 +15,7 @@ func ReserveMemory(pid uint, size int, path string) error {
 	// Calcula cuantas páginas necesita
 	pageSize := models.MemoryConfig.PageSize
 	pageCount := int(math.Ceil(float64(size) / float64(pageSize)))
-	
+
 	// Verifico que haya frames libres suficientes
 	memoryLock.Lock()
 	freeFramesCount := 0
@@ -29,7 +30,7 @@ func ReserveMemory(pid uint, size int, path string) error {
 		slog.Error(err.Error())
 		return err
 	}
-    
+
 	// Cargar instrucciones del script
 	err := GetInstructions(pid, path, models.InstructionsMap)
 	if err != nil {
@@ -63,15 +64,23 @@ func ReserveMemory(pid uint, size int, path string) error {
 		}
 	}
 
-    NewProcess(pid, size, pageCount)
-	slog.Debug("PCB registrado", slog.Int("pid", int(pid)), slog.Int("pages", pageCount),slog.Int("size", size),)
+	// Registrar los frames asignados en ProcessFramesTable para que swap pueda usarlo
+	memoryLock.Lock()
+	models.ProcessFramesTable[int(pid)] = &models.ProcessFrames{
+		PID:    int(pid),
+		Frames: assignedFrames,
+	}
+	memoryLock.Unlock()
+
+	NewProcess(pid, size, pageCount)
+	slog.Debug("PCB registrado", slog.Int("pid", int(pid)), slog.Int("pages", pageCount), slog.Int("size", size))
 	return nil
 }
 
 // Crea los niveles necesarios en la estructura multinivel hasta insertar una entrada en el último nivel.
 func MapPageToFrame(pid uint, pageNumber int, frame int) error {
-    // Obtener configuración
-    numLevels := models.MemoryConfig.NumberOfLevels
+	// Obtener configuración
+	numLevels := models.MemoryConfig.NumberOfLevels
 	entriesPerLevel := models.MemoryConfig.EntriesPerPage
 	// Obtener los índices que se usan para navegar por cada nivel de la tabla
 	indices := getPageIndices(pageNumber, numLevels, entriesPerLevel)
@@ -126,23 +135,23 @@ func initializePageTables(pid uint) error {
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
 	// Verificar que no exista una tabla ya creada para este proceso
-    if _, exists := models.PageTables[pid]; exists {
-        return fmt.Errorf("ya existe una tabla de páginas para el PID %d", pid)
-    }
-    // Crear recursivamente la raíz de la tabla multinivel
+	if _, exists := models.PageTables[pid]; exists {
+		return fmt.Errorf("ya existe una tabla de páginas para el PID %d", pid)
+	}
+	// Crear recursivamente la raíz de la tabla multinivel
 	root := createPageTableLevel(1, models.MemoryConfig.NumberOfLevels)
 	if root == nil {
 		return fmt.Errorf("falló la creación de la tabla de páginas para PID %d", pid)
 	}
-    models.PageTables[pid] = root
-    return nil
+	models.PageTables[pid] = root
+	return nil
 }
 
 // Crea recursivamente una tabla de páginas multinivel.
 func createPageTableLevel(currentLevel, maxLevels int) *models.PageTableLevel {
 	level := &models.PageTableLevel{
-		IsLeaf:    currentLevel == maxLevels,
-		Entry:     nil,
+		IsLeaf: currentLevel == maxLevels,
+		Entry:  nil,
 	}
 
 	if level.IsLeaf {
@@ -179,14 +188,17 @@ func releaseFrames(pid uint, frames []int) {
 	for _, f := range frames {
 		models.FreeFrames[f] = true
 	}
-	
+
 	delete(models.PageTables, pid)
 	delete(models.InstructionsMap, pid)
+
+	// Limpiar también ProcessFramesTable
+	delete(models.ProcessFramesTable, int(pid))
 }
 
 func SearchFrame(pid uint, pages []int) int {
 	memoryLock.Lock()
-    defer memoryLock.Unlock()
+	defer memoryLock.Unlock()
 
 	// Obtener la raíz de la tabla multinivel para el PID
 	pageTableRoot, exists := models.PageTables[pid]
@@ -204,7 +216,7 @@ func SearchFrame(pid uint, pages []int) int {
 			return frame
 		}
 		slog.Debug("NO SE ENCONTRO EL FRAME")
-		
+
 	}
 	// Si no se encontró ningún frame para las páginas consultadas
 	return -1
@@ -217,7 +229,6 @@ func getFrameFromPageNumber(root *models.PageTableLevel, pageNumber int) (int, e
 	}
 	return entry.Frame, nil
 }
-
 
 func FindPageEntry(root *models.PageTableLevel, pageNumber int) (*models.PageEntry, error) {
 	currentLevel := root

@@ -9,6 +9,8 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 )
 
+// En el archivo de swap, cambiar las líneas que usan ProcessFramesTable:
+
 func PutProcessInSwap(pid int) error {
 	// Abrir (o crear) el archivo swapfile.bin en modo lectura/escritura
 	file, err := os.OpenFile(models.MemoryConfig.SwapFilePath, os.O_RDWR|os.O_CREATE, 0644)
@@ -20,9 +22,9 @@ func PutProcessInSwap(pid int) error {
 
 	// Obtener la lista de índices de frame para este PID
 	processFrames, exists := models.ProcessFramesTable[pid]
-	if !exists {
+	if !exists || processFrames == nil { // *** CAMBIO: verificar que no sea nil ***
 		slog.Error(fmt.Sprintf("No está en tabla de frames el PID %d", pid))
-		return err
+		return fmt.Errorf("proceso PID %d no encontrado en tabla de frames", pid)
 	}
 
 	slog.Info("Iniciando suspensión de proceso", "PID", pid)
@@ -41,14 +43,14 @@ func PutProcessInSwap(pid int) error {
 	frameSize := int64(models.MemoryConfig.PageSize)
 
 	// Por cada frame asignado al proceso, volcamos su contenido a SWAP y lo liberamos
-	for _, frameIndex := range processFrames.Frames {
+	for _, frameIndex := range processFrames.Frames { // *** CAMBIO: acceder con .Frames ***
 		frame := models.FrameTable[frameIndex]
 		start := int64(frame.StartAddr)
 		end := start + frameSize
 
 		if end > int64(len(models.UserMemory)) {
 			slog.Error(fmt.Sprintf("los límites del frame %d exceden UserMemory", frameIndex))
-			return err
+			return fmt.Errorf("límites del frame %d exceden UserMemory", frameIndex)
 		}
 
 		data := models.UserMemory[start:end]
@@ -76,11 +78,6 @@ func PutProcessInSwap(pid int) error {
 	slog.Info(fmt.Sprintf("Frames liberados para PID %d", pid))
 	slog.Debug("Frames libres después de swap-out", "cantidad", contarFramesLibres())
 	slog.Debug("Tamaño del archivo de swap luego del guardado", "bytes", obtenerTamanioSwap())
-
-	// TODO: aquí se debe implementar la liberación de UserMemory y de la tabla de páginas
-	//     para el proceso 'pid'. Es decir:
-	//       • Liberar/llenar con ceros los bytes de UserMemory que correspondían a este PID
-	//       • Destruir o marcar como inválidas las entradas de PageTables[pid]
 
 	return nil
 }
@@ -139,8 +136,6 @@ func RemoveProcessInSwap(pid int) error {
 		return err
 	}
 
-	//ESTA PARTE CAMBIA TOTALMENTE CUANDO SE TENGA LA FUNCIÓN QUE CREA LA TABLA DE PÁGINAS DE
-	//UN PROCESO.
 	// Escribir el contenido del proceso en UserMemory utilizando los frames libres encontrados
 	for i, frameIdx := range freeFrames {
 		start := frameIdx * models.MemoryConfig.PageSize
@@ -152,7 +147,7 @@ func RemoveProcessInSwap(pid int) error {
 	}
 
 	// Guardar los frames asignados al proceso
-	models.ProcessFramesTable[pid] = models.ProcessFrames{
+	models.ProcessFramesTable[pid] = &models.ProcessFrames{ // *** CAMBIO: crear puntero ***
 		PID:    pid,
 		Frames: freeFrames,
 	}
@@ -191,7 +186,7 @@ func MockCargarProcesosEnMemoria() {
 	pageSize := models.MemoryConfig.PageSize
 
 	// Proceso 1 con dos páginas (frames 0 y 1)
-	models.ProcessFramesTable[1] = models.ProcessFrames{
+	models.ProcessFramesTable[1] = &models.ProcessFrames{
 		PID:    1,
 		Frames: []int{0, 1},
 	}
@@ -203,7 +198,7 @@ func MockCargarProcesosEnMemoria() {
 	}
 
 	// Proceso 2 con una página (frame 2)
-	models.ProcessFramesTable[2] = models.ProcessFrames{
+	models.ProcessFramesTable[2] = &models.ProcessFrames{
 		PID:    2,
 		Frames: []int{2},
 	}
