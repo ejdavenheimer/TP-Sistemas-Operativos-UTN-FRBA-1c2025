@@ -168,6 +168,51 @@ test_mandar_interrupcion_kernel() {
         }"
 }
 
+test_memoria_read() {
+    echo -e "${VERDE}Leer memoria en dirección lógica${NC}"
+    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    read -p "$(echo -e ${AMARILLO}Dirección fisica:${NC} )" physicalAddress
+    read -p "$(echo -e ${AMARILLO}Size:${NC} )" size
+    echo -e "${VERDE}Petición de lectura PID=${pid}, DIRECCION sFISICA=${physicalAddress}, TAMAÑO=${size}${NC}"
+    curl --location --request POST http://localhost:8002/memoria/leerMemoria \
+        --header 'Content-Type: application/json' \
+        --data "{\"pid\": $pid, \"physicalAddress\": $physicalAddress, \"size\": $size}"
+}
+
+test_memoria_write() {
+    echo -e "${VERDE}Escribir en memoria${NC}"
+    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    read -p "$(echo -e ${AMARILLO}Dirección lógica:${NC} )" physicalAdress
+    read -p "$(echo -e ${AMARILLO}Dato:${NC} )" dato
+
+    curl --location --request POST http://localhost:8002/memoria/write \
+        --header 'Content-Type: application/json' \
+        --data "{\"pid\": $pid, \"logicalAddress\": $physicalAddress, \"dato\": \"$dato\"}"
+}
+
+test_memoria_frames_ocupados() {
+    echo -e "${VERDE}Consultar frames ocupados${NC}"
+    curl --request GET http://localhost:8002/memoria/framesOcupados
+    echo ""
+}
+
+
+test_swap_in() {
+    echo -e "${VERDE}Ejecutando SWAP IN (sacar de swap a memoria)${NC}"
+    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    curl --location --request POST http://localhost:8002/memoria/swapIn \
+        --header 'Content-Type: application/json' \
+        --data "{\"pid\": $pid}"
+}
+
+test_swap_out() {
+    echo -e "${VERDE}Ejecutando SWAP OUT (mover proceso a swap)${NC}"
+    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    curl --location --request POST http://localhost:8002/memoria/swapOut \
+        --header 'Content-Type: application/json' \
+        --data "{\"pid\": $pid}"
+}
+
 while true; do
     echo -e "${AMARILLO}1.${NC} Obtener intrucción IO"
     echo -e "${AMARILLO}2.${NC} Ejecutando instrucción IO desde CPU (EXEC)"
@@ -180,6 +225,11 @@ while true; do
     echo -e "${AMARILLO}9.${NC} Finalizar proceso desde Kernel"
     echo -e "${AMARILLO}10.${NC} Solicitar la interrupción de un proceso desde Kernel a CPU"
     echo -e "${AMARULLI}11.${NC} Ejecutando instrucción DUMP_MEMORY"
+    echo -e "${AMARILLO}12.${NC} Ejecutar SWAP IN (cargar proceso desde swap a memoria)"
+    echo -e "${AMARILLO}13.${NC} Ejecutar SWAP OUT (mover proceso de memoria a swap)"
+    echo -e "${AMARILLO}14.${NC} Consultar frames ocupados"
+    echo -e "${AMARILLO}15.${NC} Ejecutar READ"
+    echo -e "${AMARILLO}16.${NC} Ejecutar WRITE"
     echo -e "${ROJO}s.${NC} Salir"
     echo
     read -p "$(echo -e ${AMARILLO}Opción:${NC} )" opcion
@@ -196,6 +246,11 @@ while true; do
         9) test_finalizar_proceso_kernel ;;
         10) test_mandar_interrupcion_kernel ;;
         11) test_ejecutar_dump_memory ;;
+        12) test_swap_in ;;
+        13) test_swap_out ;;
+        14) test_memoria_frames_ocupados;;
+        15) test_memoria_read;;
+        16) test_memoria_write;;
         s) echo -e "${ROJO}Saliendo...${NC}"; break ;;
         *) echo -e "${ROJO}Opción no válida${NC}" ;;
     esac

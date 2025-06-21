@@ -1,6 +1,8 @@
 package services
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
@@ -21,7 +23,7 @@ func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.C
 	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", query, nil)
 
 	if err != nil {
-		slog.Error("error:", err)
+		slog.Error(fmt.Sprintf("error: %v", err))
 		panic(err)
 	}
 
@@ -31,7 +33,7 @@ func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.C
 	var instruction memoriaModel.InstructionsResponse
 	err = json.Unmarshal(responseBody, &instruction)
 	if err != nil {
-		slog.Error("error parseando el JSON: %v", err)
+		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
 		return memoriaModel.InstructionsResponse{}
 	}
 
@@ -45,7 +47,7 @@ func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models
 	body, err := json.Marshal(syscallRequest)
 
 	if err != nil {
-		slog.Error("error:", err)
+		slog.Error(fmt.Sprintf("error: %v", err))
 		return "error"
 	}
 
@@ -53,7 +55,7 @@ func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models
 	response, err := client.DoRequest(cpuConfig.PortKernel, cpuConfig.IpKernel, "POST", "kernel/syscall", body)
 
 	if err != nil {
-		slog.Error("error:", err)
+		slog.Error(fmt.Sprintf("error: %v", err))
 		return "error"
 	}
 
@@ -66,7 +68,7 @@ func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models
 
 	err = json.Unmarshal(responseBody, &kernelResp)
 	if err != nil {
-		slog.Error("error parseando respuesta del kernel:", err)
+		slog.Error(fmt.Sprintf("error parseando respuesta del kernel: %v", err))
 		return "error"
 	}
 
@@ -84,22 +86,24 @@ func ExecuteNoop(request models.ExecuteInstructionRequest) {
 
 func ExecuteWrite(request models.ExecuteInstructionRequest) {
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
-	//TODO: implementar lógica para WRITE
 	//CONVERSION DIR LOG A FISICA
-	dirLogica, err := strconv.Atoi(request.Values[1])
-
+	logicalAddress, err := strconv.Atoi(request.Values[1])
 	if err != nil {
-		slog.Error("Error al convertir dirección lógica", "error", err)
+		slog.Error(fmt.Sprintf("Dirección lógica inválida, error: %v", err))
 		return
 	}
 
-	dirFisica := TranslateAddress(request.Pid, dirLogica)
+	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
+	if physicalAddress == -1 {
+		slog.Warn("Instrucción READ no puede continuar: diección invalida")
+		increase_PC()
+		return
+	}
 
 	//SOLICITUD DE ESCRITURA
 	writeReq := models.WriteRequest{
 		PID:             request.Pid,
-		LogicalAddr:     dirLogica,
-		PhysicalAddress: dirFisica,
+		PhysicalAddress: physicalAddress,
 		Data:            request.Values[2],
 	}
 
@@ -122,7 +126,7 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 		return
 	}
 
-	slog.Info("Escritura realizada con éxito", "direccion_fisica", dirFisica, "dato", request.Values[2])
+	slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: ESCRIBIR - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, writeReq.Data))
 
 	increase_PC()
 }
@@ -145,6 +149,11 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 	}
 
 	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
+	if physicalAddress == -1 {
+		slog.Warn("Instrucción READ no puede continuar: diección invalida")
+		increase_PC()
+		return
+	}
 
 	readRequest := models.MemoryReadRequest{
 		Pid:             request.Pid,
@@ -170,14 +179,19 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 		os.Exit(1)
 	}
 
-	var memoryValue string
+	var memoryValue []byte
 	defer response.Body.Close()
 	if err := json.NewDecoder(response.Body).Decode(&memoryValue); err != nil {
 		slog.Error("No se pudo leer el valor de memoria")
 		return
 	}
 
-	slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, memoryValue))
+	cleanData := bytes.Trim(memoryValue, "\x00")
+	dataBase64 := base64.StdEncoding.EncodeToString(memoryValue)
+
+	slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, string(cleanData)))
+	slog.Debug(fmt.Sprintf("Valor (hex): %x", memoryValue))
+	slog.Debug(fmt.Sprintf("Valor (base64): %s", dataBase64))
 	increase_PC()
 }
 
@@ -207,7 +221,7 @@ func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) me
 
 	var instructionResponse memoriaModel.InstructionResponse
 	if err != nil || response.StatusCode != http.StatusOK {
-		slog.Error("error:", err)
+		slog.Error(fmt.Sprintf("error: %v", err))
 		return instructionResponse
 	}
 
@@ -228,7 +242,7 @@ func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) me
 	return instructionResponse
 }
 
-func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, isFinished *bool) {
+func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, isFinished *bool, isBlocked *bool) {
 	value := strings.Split(instructions, " ")
 
 	var syscallRequest kernelModel.SyscallRequest
@@ -257,7 +271,10 @@ func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, is
 		case "continue":
 			increase_PC()
 			*isFinished = false
-		case "block", "exit":
+		case "block":
+			*isBlocked = true
+			*isFinished = true
+		case "exit":
 			*isFinished = true
 		default:
 			slog.Error(fmt.Sprintf("acción desconocida de syscall: %v", action))

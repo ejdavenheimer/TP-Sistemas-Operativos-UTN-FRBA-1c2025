@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"time"
 	"os"
 	"strconv"
+	"time"
+
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 )
@@ -25,30 +26,31 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 	}
 
 	parentPID := -1 // Valor por defecto (para el primer proceso o proceso raíz)
-    
-    if len(additionalArgs) > 0 {
-        // El primer argumento adicional es el ParentPID
-        parentPIDVal, err := strconv.Atoi(additionalArgs[0]) // Convertir el primer argumento a int
-        if err != nil {
-            slog.Warn("No se pudo parsear ParentPID, utilizando valor por defecto -1")
-            parentPID = -1 // Si el parseo falla, mantenemos el valor por defecto
-        } else {
-            parentPID = parentPIDVal // Si es válido, asignamos el ParentPID
-        }
-    }
+
+	if len(additionalArgs) > 0 {
+		// El primer argumento adicional es el ParentPID
+		parentPIDVal, err := strconv.Atoi(additionalArgs[0]) // Convertir el primer argumento a int
+		if err != nil {
+			slog.Warn("No se pudo parsear ParentPID, utilizando valor por defecto -1")
+			parentPID = -1 // Si el parseo falla, mantenemos el valor por defecto
+		} else {
+			parentPID = parentPIDVal // Si es válido, asignamos el ParentPID
+		}
+	}
 
 	pid := generatePID()
 
 	pcb := &models.PCB{
-		PID:           pid,
-		ParentPID:     parentPID,
-		PC:            0,
-		ME:            make(map[models.Estado]int),
-		MT:            make(map[models.Estado]time.Duration),
-		EstadoActual:  models.EstadoNew,
-		UltimoCambio:  time.Now(),
+		PID:            pid,
+		ParentPID:      parentPID,
+		PC:             0,
+		ME:             make(map[models.Estado]int),
+		MT:             make(map[models.Estado]time.Duration),
+		EstadoActual:   models.EstadoNew,
+		UltimoCambio:   time.Now(),
 		PseudocodePath: pseudocodeFile,
-		Size:          processSize,
+		Size:           processSize,
+		RafagaEstimada: float32(models.KernelConfig.InitialEstimate),
 	}
 
 	models.QueueNew.Add(*pcb)
@@ -57,37 +59,37 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 
 	return pcb, nil
 }
+
 // Envía una solicitud a Memoria para asignar espacio y cargar instrucciones
 func requestMemorySpace(pid int, processSize int, pseudocodePath string) error {
-    request := models.MemoryRequest{
-        PID: pid,
-        Size: processSize,
-        Path: pseudocodePath,
-    }
+	request := models.MemoryRequest{
+		PID:  pid,
+		Size: processSize,
+		Path: pseudocodePath,
+	}
 
-    body, err := json.Marshal(request)
-    if err != nil {
-        return fmt.Errorf("Error al serializar MemoryRequest: %v", err)
-    }
+	body, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("Error al serializar MemoryRequest: %v", err)
+	}
 
-    _, err = client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/cargarpcb", body)
-    if err != nil {
-        return fmt.Errorf("Error enviando request a Memoria: %v", err)
-    }
+	_, err = client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/cargarpcb", body)
+	if err != nil {
+		return fmt.Errorf("Error enviando request a Memoria: %v", err)
+	}
 
-    return nil
+	return nil
 }
-
 
 func generatePID() int {
-    nextPID++
-    return nextPID - 1
+	nextPID++
+	return nextPID - 1
 }
 func updateStateMetrics(pcb *models.PCB, estado models.Estado) {
-    // Incrementa el contador de veces que el proceso estuvo en ese estado
-    pcb.ME[estado]++
+	// Incrementa el contador de veces que el proceso estuvo en ese estado
+	pcb.ME[estado]++
 
-    // Actualiza el tiempo que el proceso ha estado en este estado
-    duration := time.Since(pcb.UltimoCambio)
-    pcb.MT[estado] += duration
+	// Actualiza el tiempo que el proceso ha estado en este estado
+	duration := time.Since(pcb.UltimoCambio)
+	pcb.MT[estado] += duration
 }

@@ -63,15 +63,15 @@ func movePrincipalMemoryToSwap() {
 	//Armar estructura a enviar
 	var pcb, _ = models.QueueSuspBlocked.Get(0)
 
-	slog.Info("Iniciando solicitud para mover el proceso de memoria principal a SWAP", slog.Int("PID", pcb.PID))
+	slog.Info("Iniciando solicitud para mover el proceso de memoria principal a Disco", slog.Int("PID", pcb.PID))
 
 	//Conectarse con memoria y enviar PCB
-	bodyRequest, err := json.Marshal(pcb)
+	bodyRequest, err := json.Marshal(pcb.PID)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al pasar a formato json el pcb: %v", err))
 		panic(err)
 	}
-	url := fmt.Sprintf("http://%s:%d/memoria/swap", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
+	url := fmt.Sprintf("http://%s:%d/memoria/swapOut", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
 	slog.Debug("Enviando PCB a memoria", slog.String("url", url))
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(bodyRequest))

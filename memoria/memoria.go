@@ -16,11 +16,14 @@ const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
 	ConfigPath = "memoria/configs/memoria.json" //"./configs/memoria.json"
-	LogPath    = "./logs/memoria.log"          //"./memoria.log"
+	LogPath    = "./logs/memoria.log"           //"./memoria.log"
 )
 
 func main() {
 	helpers.InitMemory(ConfigPath, LogPath)
+
+	// MockUp para probar cosas de swap
+	//services.MockCargarProcesosEnMemoria()
 
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Memoria"))
 	http.HandleFunc("GET /memoria", handlers.HandshakeHandler("Memoria en funcionamiento 🚀"))
@@ -32,6 +35,11 @@ func main() {
 	http.HandleFunc("POST /memoria/buscarFrame", memoryHandler.SearchFrameHandler)
 	http.HandleFunc("POST /memoria/cargarpcb", memoryHandler.ReserveMemoryHandler)
 	http.HandleFunc("POST /memoria/write", memoryHandler.WriteHandler)
+	http.HandleFunc("GET /memoria/framesOcupados", memoryHandler.FramesInUseHandler)
+	http.HandleFunc("GET /memoria/v2/framesOcupados", memoryHandler.FramesInUseHandlerV2)
+
+	http.HandleFunc("POST /memoria/swapIn", memoryHandler.PutProcessInSwapHandler)
+	http.HandleFunc("POST /memoria/swapOut", memoryHandler.RemoveProcessInSwapHandler)
 	//Liberar espacio de memoria de un PCB
 	http.HandleFunc("POST /memoria/liberarpcb", memoryHandler.DeleteContextHandler)
 	slog.Debug("Memoria lista")

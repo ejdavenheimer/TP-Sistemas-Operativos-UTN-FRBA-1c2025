@@ -50,8 +50,6 @@ func main() {
 
 	slog.Debug(fmt.Sprintf("Port cpu: %d", models.CpuConfig.PortCpu))
 
-	//var cpuNumber int = 1 //TODO: revisar de donde sacamos el número de CPU => nombre de archivo de config?
-
 	//CPU debe avisar que está disponible al Kernel, así se arma una lista para ver cuál usará
 	cpuId, err := strconv.Atoi(idCpu) //Pasa a entero
 	if err != nil {
@@ -67,6 +65,7 @@ func main() {
 
 	//Inicializar
 	services.InitTLB()
+	services.InitCache()
 
 	http.HandleFunc("GET /", handlers.HandshakeHandler(fmt.Sprintf("Bienvenido al módulo de CPU%s", idCpu)))
 	http.HandleFunc("GET /cpu", handlers.HandshakeHandler("Cpu en funcionamiento 🚀"))

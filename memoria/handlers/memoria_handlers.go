@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 // TODO: deprecado, borrar
@@ -102,46 +103,35 @@ func MemoryConfigHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
-	var request models.MemoryInstructionRequest
+	var request models.ReadRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		slog.Error("Error al decodificar")
 		return
 	}
-	// Obtener proceso
-	process, ok := models.ProcessTable[request.Pid]
-	if !ok {
-		http.Error(w, "Proceso no encontrado", http.StatusNotFound)
-		slog.Warn("Intento de lectura de proceso inexistente", slog.Int("pid", request.Pid))
-		return
-	}
-	// Validar que sea el inicio de página
-	if request.PhysicalAddress%models.MemoryConfig.PageSize != 0 {
-		http.Error(w, "Dirección no es inicio de página", http.StatusBadRequest)
-		slog.Warn("Dirección física no alineada a inicio de página", slog.Int("direccion", request.PhysicalAddress))
-		return
-	}
-	// Validar que el tamaño solicitado no exceda el tamaño de una página
-	if request.Size > models.MemoryConfig.PageSize {
-		http.Error(w, "Lectura excede el tamaño de una página", http.StatusBadRequest)
-		slog.Warn("Lectura mayor al tamaño de página", slog.Int("pid", request.Pid))
-		return
-	}
 
-	// Validar rango del proceso
-	if request.PhysicalAddress < process.BaseAddress || request.PhysicalAddress+request.Size > process.BaseAddress+process.Size {
-		http.Error(w, "Violación de memoria", http.StatusForbidden)
-		slog.Warn("Violación de memoria", slog.Int("pid", request.Pid), slog.Int("direccion", request.PhysicalAddress))
-		return
-	}
-	// Leer desde la memoria
-	value, err := services.Read(request.PhysicalAddress, request.Size)
-	if err != nil {
-		http.Error(w, "Error leyendo memoria", http.StatusInternalServerError)
-		slog.Error("Error al leer desde Memoria", slog.Int("direccion", request.PhysicalAddress))
-		return
-	}
+	// Delay de memoria
+	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
+	
+	value, err := services.Read(uint(request.Pid), request.PhysicalAddress, request.Size)
+    if err != nil {
+        switch err {
+        case services.ErrProcessNotFound:
+            http.Error(w, "Proceso no encontrado", http.StatusNotFound)
+            slog.Warn("Intento de lectura de proceso inexistente", "pid", request.Pid)
+        case services.ErrMemoryViolation:
+            http.Error(w, "Violación de memoria", http.StatusForbidden)
+            slog.Warn("Violación de memoria detectada", "pid", request.Pid, slog.Int("direccion", request.PhysicalAddress))
+        case services.ErrInvalidRead:
+            http.Error(w, "Lectura inválida", http.StatusBadRequest)
+            slog.Warn("Lectura inválida", "pid", request.Pid)
+        default:
+            http.Error(w, "Error interno leyendo memoria", http.StatusInternalServerError)
+            slog.Error("Error al leer desde memoria", "pid", request.Pid, "direccion", request.PhysicalAddress, "error", err)
+        }
+        return
+    }
 
 	//log obligatorio
 	slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d>", request.Pid, request.PhysicalAddress, request.Size))
@@ -192,7 +182,7 @@ func DumpMemoryHandler() func(w http.ResponseWriter, r *http.Request) {
 
 		slog.Debug(fmt.Sprintf("## PID: <%d> Dump Memory", dumpRequest.Pid))
 
-		err = services.ExecuteDumpMemory(dumpRequest.Pid, dumpRequest.Size, models.MemoryConfig.DumpPath)
+		err = services.ExecuteDumpMemory(dumpRequest.Pid, dumpRequest.Size)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			slog.Error(fmt.Sprintf("error: %s", err.Error()))
@@ -213,22 +203,90 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req models.WriteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var request struct {
+        Pid             uint   `json:"pid"`
+        PhysicalAddress int    `json:"physical_address"`
+        Data            string `json:"data"`
+    }
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		slog.Error("Invalid WRITE request", "error", err)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
+
+    // Delay de memoria
+    time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
+
 	//EJECUCION ESCRITURA
-	if err := services.HandleWrite(req.Address, req.Data); err != nil {
+	dataBytes := []byte(request.Data)
+	if err := services.WriteToMemory(request.Pid, request.PhysicalAddress, dataBytes); err != nil {
 		slog.Error("WRITE failed", "error", err)
 		http.Error(w, "Write failed", http.StatusInternalServerError)
 		return
 	}
 
-	slog.Info("WRITE completed",
-		"address", req.Address,
-		"data_length", len(req.Data),
-	)
+	slog.Info(fmt.Sprintf("## PID: <%d> - <Write> - Dir. Física: <%d> - Dato: <%s>", request.Pid, request.PhysicalAddress, request.Data))
 	w.WriteHeader(http.StatusOK) //RESPUESTA
+}
+
+func FramesInUseHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    fmt.Println("=== Frames Ocupados ===")
+
+    for pid, rootTable := range models.PageTables {
+        collectFramesFromTable(pid, rootTable)
+    }
+
+    fmt.Fprintln(w, "OK") // Devuelve OK al cliente
+}
+
+func collectFramesFromTable(pid uint, table *models.PageTableLevel) {
+    if table == nil {
+        return
+    }
+
+    if table.IsLeaf && table.Entry != nil && table.Entry.Presence {
+        line := fmt.Sprintf("PID: %d - Frame: %d\n", pid, table.Entry.Frame)
+        fmt.Print(line)        // También imprimo en consola
+    }
+
+    for _, sub := range table.SubTables {
+        collectFramesFromTable(pid, sub)
+    }
+}
+
+func FramesInUseHandlerV2(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	queryParams := r.URL.Query()
+	pidStr := queryParams.Get("pid")
+	pid, _ := strconv.ParseInt(pidStr, 10, 64)
+
+	slog.Info("Memoria: Recibida solicitud para obtener Frames en Uso.")
+
+	// Slice para recolectar todos los FrameInfo
+	allFrames := make([]models.FrameInfo, 0) // Inicializa un slice vacío
+
+	// Itera sobre todas las tablas de páginas de los procesos
+	for _, rootTable := range models.PageTables { // Asumo models.PageTables es accesible
+		services.CollectFramesFromTableV2(uint(pid), rootTable, &allFrames) // Pasa el slice por referencia
+	}
+
+	groupedOutput := services.GroupFramesByPID(uint(pid), allFrames)
+
+	// 2. Preparar la respuesta JSON
+	response := map[string]interface{}{
+		"status": "success",
+		"data":   groupedOutput, // Incluye el slice de FrameInfo en la respuesta
+	}
+
+	server.SendJsonResponse(w, response)
 }
