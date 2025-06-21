@@ -24,24 +24,24 @@ func CreateDirectory(dir string) {
 }
 
 // CreateFile crea el archivo
-func CreateFile(fileName string, size int) error {
+func CreateFile(fileName string, size int) (*os.File, error) {
 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, 0666)
 
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al crear el archivo: %v", err))
-		return err
+		return nil, err
 	}
 
-	defer file.Close()
+	//defer file.Close()
 
 	// Se ajusta el tamaño del archivo
 	err = file.Truncate(int64(size))
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al ajustar el tamaño del archivo: %v", err))
-		return err
+		return nil, err
 	}
 
-	return nil
+	return file, nil
 }
 
 // InitMemory se encarga de hacer la configuración inicial
@@ -64,7 +64,7 @@ func InitMemory(configPath string, logPath string) {
 
 	CreateDirectory(models.MemoryConfig.DumpPath)
 	slog.Debug(fmt.Sprintf("Swap: %s", models.MemoryConfig.SwapFilePath))
-	_ = CreateFile(models.MemoryConfig.SwapFilePath, 0) //TODO: revisar, inicialmente va arrancar con tamaño 0
+	_, _ = CreateFile(models.MemoryConfig.SwapFilePath, 0) //TODO: revisar, inicialmente va arrancar con tamaño 0
 }
 
 func GetDumpName(pid uint) string {

@@ -241,17 +241,23 @@ func DumpServices(pid uint, size int) {
 		return
 	}
 
-	pcb, _, exists := models.QueueBlocked.Find(func(pcb models.PCB) bool {
-		return pcb.PID == int(pid)
-	})
-
-	if !exists {
-		slog.Error("No se encontró al proceso")
+	_, isSuccess, err := MoveProcessToState(int(pid), models.EstadoExit)
+	if !isSuccess || err != nil {
+		slog.Error("Qué rompimos? :(")
 		return
 	}
 
-	pcb.EstadoActual = models.EstadoReady
-	models.QueueReady.Add(pcb)
+	//pcb, _, exists := models.QueueBlocked.Find(func(pcb models.PCB) bool {
+	//	return pcb.PID == int(pid)
+	//})
+	//
+	//if !exists {
+	//	slog.Error("No se encontró al proceso")
+	//	return
+	//}
+	//
+	//pcb.EstadoActual = models.EstadoReady
+	//models.QueueReady.Add(pcb)
 
 	slog.Debug(fmt.Sprintf("Response: %s", dumpMemoryResponse.Result))
 }

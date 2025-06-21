@@ -182,7 +182,7 @@ func DumpMemoryHandler() func(w http.ResponseWriter, r *http.Request) {
 
 		slog.Debug(fmt.Sprintf("## PID: <%d> Dump Memory", dumpRequest.Pid))
 
-		err = services.ExecuteDumpMemory(dumpRequest.Pid, dumpRequest.Size, models.MemoryConfig.DumpPath)
+		err = services.ExecuteDumpMemory(dumpRequest.Pid, dumpRequest.Size)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			slog.Error(fmt.Sprintf("error: %s", err.Error()))
@@ -258,4 +258,35 @@ func collectFramesFromTable(pid uint, table *models.PageTableLevel) {
     for _, sub := range table.SubTables {
         collectFramesFromTable(pid, sub)
     }
+}
+
+func FramesInUseHandlerV2(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	queryParams := r.URL.Query()
+	pidStr := queryParams.Get("pid")
+	pid, _ := strconv.ParseInt(pidStr, 10, 64)
+
+	slog.Info("Memoria: Recibida solicitud para obtener Frames en Uso.")
+
+	// Slice para recolectar todos los FrameInfo
+	allFrames := make([]models.FrameInfo, 0) // Inicializa un slice vacío
+
+	// Itera sobre todas las tablas de páginas de los procesos
+	for _, rootTable := range models.PageTables { // Asumo models.PageTables es accesible
+		services.CollectFramesFromTableV2(uint(pid), rootTable, &allFrames) // Pasa el slice por referencia
+	}
+
+	groupedOutput := services.GroupFramesByPID(uint(pid), allFrames)
+
+	// 2. Preparar la respuesta JSON
+	response := map[string]interface{}{
+		"status": "success",
+		"data":   groupedOutput, // Incluye el slice de FrameInfo en la respuesta
+	}
+
+	server.SendJsonResponse(w, response)
 }

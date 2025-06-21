@@ -131,3 +131,14 @@ type PageTableLevel struct {
 
 var PageTables = make(map[uint]*PageTableLevel)
 var FreeFrames []bool // true si el frame está libre, false si está ocupado
+
+// FrameInfo es una estructura para almacenar la información de un frame en uso.
+type FrameInfo struct {
+	PID   uint `json:"pid"`
+	Frame int  `json:"frame"`
+}
+
+type GroupedFrameInfo struct { // Renombrada para evitar conflicto con models.FrameInfo original
+	PID    uint  `json:"pid"`
+	Frames []int `json:"frames"` // Un slice de frames
+}
