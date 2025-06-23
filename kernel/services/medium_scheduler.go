@@ -26,7 +26,6 @@ func MediumTermScheduler() {
 	//models.QueueSuspReady.Add(pcb)
 	for {
 		//Si ambas colas están vacías, vuelve a mirar en otro momento
-
 		if models.QueueSuspReady.Size() == 0 && models.QueueSuspBlocked.Size() == 0 {
 			time.Sleep(500 * time.Millisecond)
 			continue
@@ -55,8 +54,8 @@ func MediumTermScheduler() {
 	}
 }
 
-// SUSP. BLOCKED. En este momento se debe informar al módulo memoria que debe ser
-// movido de memoria principal a swap. Cabe aclarar que en este momento vamos
+// SWAP OUT. En este momento se debe informar al módulo memoria que debe ser
+// movido de memoria principal a disco. Cabe aclarar que en este momento vamos
 // a tener más memoria libre en el sistema por lo que se debe verificar si uno o
 // más nuevos procesos pueden entrar (tanto de la cola NEW como de SUSP. READY).
 func movePrincipalMemoryToSwap() {
