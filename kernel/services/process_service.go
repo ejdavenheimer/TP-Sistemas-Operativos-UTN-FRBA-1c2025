@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
@@ -150,63 +149,6 @@ func AddProcessToQueue(pid int, estado models.Estado) (bool, error) {
 		slog.Int("pid", pid), slog.String("estado_destino", string(estado)))
 
 	return true, nil
-}
-
-// Actualiza el estado de un proceso, su LOG y sus metricas.
-func TransitionState(pcb *models.PCB, oldState models.Estado, newState models.Estado) {
-	if oldState == newState {
-		return
-	}
-
-	pcb.Mutex.Lock()
-	defer pcb.Mutex.Unlock()
-
-	if newState == models.EstadoBlocked {
-		go StartSuspensionTimer(pcb)
-	}
-
-	if pcb.ME == nil {
-		pcb.ME = make(map[models.Estado]int)
-	}
-	if pcb.MT == nil {
-		pcb.MT = make(map[models.Estado]time.Duration)
-	}
-
-	//Calculas el tiempo que estuvo en el estado anterior
-	duration := time.Since(pcb.UltimoCambio)
-	pcb.MT[oldState] += duration
-	// Incrementa en 1 la cantidad de veces que el proceso estuvo en el estado anterior
-	pcb.ME[oldState]++
-
-	//Log de cambio de estado
-	slog.Info(fmt.Sprintf("## (%d) Pasa del estado %s al estado %s", pcb.PID, oldState, newState))
-
-	//Registramos el cambio en las metricas
-	pcb.EstadoActual = newState
-	pcb.UltimoCambio = time.Now()
-}
-
-func StartSuspensionTimer(pcb *models.PCB) {
-	slog.Debug("Timer iniciado para posible suspensión de proceso", "PID", pcb.PID)
-
-	time.Sleep(time.Duration(models.KernelConfig.SuspensionTime) * time.Millisecond)
-
-	pcb.Mutex.Lock()
-	defer pcb.Mutex.Unlock()
-
-	// Si todavía está en estado BLOCKED, debe pasar a SUSP.BLOCKED
-	if pcb.EstadoActual == models.EstadoBlocked {
-		// Pasamos a SUSP.BLOCKED
-		slog.Info(fmt.Sprintf("## (%d) - Proceso pasa a SUSP.BLOCKED", pcb.PID))
-		TransitionState(pcb, models.EstadoBlocked, models.EstadoSuspendidoBlocked)
-
-		models.QueueBlocked.Remove(pcb.PID)
-		models.QueueSuspBlocked.Add(*pcb)
-
-		// Informar al módulo MEMORIA para que lo pase a SWAP
-		go movePrincipalMemoryToSwap()
-
-	}
 }
 
 // MoveProcessToState busca un PCB por su PID, lo remueve de su cola actual
