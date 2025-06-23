@@ -184,10 +184,6 @@ func StartSuspensionTimer(pcb *models.PCB) {
 
 		models.QueueBlocked.Remove(pcb.PID)
 		models.QueueSuspBlocked.Add(*pcb)
-
-		// Informar al módulo MEMORIA para que lo pase a SWAP
-		go movePrincipalMemoryToSwap()
-
 	}
 }
 
@@ -212,7 +208,19 @@ func AddProcessToReady(pcb *models.PCB) {
 		}
 
 		if models.KernelConfig.SchedulerAlgorithm == "SRT" {
-			InterruptExec(*pcb) // Pido interrupción si corresponde
+			//Busca el proceso (PCB) que se esta ejecutando con la mayor rafaga restante estimada
+			processToInterrupt := GetPCBConMayorRafagaRestante()
+			if processToInterrupt == nil {
+				slog.Info("No hay procesos ejecutándose para interrumpir")
+				return
+			}
+			if pcb.RafagaEstimada < processToInterrupt.RafagaEstimada {
+				//GetCPUByPid recorre las CPUs conectadas y retorna la qe esta ejecutando el PID solicitado
+				cpu := models.ConnectedCpuMap.GetCPUByPid(processToInterrupt.PID)
+				//SI ES POSITIVO, SE CONECTA AL ENDPOINT DE CPU PARA PEDIRLE QUE DESALOJE AL PROCESO TAL
+				SendInterruption(processToInterrupt.PID, cpu.Port, cpu.Ip)
+			}
+
 		}
 	}
 	select {
