@@ -16,6 +16,8 @@ var (
     ErrInvalidRead     = errors.New("lectura invalida")
 )
 
+var WriteToMemoryMock = WriteToMemory //TODO: lo agregue para los test, chequear si es necesario
+
 func GeInstruction(pid uint, pc uint, path string) (string, bool, error) {
 	err := GetInstructionsByPid(pid, path, models.InstructionsMap)
 	if err != nil {
@@ -109,7 +111,7 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
         return nil, ErrInvalidRead
     }
 
-    maxAddress := process.Pages * models.MemoryConfig.PageSize
+    maxAddress := len(process.Pages) * models.MemoryConfig.PageSize
     if physicalAddress < 0 || physicalAddress+size > maxAddress {
         return nil, ErrMemoryViolation
     }
@@ -118,6 +120,9 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
     if err != nil {
         return nil, err
     }
+
+	UpdatePageBit(pid, physicalAddress, "use")
+	IncrementMetric(pid, "reads")
 
     return data, nil
 }
@@ -151,20 +156,50 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 	// Escribir en memoria física
 	copy(models.UserMemory[physicalAddress:physicalAddress+len(data)], data)
 
-	// Obtener número de página a partir de dirección física
-	pageSize := models.MemoryConfig.PageSize
-	pageNumber := physicalAddress / pageSize
-
-	// Marcar bit de modificación
-	root := models.PageTables[pid]
-	entry, err := FindPageEntry(root, pageNumber)
-	if err != nil {
-		return fmt.Errorf("no se encontró entrada de página: %v", err)
-	}
-	entry.Modified = true
-	// Actualizar métricas
-	if metrics, ok := models.ProcessMetrics[pid]; ok {
-		metrics.Writes++
-	}
+	UpdatePageBit(pid, physicalAddress, "modified")
+	IncrementMetric(pid, "writes")
 	return nil
+}
+
+func UpdatePageBit(pid uint, physicalAddress int, bit string){
+    pageNumber := physicalAddress / models.MemoryConfig.PageSize
+	entry, err := FindPageEntry(models.PageTables[pid], pageNumber)
+	if err != nil {
+		slog.Warn(fmt.Sprintf("No se pudo actualizar bit '%s' para PID %d, página %d: %v", bit, pid, pageNumber, err))
+		return
+	}
+
+	switch bit{
+	case "presence_on":
+		entry.Presence = true;
+	case "presence_off":
+		entry.Presence = false;
+	case "use":
+		entry.Use = true;
+	case "modified":
+		entry.Modified = true;
+	default:
+		slog.Warn(fmt.Sprintf("El bit es desconocido: %s", bit))
+	}
+}
+
+func IncrementMetric(pid uint, metric string) {
+	if m, ok := models.ProcessMetrics[pid]; ok {
+		switch metric {
+		case "reads":
+			m.Reads++
+		case "writes":
+			m.Writes++
+		case "swap_in":
+			m.SwapsIn++
+		case "swap_out":
+			m.SwapsOut++
+		case "page_table":
+			m.PageTableAccesses++
+		case "fetch":
+			m.InstructionFetches++
+		default:
+			slog.Warn(fmt.Sprintf("Métrica desconocida: %s", metric))
+		}
+	}
 }

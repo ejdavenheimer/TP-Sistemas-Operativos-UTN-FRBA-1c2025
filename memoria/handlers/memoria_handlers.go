@@ -230,6 +230,80 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK) //RESPUESTA
 }
 
+func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Pid        uint `json:"pid"`
+		PageNumber int  `json:"page_number"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&request); err != nil {
+		slog.Error("Error al decodificar request de CPU", "error", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Delay de memoria
+	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
+
+	// Validar existencia del proceso
+	process, ok := models.ProcessTable[request.Pid]
+	if !ok {
+		slog.Warn(fmt.Sprintf("PID %d no encontrado en memoria", request.Pid))
+		http.Error(w, "Process Not Found", http.StatusNotFound)
+		return
+	}
+
+	// Validar que la página exista en el proceso
+	if request.PageNumber < 0 || request.PageNumber >= len(process.Pages) {
+		slog.Warn(fmt.Sprintf("Número de página inválido para PID %d: %d", request.Pid, request.PageNumber))
+		http.Error(w, "Page Not Found", http.StatusNotFound)
+		return
+	}
+
+	entry, err := services.FindPageEntry(models.PageTables[request.Pid], request.PageNumber)
+    if err != nil {
+        slog.Warn(fmt.Sprintf("Página %d no está presente en memoria para PID %d: %v", request.PageNumber, request.Pid, err))
+        http.Error(w, "Page Not Present", http.StatusConflict)
+        return
+    }
+
+	// Obtener el contenido del frame en memoria física
+	pageSize := models.MemoryConfig.PageSize
+	frameStart := entry.Frame * pageSize
+	services.UpdatePageBit(request.Pid, frameStart, "use")
+	services.IncrementMetric(request.Pid, "reads")  
+	frameEnd := frameStart + pageSize
+
+	if frameEnd > len(models.UserMemory) {
+		slog.Error("Acceso fuera de límites de memoria")
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		return
+	}
+
+	content := models.UserMemory[frameStart:frameEnd]
+	response := struct {
+		Content []byte `json:"content"`
+	}{
+		Content: content,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		slog.Error("Error al codificar la respuesta", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	slog.Info(fmt.Sprintf("Página %d del proceso %d leída correctamente", request.PageNumber, request.Pid))
+}
+
 func FramesInUseHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method != http.MethodGet {
         http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)

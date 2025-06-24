@@ -11,7 +11,7 @@ import (
 
 func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		var pid int
+		var pid uint
 		err := json.NewDecoder(request.Body).Decode(&pid)
 		if err != nil {
 			slog.Warn("Error al decodificar PID desde IO", "error", err)

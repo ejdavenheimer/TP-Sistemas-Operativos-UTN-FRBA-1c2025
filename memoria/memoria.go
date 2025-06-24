@@ -36,6 +36,7 @@ func main() {
 	http.HandleFunc("POST /memoria/cargarpcb", memoryHandler.ReserveMemoryHandler)
 	http.HandleFunc("POST /memoria/write", memoryHandler.WriteHandler)
 	http.HandleFunc("GET /memoria/framesOcupados", memoryHandler.FramesInUseHandler)
+	http.HandleFunc("POST /memoria/leerPagina", memoryHandler.ReadPageHandler)
 	http.HandleFunc("GET /memoria/v2/framesOcupados", memoryHandler.FramesInUseHandlerV2)
 
 	http.HandleFunc("POST /memoria/swapIn", memoryHandler.PutProcessInSwapHandler)

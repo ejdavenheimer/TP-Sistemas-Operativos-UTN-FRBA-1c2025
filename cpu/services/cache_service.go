@@ -19,7 +19,7 @@ type PageCache struct {
 	//PageSize     int          // Tamaño de cada página (para leer de memoria)
 	// Mapa para búsqueda rápida: {PID + PageNumber} -> Índice en Entries
 	PageMap map[struct {
-		PID        int
+		PID        uint
 		PageNumber int
 	}]int
 }
@@ -28,6 +28,11 @@ var Cache *PageCache
 
 func InitCache() {
 	Cache = SetupCache()
+
+	if Cache == nil {
+		slog.Error("Cache not initialized")
+		panic("Cache not initialized")
+	}
 }
 
 func SetupCache() *PageCache {
@@ -44,7 +49,7 @@ func SetupCache() *PageCache {
 		Algorithm:    models.CpuConfig.CacheReplacement,
 		ClockPointer: 0,
 		PageMap: make(map[struct {
-			PID        int
+			PID        uint
 			PageNumber int
 		}]int),
 	}
@@ -54,30 +59,30 @@ func SetupCache() *PageCache {
 }
 
 // IsEnabled verifica si la caché de páginas está habilitada.
-func IsEnabled(maxEntries int) bool {
-	return maxEntries > 0
+func IsEnabled() bool {
+	return Cache.MaxEntries > 0 //&& Cache != nil
 }
 
 // getEntryKey genera una clave única para el mapa interno.
-func getEntryKey(pid, pageNumber int) struct {
-	PID        int
+func getEntryKey(pid uint, pageNumber int) struct {
+	PID        uint
 	PageNumber int
 } {
 	return struct {
-		PID        int
+		PID        uint
 		PageNumber int
 	}{PID: pid, PageNumber: pageNumber}
 }
 
 // Get intenta obtener una página de la caché.
 // Retorna el contenido de la página y true si es un caché hit.
-func (cache *PageCache) Get(pid, page int) ([]byte, bool) {
+func (cache *PageCache) Get(pid uint, page int) ([]byte, bool) {
 	time.Sleep(time.Duration(models.CpuConfig.CacheDelay) * time.Millisecond)
 
 	cache.Mutex.Lock()
 	defer cache.Mutex.Unlock()
 
-	if !IsEnabled(cache.MaxEntries) {
+	if !IsEnabled() {
 		slog.Debug("La cache se encuentra deshabilitada. Operación ignorada.")
 		return nil, false
 	}
@@ -98,13 +103,13 @@ func (cache *PageCache) Get(pid, page int) ([]byte, bool) {
 }
 
 // Put añade una página a la caché o actualiza una existente.
-func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
+func (cache *PageCache) Put(pid uint, pageNumber int, content []byte) {
 	time.Sleep(time.Duration(models.CpuConfig.CacheDelay) * time.Millisecond)
 
 	cache.Mutex.Lock()
 	defer cache.Mutex.Unlock()
 
-	if !IsEnabled(cache.MaxEntries) {
+	if !IsEnabled() {
 		slog.Debug("La cache se encuentra deshabilitada. Operación ignorada.")
 		return
 	}
@@ -133,13 +138,14 @@ func (cache *PageCache) Put(pid, pageNumber int, content []byte) {
 		Content:     content,
 		ModifiedBit: true,
 		UseBit:      true,
+		LockerBit:   false,
 	}
 	cache.Entries = append(cache.Entries, newCacheEntry)
 	cache.PageMap[key] = len(cache.Entries) - 1
 	slog.Debug(fmt.Sprintf("Cache Add: PID %d, Page %d en nuevo slot %d. Total: %d/%d", pid, pageNumber, len(cache.Entries)-1, len(cache.Entries), cache.MaxEntries))
 }
 
-func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte) {
+func (cache *PageCache) replaceVictim(newPID uint, newPage int, newContent []byte) {
 	slog.Debug(fmt.Sprintf("Caché llena. Aplicando algoritmo de reemplazo: %s", cache.Algorithm))
 	var victimIndex int
 	switch cache.Algorithm {
@@ -157,7 +163,7 @@ func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte
 
 	if victim.ModifiedBit && cache.Algorithm == "CLOCK" {
 		slog.Debug(fmt.Sprintf("Víctima (PID %d, Page %d) modificada. Escribiendo a Memoria Principal.", victim.PID, victim.PageNumber))
-		err := services.WriteToMemory(uint(victim.PID), victim.PageNumber, newContent)
+		err := services.WriteToMemoryMock(uint(victim.PID), victim.PageNumber, newContent)
 		if err != nil {
 			slog.Error(fmt.Sprintf("WRITE failed, unable to write to memory: %v", err))
 			return
@@ -173,6 +179,7 @@ func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte
 		Content:     newContent,
 		ModifiedBit: true,
 		UseBit:      true,
+		LockerBit:   false,
 	}
 
 	cache.PageMap[getEntryKey(victim.PID, victim.PageNumber)] = victimIndex //victim.PageNumber
@@ -185,6 +192,12 @@ func (cache *PageCache) replaceVictim(newPID int, newPage int, newContent []byte
 func (cache *PageCache) findVictimIndexClock() int {
 	for {
 		entry := &cache.Entries[cache.ClockPointer]
+        
+		// Si bit de lockeo es true no puede ser reemplazada
+		if entry.LockerBit {
+			cache.advancePointer()
+			continue
+		}
 
 		// Si bit de uso es 0, esta es la víctima
 		if !entry.UseBit {
@@ -206,6 +219,12 @@ func (cache *PageCache) findVictimIndexClockM() int {
 		//Primer pasada: busca (0,0)
 		for i := 0; i < cache.MaxEntries; i++ {
 			entry := &cache.Entries[cache.ClockPointer]
+            
+			// Si bit de lockeo es true no puede ser reemplazada
+			if entry.LockerBit {
+				cache.advancePointer()
+				continue
+			}
 
 			if !entry.UseBit && !entry.ModifiedBit {
 				//encontro (0,0)
@@ -246,11 +265,11 @@ func (cache *PageCache) advancePointer() {
 
 // RemoveProcess desalojar todas las páginas de un Proceso específico de la caché.
 // Las páginas modificadas se escriben de vuelta a la memoria principal.
-func (cache *PageCache) RemoveProcess(pid int) {
+func (cache *PageCache) RemoveProcess(pid uint) {
 	cache.Mutex.Lock()
 	defer cache.Mutex.Unlock()
 
-	if !IsEnabled(cache.MaxEntries) {
+	if !IsEnabled() {
 		slog.Error(fmt.Sprintf("Se intento de desalojar proceso %d de caché deshabilitada. Operación ignorada.", pid))
 		return
 	}
@@ -259,7 +278,7 @@ func (cache *PageCache) RemoveProcess(pid int) {
 
 	newEntries := make([]models.CacheEntry, 0, cache.MaxEntries)
 	newMap := make(map[struct {
-		PID        int
+		PID        uint
 		PageNumber int
 	}]int)
 
@@ -274,7 +293,7 @@ func (cache *PageCache) RemoveProcess(pid int) {
 		slog.Debug(fmt.Sprintf("DESALOJO: Encontrada página %d del Proceso %d. U=%t, M=%t.", entry.PageNumber, pid, entry.UseBit, entry.ModifiedBit))
 		if entry.ModifiedBit {
 			slog.Debug(fmt.Sprintf("DESALOJO: Página %d (Proceso %d) modificada. Escribiendo a Memoria Principal.", entry.PageNumber, pid))
-			err := services.WriteToMemory(uint(pid), entry.PageNumber, entry.Content)
+			err := services.WriteToMemoryMock(uint(pid), entry.PageNumber, entry.Content)
 			if err != nil {
 				slog.Error(fmt.Sprintf("WRITE failed, unable to write to memory: %v", err))
 				return

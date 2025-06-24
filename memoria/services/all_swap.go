@@ -82,7 +82,7 @@ func PutProcessInSwap(pid int) error {
 	return nil
 }
 
-func RemoveProcessInSwap(pid int) error {
+func RemoveProcessInSwap(pid uint) error {
 	// Buscar la entrada del proceso en la tabla de swap
 	swapEntry, exists := models.ProcessSwapTable[pid]
 	if !exists {

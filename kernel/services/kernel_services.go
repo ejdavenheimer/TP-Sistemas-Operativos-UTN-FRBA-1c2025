@@ -125,7 +125,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		}
 
 		// Paso en pid del padre como primer argumento
-		additionalArgs := []string{strconv.Itoa(parentPID)}
+		additionalArgs := []string{fmt.Sprintf("%d", parentPID)}
 		pcb, err := InitProcess(pseudocodeFile, processSize, additionalArgs)
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)

@@ -72,7 +72,8 @@ func ReserveMemory(pid uint, size int, path string) error {
 	}
 	memoryLock.Unlock()
 
-	NewProcess(pid, size, pageCount)
+	NewProcess(pid, size, pageCount, assignedFrames)
+
 	slog.Debug("PCB registrado", slog.Int("pid", int(pid)), slog.Int("pages", pageCount), slog.Int("size", size))
 	return nil
 }
@@ -165,20 +166,27 @@ func createPageTableLevel(currentLevel, maxLevels int) *models.PageTableLevel {
 	return level
 }
 
-func NewProcess(pid uint, size int, pageCount int) {
+func NewProcess(pid uint, size int, pageCount int, assignedFrames []int) {
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
 
-	metrics := &models.Metrics{}
+	pages := make([]models.PageEntry, pageCount)
+    for i := 0; i < pageCount; i++ {
+        pages[i] = models.PageEntry{
+            Frame: assignedFrames[i],
+            Presence: true,
+            Use: false,
+            Modified: false,
+        }
+    }
 
-	models.ProcessTable[pid] = &models.Process{
-		Pid:     pid,
-		Size:    size,
-		Pages:   pageCount,
-		Metrics: &models.Metrics{},
-	}
-
-	models.ProcessMetrics[pid] = metrics
+    models.ProcessTable[pid] = &models.Process{
+        Pid:     pid,
+        Size:    size,
+        Pages:   pages,
+        Metrics: &models.Metrics{},
+    }
+    models.ProcessMetrics[pid] = &models.Metrics{}
 }
 
 func releaseFrames(pid uint, frames []int) {

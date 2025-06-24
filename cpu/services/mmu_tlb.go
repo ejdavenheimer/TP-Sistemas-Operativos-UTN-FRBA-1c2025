@@ -43,24 +43,12 @@ func RequestMemoryConfig() error {
 	return nil
 }
 
-func TranslateAddress(pid int, logicalAddress int) int {
+func TranslateAddress(pid uint, logicalAddress int) int {
 	pageSize := models.MemConfig.PageSize
 	pageNumber := logicalAddress / pageSize
 	offset := logicalAddress % pageSize
 
 	slog.Debug("Traducción de dirección", "pid", pid, "logical", logicalAddress, "pageNumber", pageNumber, "pageSize", pageSize)
-
-	// Verifica que la cache se encuentre activado
-	if IsEnabled(Cache.MaxEntries) {
-		content, found := Cache.Get(pid, logicalAddress) //TODO: revisar que hace con el content
-
-		// Cache MISS, no lo encuentra en la caché
-		if !found {
-			Cache.Put(pid, logicalAddress, content) //TODO: revisar de donde sale el contenido
-		}
-	}
-
-	// Si la cache esta desactiva va a buscar en la TLB
 
 	//Verifica que la tlb no este desactivada
 	if tlbMaxSize > 0 {
@@ -90,7 +78,7 @@ func TranslateAddress(pid int, logicalAddress int) int {
 
 }
 
-func tlb_miss(pid int, pageNumber int) int {
+func tlb_miss(pid uint, pageNumber int) int {
 	numLevels := models.MemConfig.NumberOfLevels
 	entriesPerPage := models.MemConfig.EntriesPerPage
 
@@ -103,7 +91,7 @@ func tlb_miss(pid int, pageNumber int) int {
 	return RequestMemoryFrame(pid, entries)
 }
 
-func searchTLB(pid int, pagina int) (int, bool) {
+func searchTLB(pid uint, pagina int) (int, bool) {
 	tlbMutex.Lock()
 	defer tlbMutex.Unlock()
 
@@ -120,7 +108,7 @@ func searchTLB(pid int, pagina int) (int, bool) {
 	return 0, false
 }
 
-func insert_tlb(pid int, pagina int, frame int) {
+func insert_tlb(pid uint, pagina int, frame int) {
 	tlbMutex.Lock()
 	defer tlbMutex.Unlock()
 
@@ -152,11 +140,14 @@ func insert_tlb(pid int, pagina int, frame int) {
 	}
 
 	tlb[victimIndex] = entry
+	slog.Debug(fmt.Sprintf("TLB reemplazo: Reemplazando entrada PID %d - Página %d por PID %d - Página %d",
+	tlb[victimIndex].PID, tlb[victimIndex].PageNumber,
+	entry.PID, entry.PageNumber))
 }
 
-func RequestMemoryFrame(pid int, entries []int) int {
+func RequestMemoryFrame(pid uint, entries []int) int {
 	type Request struct {
-		PID     int   `json:"pid"`
+		PID     uint   `json:"pid"`
 		Entries []int `json:"entries"`
 	}
 	type Response struct {
@@ -193,4 +184,18 @@ func intPow(base, exp int) int {
 		exp--
 	}
 	return result
+}
+
+// Elimina las TLBs de los procesos que sean finalizados.
+func RemoveTLBEntriesByPID(pid uint) {
+	tlbMutex.Lock()
+	defer tlbMutex.Unlock()
+
+	filtered := make([]models.TLBEntry, 0, len(tlb))
+	for _, entry := range tlb {
+		if entry.PID != pid {
+			filtered = append(filtered, entry)
+		}
+	}
+	tlb = filtered
 }
