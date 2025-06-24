@@ -87,7 +87,7 @@ type ProcessFrames struct {
 	Frames []int
 }
 
-var ProcessFramesTable = make(map[int]*ProcessFrames)
+var ProcessFramesTable = make(map[uint]*ProcessFrames)
 
 type SwapEntry struct {
 	Offset int64 // posición inicial en archivo

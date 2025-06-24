@@ -66,8 +66,8 @@ func ReserveMemory(pid uint, size int, path string) error {
 
 	// Registrar los frames asignados en ProcessFramesTable para que swap pueda usarlo
 	memoryLock.Lock()
-	models.ProcessFramesTable[int(pid)] = &models.ProcessFrames{
-		PID:    int(pid),
+	models.ProcessFramesTable[pid] = &models.ProcessFrames{
+		PID:    pid,
 		Frames: assignedFrames,
 	}
 	memoryLock.Unlock()
@@ -201,7 +201,7 @@ func releaseFrames(pid uint, frames []int) {
 	delete(models.InstructionsMap, pid)
 
 	// Limpiar también ProcessFramesTable
-	delete(models.ProcessFramesTable, int(pid))
+	delete(models.ProcessFramesTable, pid)
 }
 
 func SearchFrame(pid uint, pages []int) int {

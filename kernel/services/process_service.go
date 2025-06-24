@@ -8,7 +8,7 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
 )
 
-func GetProcess(pid int) models.ProcessResponse {
+func GetProcess(pid uint) models.ProcessResponse {
 	pcb, _, exists := FindPCBInAnyQueue(pid)
 
 	var processResponse models.ProcessResponse
@@ -27,7 +27,7 @@ func GetProcess(pid int) models.ProcessResponse {
 // FindPCBInAnyQueue busca un PCB con el PID dado en cualquiera de las colas de planificación.
 // Retorna el PCB encontrado, un puntero a la cola donde se encontró y un booleano indicando si fue encontrado.
 // Si el PCB no se encuentra, retorna un PCB vacío, nil y false.
-func FindPCBInAnyQueue(pid int) (models.PCB, *list.ArrayList[models.PCB], bool) {
+func FindPCBInAnyQueue(pid uint) (models.PCB, *list.ArrayList[models.PCB], bool) {
 	queuesToSearch := []*list.ArrayList[models.PCB]{
 		models.QueueNew,
 		models.QueueReady,
@@ -43,12 +43,12 @@ func FindPCBInAnyQueue(pid int) (models.PCB, *list.ArrayList[models.PCB], bool) 
 			return p.PID == pid
 		})
 		if found {
-			slog.Debug("Kernel: PCB encontrado en cola", slog.Int("pid", pid), slog.Any("queue", queue))
+			slog.Debug("Kernel: PCB encontrado en cola", "pid", pid, slog.Any("queue", queue))
 			return pcb, queue, true
 		}
 	}
 
-	slog.Debug("Kernel: PCB no encontrado en ninguna cola", slog.Int("pid", pid))
+	slog.Debug("Kernel: PCB no encontrado en ninguna cola", "pid", pid)
 	var zeroPCB models.PCB
 	return zeroPCB, nil, false
 }
@@ -96,7 +96,7 @@ func GetQueuesState() map[string][]models.ProcessResponse {
 
 // AddProcessToQueue añade un PCB a la cola correspondiente según el estado especificado en ProcessRequest.
 // Retorna true si se añadió con éxito, false en caso contrario (ej. estado inválido).
-func AddProcessToQueue(pid int, estado models.Estado) (bool, error) {
+func AddProcessToQueue(pid uint, estado models.Estado) (bool, error) {
 	// Crea un nuevo PCB a partir de la solicitud.
 	// Puedes inicializar otros campos del PCB aquí si son obligatorios.
 	newPCB := models.PCB{
@@ -132,13 +132,13 @@ func AddProcessToQueue(pid int, estado models.Estado) (bool, error) {
 		queueName = "QueueExit"
 	default:
 		slog.Error("Kernel: Estado de PCB inválido especificado para añadir a cola",
-			slog.Int("pid", pid), slog.String("estado", string(estado)))
+			"pid", pid, slog.String("estado", string(estado)))
 		return false, fmt.Errorf("estado de PCB inválido: %s", estado)
 	}
 
 	if existingPCB, _, found := FindPCBInAnyQueue(pid); found {
 		slog.Warn("Kernel: Intento de añadir PCB que ya existe en el sistema.",
-			slog.Int("pid", pid), slog.String("estado_existente", string(existingPCB.EstadoActual)),
+			"pid", pid, slog.String("estado_existente", string(existingPCB.EstadoActual)),
 			slog.String("estado_solicitado", string(estado)))
 		return false, fmt.Errorf("el PCB con PID %d ya existe en el estado %s", pid, existingPCB.EstadoActual)
 	}
@@ -146,7 +146,7 @@ func AddProcessToQueue(pid int, estado models.Estado) (bool, error) {
 	// Añadir el PCB a la cola de destino
 	targetQueue.Add(newPCB)
 	slog.Debug(fmt.Sprintf("Kernel: PCB %d añadido a la cola %s.", pid, queueName),
-		slog.Int("pid", pid), slog.String("estado_destino", string(estado)))
+		"pid", pid, slog.String("estado_destino", string(estado)))
 
 	return true, nil
 }
@@ -155,19 +155,19 @@ func AddProcessToQueue(pid int, estado models.Estado) (bool, error) {
 // y lo añade a la cola correspondiente a su NewEstado.
 // Retorna el PCB actualizado, un booleano indicando si la operación fue exitosa,
 // y un error si ocurre algún problema.
-func MoveProcessToState(pid int, nuevoEstado models.Estado) (models.PCB, bool, error) {
+func MoveProcessToState(pid uint, nuevoEstado models.Estado) (models.PCB, bool, error) {
 	// 1. Encontrar el PCB en cualquiera de las colas
 	pcbToMove, currentQueue, found := FindPCBInAnyQueue(pid)
 	if !found {
 		slog.Warn("Kernel: Intento de mover PCB no encontrado",
-			slog.Int("pid", pid), slog.String("new_estado", string(nuevoEstado)))
+			"pid", pid, slog.String("new_estado", string(nuevoEstado)))
 		return models.PCB{}, false, fmt.Errorf("proceso con PID %d no encontrado en ninguna cola", pid)
 	}
 
 	// 2. Validar que el nuevo estado sea diferente al actual (opcional, pero útil)
 	if pcbToMove.EstadoActual == nuevoEstado {
 		slog.Warn("Kernel: Intento de mover PCB a su mismo estado actual",
-			slog.Int("pid", pid), slog.String("estado", string(nuevoEstado)))
+			"pid", pid, slog.String("estado", string(nuevoEstado)))
 		return pcbToMove, true, fmt.Errorf("el proceso %d ya se encuentra en el estado %s", pid, nuevoEstado)
 	}
 
@@ -182,7 +182,7 @@ func MoveProcessToState(pid int, nuevoEstado models.Estado) (models.PCB, bool, e
 	if index == -1 {
 		// Esto no debería pasar si FindPCBInAnyQueue lo encontró y el mutex está bien
 		slog.Error("Kernel: Fallo al remover PCB de su cola actual después de encontrarlo",
-			slog.Int("pid", pid)) // Asumiendo que Queue tiene Name
+			"pid", pid) // Asumiendo que Queue tiene Name
 		return models.PCB{}, false, fmt.Errorf("error interno: no se pudo remover PCB %d de la cola", pid)
 	}
 
@@ -209,7 +209,7 @@ func MoveProcessToState(pid int, nuevoEstado models.Estado) (models.PCB, bool, e
 		// Tu planificador debería manejar la transición a EXEC de forma exclusiva.
 		// Por simplicidad, lo añadimos, pero ten en cuenta la lógica de tu simulador.
 		if models.QueueExec.Size() > 0 {
-			slog.Warn("Kernel: Ya hay un proceso en QueueExec. Añadiendo PCB %d de todas formas.", slog.Int("pid", pid))
+			slog.Warn("Kernel: Ya hay un proceso en QueueExec. Añadiendo PCB %d de todas formas.", "pid", pid)
 			// Podrías añadir lógica aquí para "desalojar" al PCB actual de EXEC.
 		}
 		targetQueue = models.QueueExec
@@ -232,14 +232,14 @@ func MoveProcessToState(pid int, nuevoEstado models.Estado) (models.PCB, bool, e
 		// Por ahora, lo dejamos fuera y retornamos un error.
 		currentQueue.Add(removedPCB) // Intenta devolverlo
 		slog.Error("Kernel: Intento de mover PCB a un estado desconocido",
-			slog.Int("pid", pid), slog.String("new_estado", string(nuevoEstado)))
+			"pid", pid, slog.String("new_estado", string(nuevoEstado)))
 		return models.PCB{}, false, fmt.Errorf("estado de destino inválido: %s", nuevoEstado)
 	}
 
 	targetQueue.Add(removedPCB)
 	slog.Info(fmt.Sprintf("Kernel: PCB %d movido exitosamente a %s.",
 		pid, targetQueueName),
-		slog.Int("pid", pid),
+		"pid", pid,
 		slog.String("destino", targetQueueName))
 
 	return removedPCB, true, nil

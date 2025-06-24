@@ -10,8 +10,8 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 )
 
-func SendInterruption(pid int, portCpu int, ipCpu string) {
-	slog.Info("Iniciando pedido de interrupción del proceso", slog.Int("PID", pid))
+func SendInterruption(pid uint, portCpu int, ipCpu string) {
+	slog.Info("Iniciando pedido de interrupción del proceso", "PID", pid)
 	//Conectarse con cpu y enviar PID
 	bodyRequest, err := json.Marshal(pid)
 	if err != nil {

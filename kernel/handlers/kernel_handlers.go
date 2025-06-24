@@ -100,7 +100,7 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			state = models.EstadoExit
 		}
 
-		_, isSuccess, err = services.MoveProcessToState(pid, state)
+		_, isSuccess, err = services.MoveProcessToState(uint(pid), state)
 
 		if !isSuccess || err != nil {
 			slog.Error("Qué rompimos? :(")

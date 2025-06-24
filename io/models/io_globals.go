@@ -21,17 +21,17 @@ type Device struct {
 	Ip     string
 	Port   int
 	IsFree bool
-	PID    int
+	PID    uint
 }
 
 type DeviceResponse struct {
-	Pid    int
+	Pid    uint
 	Reason string
 	Port   int
 }
 
 type IORequest struct {
-	PID    int `json:"pid"`
+	PID    uint `json:"pid"`
 	TimeIO int `json:"tiempo"`
 }
 

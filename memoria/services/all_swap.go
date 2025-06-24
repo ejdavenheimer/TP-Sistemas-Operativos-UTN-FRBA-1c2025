@@ -11,7 +11,7 @@ import (
 
 // En el archivo de swap, cambiar las líneas que usan ProcessFramesTable:
 
-func PutProcessInSwap(pid int) error {
+func PutProcessInSwap(pid uint) error {
 	// Abrir (o crear) el archivo swapfile.bin en modo lectura/escritura
 	file, err := os.OpenFile(models.MemoryConfig.SwapFilePath, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {

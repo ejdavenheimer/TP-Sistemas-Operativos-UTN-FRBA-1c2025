@@ -102,12 +102,12 @@ type Device struct {
 }
 
 type ProcessResponse struct {
-	Pid          int    `json:"pid"`
+	Pid          uint    `json:"pid"`
 	EstadoActual Estado `json:"estadoActual"`
 }
 
 type ProcessRequest struct {
-	Pid          int    `json:"pid"`
+	Pid          uint    `json:"pid"`
 	EstadoActual Estado `json:"estadoActual"`
 }
 

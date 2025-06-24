@@ -182,7 +182,7 @@ func StartSuspensionTimer(pcb *models.PCB) {
 		slog.Info(fmt.Sprintf("## (%d) - Proceso pasa a SUSP.BLOCKED", pcb.PID))
 		TransitionState(pcb, models.EstadoBlocked, models.EstadoSuspendidoBlocked)
 
-		models.QueueBlocked.Remove(pcb.PID)
+		models.QueueBlocked.Remove(int(pcb.PID))
 		models.QueueSuspBlocked.Add(*pcb)
 	}
 }

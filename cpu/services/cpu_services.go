@@ -335,7 +335,7 @@ func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) me
 	return instructionResponse
 }
 
-func DecodeAndExecute(pid int, instructions string, cpuConfig *models.Config, isFinished *bool, isBlocked *bool) {
+func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, isFinished *bool, isBlocked *bool) {
 	value := strings.Split(instructions, " ")
 
 	var syscallRequest kernelModel.SyscallRequest

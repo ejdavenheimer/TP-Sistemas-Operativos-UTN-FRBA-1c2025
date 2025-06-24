@@ -72,7 +72,7 @@ func (sMap *CpuMap) MarkAsFree(id string) {
 	}
 }
 
-func (cpuMap *CpuMap) GetCPUByPid(pid int) *models.CpuN {
+func (cpuMap *CpuMap) GetCPUByPid(pid uint) *models.CpuN {
 	cpuMap.mx.Lock()
 	defer cpuMap.mx.Unlock()
 

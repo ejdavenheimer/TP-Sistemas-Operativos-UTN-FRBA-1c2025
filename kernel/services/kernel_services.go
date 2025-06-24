@@ -17,7 +17,7 @@ import (
 )
 
 // este servicio le solicita al dispositivo que duerme por el tiempo que le pasemos.
-func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
+func SleepDevice(pid uint, timeSleep int, device ioModel.Device) error {
 	//Crea y codifica la request de conexion a Kernel
 	var request = models.DeviceRequest{Pid: pid, SuspensionTime: timeSleep}
 	body, err := json.Marshal(request)
@@ -164,7 +164,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 	}
 }
 
-func EndProcess(pid int, reason string) {
+func EndProcess(pid uint, reason string) {
 	slog.Debug(fmt.Sprintf("[%d] Finaliza el proceso - Motivo: %s", pid, reason))
 
 	pcb, _, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
@@ -190,7 +190,7 @@ func EndProcess(pid int, reason string) {
 	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", pid))
 }
 
-func BlockedProcess(pid int, reason string) {
+func BlockedProcess(pid uint, reason string) {
 	slog.Debug(fmt.Sprintf("[%d] Se bloquea el proceso el proceso - Motivo: %s", pid, reason))
 	// Para que un proceso se bloquee tiene que estar en ejecución.
 	pcb, index, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
@@ -222,14 +222,14 @@ func DumpServices(pid uint, size int) {
 		return
 	}
 
-	BlockedProcess(int(pid), "dumping services")
+	BlockedProcess(pid, "dumping services")
 
 	response, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/dump-memory", body)
 	var dumpMemoryResponse memoriaModel.DumpMemoryResponse
 
 	if err != nil || response.StatusCode != 200 {
 		slog.Error(fmt.Sprintf("error: %v", err))
-		EndProcess(int(pid), "DUMP MEMORY")
+		EndProcess(pid, "DUMP MEMORY")
 		return
 	}
 
@@ -242,7 +242,7 @@ func DumpServices(pid uint, size int) {
 		return
 	}
 
-	_, isSuccess, err := MoveProcessToState(int(pid), models.EstadoExit)
+	_, isSuccess, err := MoveProcessToState(pid, models.EstadoExit)
 	if !isSuccess || err != nil {
 		slog.Error("Qué rompimos? :(")
 		return
@@ -281,5 +281,5 @@ func FinishDevice(port int) (bool, int) {
 		return false, -1
 	}
 
-	return true, deviceRequested.PID
+	return true, int(deviceRequested.PID)
 }
