@@ -73,12 +73,16 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB], es
 	if index != -1 {
 		fromQueue.Remove(index)
 	}
-	process.EstadoActual = models.EstadoReady
-	process.UltimoCambio = time.Now()
+	TransitionState(process, process.EstadoActual, models.EstadoReady)
 	models.QueueReady.Add(*process)
 
 	//log obligatorio
 	slog.Info(fmt.Sprintf("## PID %d Pasa del estado NEW al estado %s", process.PID, process.EstadoActual))
+	select {
+	case models.NotifyReady <- 1:
+	default:
+	}
+	
 }
 
 func findProcessIndexByPID(queue *list.ArrayList[models.PCB], pid int) int {
