@@ -290,3 +290,34 @@ func FramesInUseHandlerV2(w http.ResponseWriter, r *http.Request) {
 
 	server.SendJsonResponse(w, response)
 }
+
+func UpdatePageHandler() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// TODO: revisar que datos necesito recibir
+		//var dumpRequest models.DumpMemoryRequest
+		//
+		//// Decodifica el request (codificado en formato json).
+		//err := json.NewDecoder(r.Body).Decode(&dumpRequest)
+		//if err != nil {
+		//	http.Error(w, err.Error(), http.StatusInternalServerError)
+		//	return
+		//}
+
+		slog.Debug(fmt.Sprintf("## PID: <%d> Actualizando página completa"))
+
+		services.UpdatePage()
+		//if err != nil {
+		//	w.WriteHeader(http.StatusNotFound)
+		//	slog.Error(fmt.Sprintf("error: %s", err.Error()))
+		//	return
+		//}
+
+		//response := models.DumpMemoryResponse{
+		//	Result: "Ok",
+		//}
+		response := map[string]interface{}{
+			"data": "Ok",
+		}
+		server.SendJsonResponse(w, response)
+	}
+}
