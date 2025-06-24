@@ -163,7 +163,7 @@ func (cache *PageCache) replaceVictim(newPID uint, newPage int, newContent []byt
 
 	if victim.ModifiedBit && cache.Algorithm == "CLOCK" {
 		slog.Debug(fmt.Sprintf("Víctima (PID %d, Page %d) modificada. Escribiendo a Memoria Principal.", victim.PID, victim.PageNumber))
-		err := services.WriteToMemory(uint(victim.PID), victim.PageNumber, newContent)
+		err := services.WriteToMemoryMock(uint(victim.PID), victim.PageNumber, newContent)
 		if err != nil {
 			slog.Error(fmt.Sprintf("WRITE failed, unable to write to memory: %v", err))
 			return
@@ -293,7 +293,7 @@ func (cache *PageCache) RemoveProcess(pid uint) {
 		slog.Debug(fmt.Sprintf("DESALOJO: Encontrada página %d del Proceso %d. U=%t, M=%t.", entry.PageNumber, pid, entry.UseBit, entry.ModifiedBit))
 		if entry.ModifiedBit {
 			slog.Debug(fmt.Sprintf("DESALOJO: Página %d (Proceso %d) modificada. Escribiendo a Memoria Principal.", entry.PageNumber, pid))
-			err := services.WriteToMemory(uint(pid), entry.PageNumber, entry.Content)
+			err := services.WriteToMemoryMock(uint(pid), entry.PageNumber, entry.Content)
 			if err != nil {
 				slog.Error(fmt.Sprintf("WRITE failed, unable to write to memory: %v", err))
 				return
