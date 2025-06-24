@@ -28,6 +28,11 @@ var Cache *PageCache
 
 func InitCache() {
 	Cache = SetupCache()
+
+	if Cache == nil {
+		slog.Error("Cache not initialized")
+		panic("Cache not initialized")
+	}
 }
 
 func SetupCache() *PageCache {
@@ -55,7 +60,7 @@ func SetupCache() *PageCache {
 
 // IsEnabled verifica si la caché de páginas está habilitada.
 func IsEnabled() bool {
-	return models.CpuConfig.CacheEntries > 0 && Cache != nil
+	return Cache.MaxEntries > 0 //&& Cache != nil
 }
 
 // getEntryKey genera una clave única para el mapa interno.

@@ -16,6 +16,8 @@ var (
     ErrInvalidRead     = errors.New("lectura invalida")
 )
 
+var WriteToMemoryMock = WriteToMemory //TODO: lo agregue para los test, chequear si es necesario
+
 func GeInstruction(pid uint, pc uint, path string) (string, bool, error) {
 	err := GetInstructionsByPid(pid, path, models.InstructionsMap)
 	if err != nil {
