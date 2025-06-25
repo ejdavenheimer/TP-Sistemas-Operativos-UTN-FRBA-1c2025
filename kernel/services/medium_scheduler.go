@@ -109,9 +109,9 @@ func mediumScheduleFIFO() {
 		return
 	}
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
-	models.QueueSuspReady.Remove(0) // Elimina el primer proceso de la cola NEW
+	models.QueueSuspReady.Remove(0) // Elimina el primer proceso de la cola SUSPENDED READY
 	TransitionState(&process, models.EstadoSuspendidoReady, models.EstadoReady)
-	models.QueueReady.Add(process)
+	AddProcessToReady(&process)
 
 }
 
@@ -132,18 +132,18 @@ func mediumScheduleShortestFirst() {
 		return slice[i].Size < slice[j].Size
 	})
 
-	// Verificar si hay suficiente memoria para el primer proceso en la cola NEW
+	// Verificar si hay suficiente memoria para el primer proceso en la cola SUSPENDED READY
 	process := slice[0]
 	err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
 	if err != nil {
 		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
 		return
 	}
-
+	indexToRemove := findProcessIndexByPID(models.QueueSuspReady, process.PID)
 	// Si hay espacio, mover a READY
 	// Eliminar solo el primer proceso (más chico) de la cola NEW
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
-	models.QueueSuspReady.Remove(0) // Eliminar el primer proceso de la cola NEW
+	models.QueueSuspReady.Remove(indexToRemove) // Eliminar el primer proceso de la cola SUSPENDED READY
 	TransitionState(&process, models.EstadoSuspendidoReady, models.EstadoReady)
-	models.QueueReady.Add(process) // Agregarlo a la cola READY
+	AddProcessToReady(&process) // Agregarlo a la cola READY
 }
