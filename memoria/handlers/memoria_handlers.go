@@ -3,48 +3,15 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 )
-
-// TODO: deprecado, borrar
-func GetInstructionsHandler(configPath string) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		queryParams := r.URL.Query()
-		pidStr := queryParams.Get("pid")
-		pathName := queryParams.Get("pathName")
-
-		pidInt, err := strconv.ParseInt(pidStr, 10, 64)
-		if err != nil || pidInt < 0 {
-			http.Error(w, "PID inválido", http.StatusBadRequest)
-			return
-		}
-		pid := uint(pidInt)
-
-		path := configPath + pathName
-		//services.GetInstructions(uint(pid), path, models.InstructionsMap)
-		//instruction := models.InstructionsResponse{
-
-		err = services.GetInstructions(pid, path, models.InstructionsMap)
-		if err != nil {
-			slog.Error(fmt.Sprintf("Error obteniendo instrucciones: %v", err))
-			http.Error(w, "Error obteniendo instrucciones", http.StatusInternalServerError)
-			return
-		}
-
-		instruction := models.InstructionsResponse{
-			Instruction: models.InstructionsMap,
-		}
-		services.IncrementMetric(pid, "fetch")
-		slog.Debug(fmt.Sprintf("Se envierán %d instrucciones para ejecutar.", len(instruction.Instruction[uint(pid)])))
-		server.SendJsonResponse(w, instruction)
-	}
-}
 
 func GetInstructionHandler(configPath string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -119,25 +86,25 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Delay de memoria
 	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
-	
+
 	value, err := services.Read(uint(request.Pid), request.PhysicalAddress, request.Size)
-    if err != nil {
-        switch err {
-        case services.ErrProcessNotFound:
-            http.Error(w, "Proceso no encontrado", http.StatusNotFound)
-            slog.Warn("Intento de lectura de proceso inexistente", "pid", request.Pid)
-        case services.ErrMemoryViolation:
-            http.Error(w, "Violación de memoria", http.StatusForbidden)
-            slog.Warn("Violación de memoria detectada", "pid", request.Pid, slog.Int("direccion", request.PhysicalAddress))
-        case services.ErrInvalidRead:
-            http.Error(w, "Lectura inválida", http.StatusBadRequest)
-            slog.Warn("Lectura inválida", "pid", request.Pid)
-        default:
-            http.Error(w, "Error interno leyendo memoria", http.StatusInternalServerError)
-            slog.Error("Error al leer desde memoria", "pid", request.Pid, "direccion", request.PhysicalAddress, "error", err)
-        }
-        return
-    }
+	if err != nil {
+		switch err {
+		case services.ErrProcessNotFound:
+			http.Error(w, "Proceso no encontrado", http.StatusNotFound)
+			slog.Warn("Intento de lectura de proceso inexistente", "pid", request.Pid)
+		case services.ErrMemoryViolation:
+			http.Error(w, "Violación de memoria", http.StatusForbidden)
+			slog.Warn("Violación de memoria detectada", "pid", request.Pid, slog.Int("direccion", request.PhysicalAddress))
+		case services.ErrInvalidRead:
+			http.Error(w, "Lectura inválida", http.StatusBadRequest)
+			slog.Warn("Lectura inválida", "pid", request.Pid)
+		default:
+			http.Error(w, "Error interno leyendo memoria", http.StatusInternalServerError)
+			slog.Error("Error al leer desde memoria", "pid", request.Pid, "direccion", request.PhysicalAddress, "error", err)
+		}
+		return
+	}
 
 	//log obligatorio
 	slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d>", request.Pid, request.PhysicalAddress, request.Size))
@@ -210,10 +177,10 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request struct {
-        Pid             uint   `json:"pid"`
-        PhysicalAddress int    `json:"physical_address"`
-        Data            string `json:"data"`
-    }
+		Pid             uint   `json:"pid"`
+		PhysicalAddress int    `json:"physical_address"`
+		Data            string `json:"data"`
+	}
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		slog.Error("Invalid WRITE request", "error", err)
@@ -221,8 +188,8 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    // Delay de memoria
-    time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
+	// Delay de memoria
+	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 
 	//EJECUCION ESCRITURA
 	dataBytes := []byte(request.Data)
@@ -274,17 +241,17 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entry, err := services.FindPageEntry(request.Pid, models.PageTables[request.Pid], request.PageNumber)
-    if err != nil {
-        slog.Warn(fmt.Sprintf("Página %d no está presente en memoria para PID %d: %v", request.PageNumber, request.Pid, err))
-        http.Error(w, "Page Not Present", http.StatusConflict)
-        return
-    }
+	if err != nil {
+		slog.Warn(fmt.Sprintf("Página %d no está presente en memoria para PID %d: %v", request.PageNumber, request.Pid, err))
+		http.Error(w, "Page Not Present", http.StatusConflict)
+		return
+	}
 
 	// Obtener el contenido del frame en memoria física
 	pageSize := models.MemoryConfig.PageSize
 	frameStart := entry.Frame * pageSize
 	services.UpdatePageBit(request.Pid, frameStart, "use")
-	services.IncrementMetric(request.Pid, "reads")  
+	services.IncrementMetric(request.Pid, "reads")
 	frameEnd := frameStart + pageSize
 
 	if frameEnd > len(models.UserMemory) {
@@ -311,33 +278,33 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func FramesInUseHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGet {
-        http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-        return
-    }
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-    fmt.Println("=== Frames Ocupados ===")
+	fmt.Println("=== Frames Ocupados ===")
 
-    for pid, rootTable := range models.PageTables {
-        collectFramesFromTable(pid, rootTable)
-    }
+	for pid, rootTable := range models.PageTables {
+		collectFramesFromTable(pid, rootTable)
+	}
 
-    fmt.Fprintln(w, "OK") // Devuelve OK al cliente
+	fmt.Fprintln(w, "OK") // Devuelve OK al cliente
 }
 
 func collectFramesFromTable(pid uint, table *models.PageTableLevel) {
-    if table == nil {
-        return
-    }
+	if table == nil {
+		return
+	}
 
-    if table.IsLeaf && table.Entry != nil && table.Entry.Presence {
-        line := fmt.Sprintf("PID: %d - Frame: %d\n", pid, table.Entry.Frame)
-        fmt.Print(line)        // También imprimo en consola
-    }
+	if table.IsLeaf && table.Entry != nil && table.Entry.Presence {
+		line := fmt.Sprintf("PID: %d - Frame: %d\n", pid, table.Entry.Frame)
+		fmt.Print(line) // También imprimo en consola
+	}
 
-    for _, sub := range table.SubTables {
-        collectFramesFromTable(pid, sub)
-    }
+	for _, sub := range table.SubTables {
+		collectFramesFromTable(pid, sub)
+	}
 }
 
 func FramesInUseHandlerV2(w http.ResponseWriter, r *http.Request) {
@@ -372,31 +339,31 @@ func FramesInUseHandlerV2(w http.ResponseWriter, r *http.Request) {
 }
 
 func MetricsHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGet {
-        http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
-        return
-    }
+	if r.Method != http.MethodGet {
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		return
+	}
 
-    pidStr := r.URL.Query().Get("pid")
-    pidInt, err := strconv.ParseInt(pidStr, 10, 64)
-    if err != nil || pidInt < 0 {
-        http.Error(w, "PID inválido", http.StatusBadRequest)
-        return
-    }
-    pid := uint(pidInt)
+	pidStr := r.URL.Query().Get("pid")
+	pidInt, err := strconv.ParseInt(pidStr, 10, 64)
+	if err != nil || pidInt < 0 {
+		http.Error(w, "PID inválido", http.StatusBadRequest)
+		return
+	}
+	pid := uint(pidInt)
 
-    metrics, ok := models.ProcessMetrics[pid]
-    if !ok {
-        http.Error(w, "Proceso no encontrado", http.StatusNotFound)
-        return
-    }
+	metrics, ok := models.ProcessMetrics[pid]
+	if !ok {
+		http.Error(w, "Proceso no encontrado", http.StatusNotFound)
+		return
+	}
 
-    w.Header().Set("Content-Type", "text/plain")
-    fmt.Fprintf(w, "=== Métricas PID: %d ===\n", pid)
-    fmt.Fprintf(w, "PageTableAccesses: %d\n", metrics.PageTableAccesses)
-    fmt.Fprintf(w, "InstructionFetches: %d\n", metrics.InstructionFetches)
-    fmt.Fprintf(w, "SwapsOut: %d\n", metrics.SwapsOut)
-    fmt.Fprintf(w, "SwapsIn: %d\n", metrics.SwapsIn)
-    fmt.Fprintf(w, "Reads: %d\n", metrics.Reads)
-    fmt.Fprintf(w, "Writes: %d\n", metrics.Writes)
+	w.Header().Set("Content-Type", "text/plain")
+	fmt.Fprintf(w, "=== Métricas PID: %d ===\n", pid)
+	fmt.Fprintf(w, "PageTableAccesses: %d\n", metrics.PageTableAccesses)
+	fmt.Fprintf(w, "InstructionFetches: %d\n", metrics.InstructionFetches)
+	fmt.Fprintf(w, "SwapsOut: %d\n", metrics.SwapsOut)
+	fmt.Fprintf(w, "SwapsIn: %d\n", metrics.SwapsIn)
+	fmt.Fprintf(w, "Reads: %d\n", metrics.Reads)
+	fmt.Fprintf(w, "Writes: %d\n", metrics.Writes)
 }

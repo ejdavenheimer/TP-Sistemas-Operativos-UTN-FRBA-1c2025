@@ -4,14 +4,15 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/services"
-	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 	"log/slog"
 	"net"
 	"net/http"
 	"strings"
+
+	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/services"
+	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 )
 
 func SleepHandler() func(http.ResponseWriter, *http.Request) {
@@ -71,7 +72,8 @@ func ConectToKernel(nombre, ip string, puerto int) {
 		slog.Info("Petición recibida", "mensaje", strings.TrimSpace(linea))
 
 		// Analiza el tiempo de la peticion
-		var pid, tiempo int
+		var tiempo int
+		var pid uint
 		_, err = fmt.Sscanf(linea, "PID: %*d|TIEMPO_IO: %d", &pid, &tiempo)
 		if err != nil {
 			slog.Warn("Petición inválida", "detalle", linea)

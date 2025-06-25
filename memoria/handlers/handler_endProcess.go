@@ -8,7 +8,7 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
 )
 
-func DeleteContextHandler(w http.ResponseWriter, r *http.Request) {
+func EndProcessHandler(w http.ResponseWriter, r *http.Request) {
 	//VALIDACION METODO HTTP
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -23,8 +23,7 @@ func DeleteContextHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	services.ClearMemoryOfProcess(req)
+	services.ClearMemoryProcess(req)
 
-	w.WriteHeader(http.StatusOK) //RESPUESTA
-	//TODO: Más adelante, debe enviar el PCB a una función que realmente se encargue de borrar el contexto
+	w.WriteHeader(http.StatusOK)
 }

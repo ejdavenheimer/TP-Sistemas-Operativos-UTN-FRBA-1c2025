@@ -200,7 +200,7 @@ test_memoria_frames_ocupados() {
 test_swap_in() {
     echo -e "${VERDE}Ejecutando SWAP IN (sacar de swap a memoria)${NC}"
     read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
-    curl --location --request POST http://localhost:8002/memoria/swapIn \
+    curl --location --request POST http://localhost:8002/memoria/swapOut \
         --header 'Content-Type: application/json' \
         --data "{\"pid\": $pid}"
 }
@@ -208,7 +208,7 @@ test_swap_in() {
 test_swap_out() {
     echo -e "${VERDE}Ejecutando SWAP OUT (mover proceso a swap)${NC}"
     read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
-    curl --location --request POST http://localhost:8002/memoria/swapOut \
+    curl --location --request POST http://localhost:8002/memoria/swapIn \
         --header 'Content-Type: application/json' \
         --data "{\"pid\": $pid}"
 }
