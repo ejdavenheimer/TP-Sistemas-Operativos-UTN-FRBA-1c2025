@@ -155,7 +155,8 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 
 	// Escribir en memoria física
 	copy(models.UserMemory[physicalAddress:physicalAddress+len(data)], data)
-
+    
+	UpdatePageBit(pid, physicalAddress, "use")
 	UpdatePageBit(pid, physicalAddress, "modified")
 	IncrementMetric(pid, "writes")
 	return nil
@@ -163,7 +164,7 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 
 func UpdatePageBit(pid uint, physicalAddress int, bit string){
     pageNumber := physicalAddress / models.MemoryConfig.PageSize
-	entry, err := FindPageEntry(models.PageTables[pid], pageNumber)
+	entry, err := FindPageEntry(pid, models.PageTables[pid], pageNumber)
 	if err != nil {
 		slog.Warn(fmt.Sprintf("No se pudo actualizar bit '%s' para PID %d, página %d: %v", bit, pid, pageNumber, err))
 		return

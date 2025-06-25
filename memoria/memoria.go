@@ -38,6 +38,7 @@ func main() {
 	http.HandleFunc("GET /memoria/framesOcupados", memoryHandler.FramesInUseHandler)
 	http.HandleFunc("POST /memoria/leerPagina", memoryHandler.ReadPageHandler)
 	http.HandleFunc("GET /memoria/v2/framesOcupados", memoryHandler.FramesInUseHandlerV2)
+	http.HandleFunc("GET /memoria/metrics", memoryHandler.MetricsHandler)
 
 	http.HandleFunc("POST /memoria/swapIn", memoryHandler.PutProcessInSwapHandler)
 	http.HandleFunc("POST /memoria/swapOut", memoryHandler.RemoveProcessInSwapHandler)

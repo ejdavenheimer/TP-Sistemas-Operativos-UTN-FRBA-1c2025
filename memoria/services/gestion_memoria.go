@@ -217,7 +217,7 @@ func SearchFrame(pid uint, pages []int) int {
 
 	for _, pageNumber := range pages {
 		//slog.Debug(fmt.Sprintf("BUSCANDO FRAME %d", pages))
-		frame, err := getFrameFromPageNumber(pageTableRoot, pageNumber)
+		frame, err := getFrameFromPageNumber(pid, pageTableRoot, pageNumber)
 		if err == nil && frame != -1 {
 			// Retornamos el primer frame válido encontrado
 			slog.Debug(fmt.Sprintf("Frame enviado a CPU:%d", frame))
@@ -230,19 +230,20 @@ func SearchFrame(pid uint, pages []int) int {
 	return -1
 }
 
-func getFrameFromPageNumber(root *models.PageTableLevel, pageNumber int) (int, error) {
-	entry, err := FindPageEntry(root, pageNumber)
+func getFrameFromPageNumber(pid uint, root *models.PageTableLevel, pageNumber int) (int, error) {
+	entry, err := FindPageEntry(pid, root, pageNumber)
 	if err != nil {
 		return -1, err
 	}
 	return entry.Frame, nil
 }
 
-func FindPageEntry(root *models.PageTableLevel, pageNumber int) (*models.PageEntry, error) {
+func FindPageEntry(pid uint, root *models.PageTableLevel, pageNumber int) (*models.PageEntry, error) {
 	currentLevel := root
 	indices := getPageIndices(pageNumber, models.MemoryConfig.NumberOfLevels, models.MemoryConfig.EntriesPerPage)
 
 	for i, index := range indices {
+		IncrementMetric(pid, "page_table")
 		// Si estamos en el último índice, deberíamos encontrar una hoja
 		if i == len(indices)-1 {
 			nextLevel, exists := currentLevel.SubTables[index]

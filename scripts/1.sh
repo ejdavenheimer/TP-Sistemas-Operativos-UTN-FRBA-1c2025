@@ -213,6 +213,14 @@ test_swap_out() {
         --data "{\"pid\": $pid}"
 }
 
+test_metrics_process() {
+    echo -e "${VERDE}Ver métricas${NC}"
+    read -p "$(echo -e ${AMARILLO}Pid:${NC} )" pid
+    
+    curl --location --request GET "http://localhost:8002/memoria/metrics?pid=$pid"
+    echo
+}
+
 while true; do
     echo -e "${AMARILLO}1.${NC} Obtener intrucción IO"
     echo -e "${AMARILLO}2.${NC} Ejecutando instrucción IO desde CPU (EXEC)"
@@ -230,6 +238,7 @@ while true; do
     echo -e "${AMARILLO}14.${NC} Consultar frames ocupados"
     echo -e "${AMARILLO}15.${NC} Ejecutar READ"
     echo -e "${AMARILLO}16.${NC} Ejecutar WRITE"
+    echo -e "${AMARILLO}17.${NC} Ver Metricas"
     echo -e "${ROJO}s.${NC} Salir"
     echo
     read -p "$(echo -e ${AMARILLO}Opción:${NC} )" opcion
@@ -251,6 +260,7 @@ while true; do
         14) test_memoria_frames_ocupados;;
         15) test_memoria_read;;
         16) test_memoria_write;;
+        17) test_metrics_process ;;
         s) echo -e "${ROJO}Saliendo...${NC}"; break ;;
         *) echo -e "${ROJO}Opción no válida${NC}" ;;
     esac

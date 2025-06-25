@@ -19,13 +19,18 @@ func GetInstructionsHandler(configPath string) func(http.ResponseWriter, *http.R
 		pidStr := queryParams.Get("pid")
 		pathName := queryParams.Get("pathName")
 
-		pid, _ := strconv.ParseInt(pidStr, 10, 64)
+		pidInt, err := strconv.ParseInt(pidStr, 10, 64)
+		if err != nil || pidInt < 0 {
+			http.Error(w, "PID inválido", http.StatusBadRequest)
+			return
+		}
+		pid := uint(pidInt)
 
 		path := configPath + pathName
 		//services.GetInstructions(uint(pid), path, models.InstructionsMap)
 		//instruction := models.InstructionsResponse{
 
-		err := services.GetInstructions(uint(pid), path, models.InstructionsMap)
+		err = services.GetInstructions(pid, path, models.InstructionsMap)
 		if err != nil {
 			slog.Error(fmt.Sprintf("Error obteniendo instrucciones: %v", err))
 			http.Error(w, "Error obteniendo instrucciones", http.StatusInternalServerError)
@@ -35,6 +40,7 @@ func GetInstructionsHandler(configPath string) func(http.ResponseWriter, *http.R
 		instruction := models.InstructionsResponse{
 			Instruction: models.InstructionsMap,
 		}
+		services.IncrementMetric(pid, "fetch")
 		slog.Debug(fmt.Sprintf("Se envierán %d instrucciones para ejecutar.", len(instruction.Instruction[uint(pid)])))
 		server.SendJsonResponse(w, instruction)
 	}
@@ -267,7 +273,7 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry, err := services.FindPageEntry(models.PageTables[request.Pid], request.PageNumber)
+	entry, err := services.FindPageEntry(request.Pid, models.PageTables[request.Pid], request.PageNumber)
     if err != nil {
         slog.Warn(fmt.Sprintf("Página %d no está presente en memoria para PID %d: %v", request.PageNumber, request.Pid, err))
         http.Error(w, "Page Not Present", http.StatusConflict)
@@ -363,4 +369,34 @@ func FramesInUseHandlerV2(w http.ResponseWriter, r *http.Request) {
 	}
 
 	server.SendJsonResponse(w, response)
+}
+
+func MetricsHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+        return
+    }
+
+    pidStr := r.URL.Query().Get("pid")
+    pidInt, err := strconv.ParseInt(pidStr, 10, 64)
+    if err != nil || pidInt < 0 {
+        http.Error(w, "PID inválido", http.StatusBadRequest)
+        return
+    }
+    pid := uint(pidInt)
+
+    metrics, ok := models.ProcessMetrics[pid]
+    if !ok {
+        http.Error(w, "Proceso no encontrado", http.StatusNotFound)
+        return
+    }
+
+    w.Header().Set("Content-Type", "text/plain")
+    fmt.Fprintf(w, "=== Métricas PID: %d ===\n", pid)
+    fmt.Fprintf(w, "PageTableAccesses: %d\n", metrics.PageTableAccesses)
+    fmt.Fprintf(w, "InstructionFetches: %d\n", metrics.InstructionFetches)
+    fmt.Fprintf(w, "SwapsOut: %d\n", metrics.SwapsOut)
+    fmt.Fprintf(w, "SwapsIn: %d\n", metrics.SwapsIn)
+    fmt.Fprintf(w, "Reads: %d\n", metrics.Reads)
+    fmt.Fprintf(w, "Writes: %d\n", metrics.Writes)
 }
