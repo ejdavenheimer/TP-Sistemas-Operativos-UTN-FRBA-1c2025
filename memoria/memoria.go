@@ -29,24 +29,32 @@ func main() {
 	http.HandleFunc("GET /config/memoria", memoryHandler.MemoryConfigHandler)
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Memoria"))
 	http.HandleFunc("GET /memoria", handlers.HandshakeHandler("Memoria en funcionamiento 🚀"))
+
 	//Manejo de memoria del sistema
 	http.HandleFunc("GET /memoria/instruccion", memoryHandler.GetInstructionHandler(models.MemoryConfig.ScriptsPath))
+
 	//Acceso a tabla de paginas
 	http.HandleFunc("POST /memoria/buscarFrame", memoryHandler.SearchFrameHandler)
+
 	//Acceso a espacio de usuario
 	http.HandleFunc("POST /memoria/leerPagina", memoryHandler.ReadPageHandler)
 	http.HandleFunc("POST /memoria/write", memoryHandler.WriteHandler)
+
 	//Leer página completa
 	http.HandleFunc("POST /memoria/leerMemoria", memoryHandler.ReadMemoryHandler)
+
 	//Memory Dump
 	http.HandleFunc("POST /memoria/dump-memory", memoryHandler.DumpMemoryHandler())
+
 	//Actualizar página completa
 	http.HandleFunc("GET /memoria/framesOcupados", memoryHandler.FramesInUseHandler)
 	http.HandleFunc("GET /memoria/v2/framesOcupados", memoryHandler.FramesInUseHandlerV2)
 	http.HandleFunc("GET /memoria/metrics", memoryHandler.MetricsHandler)
+
 	//Manejo de swap
 	http.HandleFunc("POST /memoria/swapOut", memoryHandler.PutProcessInSwapHandler)
 	http.HandleFunc("POST /memoria/swapIn", memoryHandler.RemoveProcessInSwapHandler)
+
 	//Ocupar o Liberar espacio de memoria de un PCB
 	http.HandleFunc("POST /memoria/cargarpcb", memoryHandler.ReserveMemoryHandler)
 	http.HandleFunc("POST /memoria/liberarpcb", memoryHandler.EndProcessHandler)

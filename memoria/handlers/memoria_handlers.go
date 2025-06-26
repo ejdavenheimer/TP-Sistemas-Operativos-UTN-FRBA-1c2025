@@ -127,6 +127,9 @@ func SearchFrameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Delay de memoria
+	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
+
 	//buscar frame
 	frame := services.SearchFrame(request.PID, request.Entries)
 
@@ -198,7 +201,7 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Write failed", http.StatusInternalServerError)
 		return
 	}
-
+	services.IncrementMetric(request.Pid, "writes")
 	slog.Info(fmt.Sprintf("## PID: <%d> - <Write> - Dir. Física: <%d> - Dato: <%s>", request.Pid, request.PhysicalAddress, request.Data))
 	w.WriteHeader(http.StatusOK) //RESPUESTA
 }

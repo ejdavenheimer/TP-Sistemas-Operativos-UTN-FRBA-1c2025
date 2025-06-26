@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 )
@@ -12,6 +13,9 @@ import (
 // En el archivo de swap, cambiar las líneas que usan ProcessFramesTable:
 
 func PutProcessInSwap(pid uint) error {
+	// Delay de swap
+	time.Sleep(time.Duration(models.MemoryConfig.SwapDelay) * time.Millisecond)
+
 	// Abrir (o crear) el archivo swapfile.bin en modo lectura/escritura
 	file, err := os.OpenFile(models.MemoryConfig.SwapFilePath, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
@@ -85,6 +89,9 @@ func PutProcessInSwap(pid uint) error {
 }
 
 func RemoveProcessInSwap(pid uint) error {
+	// Delay de swap
+	time.Sleep(time.Duration(models.MemoryConfig.SwapDelay) * time.Millisecond)
+
 	// Buscar la entrada del proceso en la tabla de swap
 	swapEntry, exists := models.ProcessSwapTable[pid]
 	if !exists {
