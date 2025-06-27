@@ -17,9 +17,10 @@ type List[T any] interface {
 	Insert(index int, item T) error                      // Insertar un elemento en el índice dado
 	Pop() (T, error)                                     // Remover el último elemento de la lista
 	Remove(index int)                                    // Eliminar un elemento en el índice dado
-	Set(index int, newValue T) error                     // Modifica el valor de un elemento de la lista a partir de su índice.
-	Size() int                                           // Retornar el tamaño de la lista
-	Sort(less func(a, b T) bool)                         // Ordena una Lista de acuerdo al criterio
+	RemoveWhere(match func(T) bool)
+	Set(index int, newValue T) error // Modifica el valor de un elemento de la lista a partir de su índice.
+	Size() int                       // Retornar el tamaño de la lista
+	Sort(less func(a, b T) bool)     // Ordena una Lista de acuerdo al criterio
 }
 
 // ArrayList implements List
@@ -244,6 +245,15 @@ func (list *ArrayList[T]) Pop() (T, error) {
 func (list *ArrayList[T]) Remove(index int) {
 	if index >= 0 && index < len(list.items) {
 		list.items = append(list.items[:index], list.items[index+1:]...)
+	}
+}
+
+func (list *ArrayList[T]) RemoveWhere(match func(T) bool) {
+	for i, item := range list.items {
+		if match(item) {
+			list.items = append(list.items[:i], list.items[i+1:]...)
+			break
+		}
 	}
 }
 
