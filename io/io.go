@@ -5,7 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 
 	ioHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
@@ -46,6 +48,18 @@ func main() {
 	slog.Debug(fmt.Sprintf("Port IO: %d - IO: %s", models.IoConfig.PortIo, models.IoName))
 
 	services.ConnectToKernel(models.IoName, models.IoConfig)
+
+	signal.Notify(models.Shutdown, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-models.Shutdown
+		slog.Debug("Señal recibida, cerrando módulo IO", "signal", sig)
+
+		// Notifica al Kernel que se cierra este módulo
+		services.NotifyDisconnection()
+
+		os.Exit(0)
+	}()
 
 	http.HandleFunc("GET /", handlers.HandshakeHandler(fmt.Sprintf("Bienvenido al módulo de IO - Dispositivo: %s", models.IoName)))
 	http.HandleFunc("GET /io", handlers.HandshakeHandler("IO en funcionamiento 🚀"))

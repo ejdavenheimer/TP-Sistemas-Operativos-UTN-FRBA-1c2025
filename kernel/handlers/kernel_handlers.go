@@ -99,6 +99,9 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 		if device.Reason == "KILL" {
 			slog.Debug("Se murió :(")
 			state = models.EstadoExit
+			models.ConnectedDeviceList.RemoveWhere(func(d ioModel.Device) bool {
+				return d.Port == device.Port
+			})
 		}
 
 		_, isSuccess, err = services.MoveProcessToState(uint(pid), state)

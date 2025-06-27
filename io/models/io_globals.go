@@ -1,6 +1,7 @@
 package models
 
 import (
+	"os"
 	"sync"
 )
 
@@ -31,3 +32,5 @@ type DeviceResponse struct {
 }
 
 var IoName string
+
+var Shutdown = make(chan os.Signal, 1)

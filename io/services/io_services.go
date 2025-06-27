@@ -64,3 +64,23 @@ func Sleep(pid uint, suspensionTime int) {
 	slog.Debug("Fin de operación IO", "pid", pid)
 	notifyKernel(pid, "Fin de IO", models.IoConfig)
 }
+
+func NotifyDisconnection() {
+	const InvalidPid uint = 10000000
+	var request = models.DeviceResponse{Pid: InvalidPid, Reason: "KILL", Port: models.IoConfig.PortIo}
+
+	body, err := json.Marshal(request)
+
+	if err != nil {
+		slog.Error(fmt.Sprintf("error: %v", err))
+		panic(err)
+	}
+
+	_, err = client.DoRequest(models.IoConfig.PortKernel, models.IoConfig.IpKernel, "POST", "kernel/dispositivo-finalizado", body)
+
+	if err != nil {
+		slog.Error(fmt.Sprintf("error: %v", err))
+		panic(err)
+	}
+
+}
