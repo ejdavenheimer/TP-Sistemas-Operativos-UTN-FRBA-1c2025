@@ -38,7 +38,7 @@ func ConnectToKernel(ioName string, ioConfig *models.Config) {
 
 func notifyKernel(pid uint, message string, ioConfig *models.Config) {
 	//Crea y codifica la request de conexion a Kernel
-	var request = models.DeviceResponse{Pid: pid, Reason: message, Port: ioConfig.PortIo}
+	var request = models.DeviceResponse{Pid: pid, Reason: message, Port: ioConfig.PortIo, Name: models.IoName}
 	body, err := json.Marshal(request)
 
 	if err != nil {
@@ -56,25 +56,25 @@ func notifyKernel(pid uint, message string, ioConfig *models.Config) {
 	}
 }
 
-func NotifyDisconnection() {
-	const INVALID_PID uint = 10000000
-	var request = models.DeviceResponse{Pid: INVALID_PID, Reason: "KILL", Port: models.IoConfig.PortIo}
-
-	body, err := json.Marshal(request)
-
-	if err != nil {
-		slog.Error(fmt.Sprintf("error: %v", err))
-		panic(err)
-	}
-
-	_, err = client.DoRequest(models.IoConfig.PortKernel, models.IoConfig.IpKernel, "POST", "kernel/dispositivo-finalizado", body)
-
-	if err != nil {
-		slog.Error(fmt.Sprintf("error: %v", err))
-		panic(err)
-	}
-
-}
+//func NotifyDisconnection() {
+//	const INVALID_PID uint = 10000000
+//	var request = models.DeviceResponse{Pid: INVALID_PID, Reason: "KILL", Port: models.IoConfig.PortIo}
+//
+//	body, err := json.Marshal(request)
+//
+//	if err != nil {
+//		slog.Error(fmt.Sprintf("error: %v", err))
+//		panic(err)
+//	}
+//
+//	_, err = client.DoRequest(models.IoConfig.PortKernel, models.IoConfig.IpKernel, "POST", "kernel/dispositivo-finalizado", body)
+//
+//	if err != nil {
+//		slog.Error(fmt.Sprintf("error: %v", err))
+//		panic(err)
+//	}
+//
+//}
 
 func Sleep(pid uint, suspensionTime int) {
 	slog.Debug("Inicio de operación IO", "pid", pid, "duración_ms", suspensionTime)
