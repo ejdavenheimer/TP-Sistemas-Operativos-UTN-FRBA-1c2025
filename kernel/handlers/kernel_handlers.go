@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"log/slog"
 	"net/http"
 
@@ -108,32 +109,46 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
+		//chequeo si hay un otro proceso esperando
+		pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(device.Name)
+
+		if isSuccess {
+			slog.Debug(fmt.Sprintf("Se encontró un proceso esperando por el dispositivo [%s]", device.Name))
+			_, isSuccess, err = services.MoveProcessToState(uint(pidWaiting), state)
+
+			if !isSuccess || err != nil {
+				slog.Error("Qué rompimos? :(")
+				http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
+				return
+			}
+		}
+
 		server.SendJsonResponse(writer, device)
 	}
 }
 
-func DeviceRegisterHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var request models.Device
-		err := json.NewDecoder(r.Body).Decode(&request)
-		if err != nil {
-			slog.Error("Error al decodificar dispositivo IO", "error", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-
-		models.ConnectedDevicesMap.Set(request.Name, ioModel.Device{
-			Name: request.Name,
-			Ip:   request.Ip,
-			Port: request.Port,
-		})
-
-		slog.Info(fmt.Sprintf("Dispositivo IO conectado: %s (%s:%d)", request.Name, request.Ip, request.Port))
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "OK"})
-	}
-}
+//func DeviceRegisterHandler() http.HandlerFunc {
+//	return func(w http.ResponseWriter, r *http.Request) {
+//		var request models.Device
+//		err := json.NewDecoder(r.Body).Decode(&request)
+//		if err != nil {
+//			slog.Error("Error al decodificar dispositivo IO", "error", err)
+//			http.Error(w, "Bad request", http.StatusBadRequest)
+//			return
+//		}
+//
+//		models.ConnectedDevicesMap.Set(request.Name, ioModel.Device{
+//			Name: request.Name,
+//			Ip:   request.Ip,
+//			Port: request.Port,
+//		})
+//
+//		slog.Info(fmt.Sprintf("Dispositivo IO conectado: %s (%s:%d)", request.Name, request.Ip, request.Port))
+//
+//		w.Header().Set("Content-Type", "application/json")
+//		json.NewEncoder(w).Encode(map[string]string{"status": "OK"})
+//	}
+//}
 
 // EJECUTA UNA SYSCALL IO
 func ExecuteSyscallIOHandler() func(http.ResponseWriter, *http.Request) {

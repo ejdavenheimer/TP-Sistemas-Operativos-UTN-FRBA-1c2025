@@ -75,10 +75,20 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 
-		// Chequeo si el dispositivo se encuentra libre
-		// En caso de que no se encuentre libre se deberá bloquear el proceso.
-		if !deviceRequested.IsFree {
+		// Se crea una lista auxiliar con dispositivos del mismo tipo
+		connectedDeviceListAux := models.ConnectedDeviceList.FindAll(func(d ioModel.Device) bool {
+			return syscallRequest.Values[0] == d.Name
+		})
+
+		// Se busca los dispositivos que se encuentren libres
+		deviceRequestedAux, indexAux, exists := connectedDeviceListAux.Find(func(d ioModel.Device) bool {
+			return d.IsFree
+		})
+
+		// En caso de que no encuentre ningún dispositivo libre, se bloquea el proceso
+		if index < 0 || !exists {
 			slog.Debug("El dispositivo se encuentra ocupado...")
+			helpers.AddPidForDevice(deviceRequested.Name, int(syscallRequest.Pid))
 			BlockedProcess(syscallRequest.Pid, fmt.Sprintf("El dispositivo %s no se encuentra disponible", syscallRequest.Type))
 			server.SendJsonResponse(writer, map[string]interface{}{
 				"action": "block",
@@ -86,15 +96,15 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 
-		deviceRequested.IsFree = false
-		deviceRequested.PID = syscallRequest.Pid
-		err := models.ConnectedDeviceList.Set(index, deviceRequested)
+		deviceRequestedAux.IsFree = false
+		deviceRequestedAux.PID = syscallRequest.Pid
+		err := models.ConnectedDeviceList.Set(index+indexAux, deviceRequestedAux)
 		if err != nil {
 			slog.Error(fmt.Sprintf("error: %v", err))
 			return
 		}
 
-		device := ioModel.Device{Ip: deviceRequested.Ip, Port: deviceRequested.Port, Name: syscallRequest.Values[0]}
+		device := ioModel.Device{Ip: deviceRequestedAux.Ip, Port: deviceRequestedAux.Port, Name: syscallRequest.Values[0]}
 		sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
 		err = SleepDevice(syscallRequest.Pid, sleepTime, device)
 
