@@ -110,7 +110,7 @@ func mediumScheduleFIFO() {
 	}
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(0) // Elimina el primer proceso de la cola SUSPENDED READY
-	TransitionState(&process, models.EstadoSuspendidoReady, models.EstadoReady)
+	TransitionState(&process, models.EstadoReady)
 	AddProcessToReady(&process)
 
 }
@@ -144,6 +144,6 @@ func mediumScheduleShortestFirst() {
 	// Eliminar solo el primer proceso (más chico) de la cola NEW
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(indexToRemove) // Eliminar el primer proceso de la cola SUSPENDED READY
-	TransitionState(&process, models.EstadoSuspendidoReady, models.EstadoReady)
+	TransitionState(&process, models.EstadoReady)
 	AddProcessToReady(&process) // Agregarlo a la cola READY
 }
