@@ -10,6 +10,7 @@ type List[T any] interface {
 	Dequeue() (T, error)                                 // Eliminar y devolver el primer elemento de la lista
 	Filter(value T, predicate func(a, b T) bool) List[T] // Filtra elementos de la lista
 	Find(predicate func(T) bool) (T, int, bool)          // Permite buscar un elemento de la lista dado un predicado.
+	FindAll(predicate func(T) bool) *ArrayList[T]        // FindAll encuentra todos los elementos que satisfacen el predicado y los devuelve en una nueva lista
 	ForEach(callback func(T))                            // A cada elemento de la lista se le va aplicar la función que le pase
 	Get(index int) (T, error)                            // Obtener un elemento a partir de un índice dado
 	GetAll() []T                                         // Retorna todos los elementos que se encuentra en la lista
@@ -123,6 +124,28 @@ func (list *ArrayList[T]) Find(predicate func(T) bool) (T, int, bool) {
 	}
 	var zero T
 	return zero, -1, false
+}
+
+// NewArrayList crea y devuelve una nueva instancia de ArrayList.
+func newArrayList[T any]() *ArrayList[T] {
+	return &ArrayList[T]{
+		items: make([]T, 0), // Inicializa el slice interno vacío
+	}
+}
+
+// FindAll encuentra todos los elementos que satisfacen el predicado y los devuelve en una nueva instancia de ArrayList.
+// Si ningún elemento cumple la condición, devuelve un ArrayList vacío.
+func (list *ArrayList[T]) FindAll(predicate func(T) bool) *ArrayList[T] {
+	// Crea una nueva instancia de ArrayList para almacenar los elementos filtrados
+	filteredList := newArrayList[T]()
+
+	for _, item := range list.items {
+		if predicate(item) {
+			filteredList.Add(item)
+		}
+	}
+
+	return filteredList
 }
 
 // Get devuelve el elemento en el índice proporcionado.
