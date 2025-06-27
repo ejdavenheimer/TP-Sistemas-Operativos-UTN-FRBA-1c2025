@@ -2,6 +2,7 @@ package list
 
 import (
 	"fmt"
+	"sync"
 )
 
 // List Definir la interfaz List
@@ -23,6 +24,7 @@ type List[T any] interface {
 
 // ArrayList implements List
 type ArrayList[T any] struct {
+	mu    sync.RWMutex
 	items []T
 }
 
@@ -39,6 +41,8 @@ type ArrayList[T any] struct {
 //		list.Add(20)
 //	}
 func (list *ArrayList[T]) Add(item T) {
+	list.mu.Lock()
+	defer list.mu.Unlock()
 	list.items = append(list.items, item)
 }
 

@@ -53,7 +53,7 @@ func SelectToExecute() bool {
 	}
 	//Lo saca de la cola READY. Ya está listo para ejecutarse.
 	models.QueueReady.Remove(index)
-	TransitionState(&pcb, models.EstadoReady, models.EstadoExecuting)
+	TransitionState(&pcb, models.EstadoExecuting)
 
 	// Asigna el proceso a la CPU
 	cpu.PIDExecuting = pcb.PID
@@ -76,15 +76,15 @@ func SelectToExecute() bool {
 
 		switch result.StatusCodePCB {
 		case models.NeedFinish:
-			TransitionState(pcb, models.EstadoExecuting, models.EstadoExit)
+			TransitionState(pcb, models.EstadoExit)
 
 		case models.NeedReplan:
-			TransitionState(pcb, models.EstadoExecuting, models.EstadoReady)
+			TransitionState(pcb, models.EstadoReady)
 			pcb.PC = result.PC
 			AddProcessToReady(pcb)
 
 		case models.NeedInterrupt:
-			TransitionState(pcb, models.EstadoExecuting, models.EstadoReady)
+			TransitionState(pcb, models.EstadoReady)
 			pcb.PC = result.PC
 			AddProcessToReady(pcb)
 			slog.Info(fmt.Sprintf("## (%d) - Desalojado por algoritmo SJF/SRT", pcb.PID))
@@ -135,7 +135,8 @@ func ExecuteProcess(pcb *models.PCB, cpu cpuModels.CpuN) models.PCBExecuteReques
 }
 
 // Actualiza el estado de un proceso, su LOG y sus metricas.
-func TransitionState(pcb *models.PCB, oldState models.Estado, newState models.Estado) {
+func TransitionState(pcb *models.PCB, newState models.Estado) {
+	oldState := pcb.EstadoActual
 	if oldState == newState {
 		return
 	}
@@ -180,7 +181,7 @@ func StartSuspensionTimer(pcb *models.PCB) {
 	if pcb.EstadoActual == models.EstadoBlocked {
 		// Pasamos a SUSP.BLOCKED
 		slog.Info(fmt.Sprintf("## (%d) - Proceso pasa a SUSP.BLOCKED", pcb.PID))
-		TransitionState(pcb, models.EstadoBlocked, models.EstadoSuspendidoBlocked)
+		TransitionState(pcb, models.EstadoSuspendidoBlocked)
 
 		models.QueueBlocked.Remove(int(pcb.PID))
 		models.QueueSuspBlocked.Add(*pcb)
