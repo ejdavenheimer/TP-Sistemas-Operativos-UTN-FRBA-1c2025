@@ -64,25 +64,28 @@ func SelectToExecute() bool {
 		tiempoEjecutado := time.Since(inicioEjecucion)
 
 		if models.KernelConfig.SchedulerAlgorithm == "SJF" || models.KernelConfig.SchedulerAlgorithm == "SRT" {
+			pcb.Mutex.Lock()
 			pcb.RafagaReal = float32(tiempoEjecutado.Milliseconds())
 			// Est(n+1)        =                α          * R(n)           + (1 - α)                      * Est(n)
 			pcb.RafagaEstimada = models.KernelConfig.Alpha*pcb.RafagaReal + (1-models.KernelConfig.Alpha)*pcb.RafagaEstimada
+			pcb.PC = result.PC
+			pcb.Mutex.Unlock()
 		}
 
 		switch result.StatusCodePCB {
 		case models.NeedFinish:
+			slog.Info(fmt.Sprintf("## (%d) - Terminando ejecución, pasando a EXIT", pcb.PID))
 			TransitionState(pcb, models.EstadoExit)
 
 		case models.NeedReplan:
+			slog.Info(fmt.Sprintf("## (%d) - Replanificando, pasando a READY", pcb.PID))
 			TransitionState(pcb, models.EstadoReady)
-			pcb.PC = result.PC
 			AddProcessToReady(pcb)
 
 		case models.NeedInterrupt:
+			slog.Info(fmt.Sprintf("## (%d) - Desalojado por algoritmo SJF/SRT, pasando a READY", pcb.PID))
 			TransitionState(pcb, models.EstadoReady)
-			pcb.PC = result.PC
 			AddProcessToReady(pcb)
-			slog.Info(fmt.Sprintf("## (%d) - Desalojado por algoritmo SJF/SRT", pcb.PID))
 		}
 
 		// Liberar CPU
@@ -133,6 +136,7 @@ func ExecuteProcess(pcb *models.PCB, cpu cpuModels.CpuN) models.PCBExecuteReques
 func TransitionState(pcb *models.PCB, newState models.Estado) {
 	oldState := pcb.EstadoActual
 	if oldState == newState {
+		slog.Warn(fmt.Sprintf("## (%d) El proceso ya está en el estado %s, no se realiza la transición.", pcb.PID, newState))
 		return
 	}
 
@@ -184,6 +188,9 @@ func StartSuspensionTimer(pcb *models.PCB) {
 }
 
 func AddProcessToReady(pcb *models.PCB) {
+	pcb.Mutex.Lock()
+	defer pcb.Mutex.Unlock() // Desbloquea el mutex al final de la función
+
 	switch models.KernelConfig.SchedulerAlgorithm {
 	case "FIFO":
 		// En FIFO agrego al final sin ordenar

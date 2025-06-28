@@ -94,11 +94,3 @@ func generatePID() uint {
 	nextPID++
 	return pid
 }
-func updateStateMetrics(pcb *models.PCB, estado models.Estado) {
-	// Incrementa el contador de veces que el proceso estuvo en ese estado
-	pcb.ME[estado]++
-
-	// Actualiza el tiempo que el proceso ha estado en este estado
-	duration := time.Since(pcb.UltimoCambio)
-	pcb.MT[estado] += duration
-}

@@ -187,8 +187,9 @@ func MoveProcessToState(pid uint, nuevoEstado models.Estado) (*models.PCB, bool,
 
 	currentQueue.Remove(index)
 
-	// 4. Actualizar el estado del PCB
-	removedPCB.EstadoActual = nuevoEstado
+	// 4. Actualizar el estado del PCB usando TransitionState
+	TransitionState(removedPCB, nuevoEstado)
+
 	// Puedes actualizar otros campos aquí si la transición lo requiere
 	// Por ejemplo, si pasa a READY, quizás resetear algún contador de CPU.
 
