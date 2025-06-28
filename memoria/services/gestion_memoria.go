@@ -171,22 +171,22 @@ func NewProcess(pid uint, size int, pageCount int, assignedFrames []int) {
 	defer memoryLock.Unlock()
 
 	pages := make([]models.PageEntry, pageCount)
-    for i := 0; i < pageCount; i++ {
-        pages[i] = models.PageEntry{
-            Frame: assignedFrames[i],
-            Presence: true,
-            Use: false,
-            Modified: false,
-        }
-    }
+	for i := 0; i < pageCount; i++ {
+		pages[i] = models.PageEntry{
+			Frame:    assignedFrames[i],
+			Presence: true,
+			Use:      false,
+			Modified: false,
+		}
+	}
 
-    models.ProcessTable[pid] = &models.Process{
-        Pid:     pid,
-        Size:    size,
-        Pages:   pages,
-        Metrics: &models.Metrics{},
-    }
-    models.ProcessMetrics[pid] = &models.Metrics{}
+	models.ProcessTable[pid] = &models.Process{
+		Pid:     pid,
+		Size:    size,
+		Pages:   pages,
+		Metrics: &models.Metrics{},
+	}
+	models.ProcessMetrics[pid] = &models.Metrics{}
 }
 
 func releaseFrames(pid uint, frames []int) {

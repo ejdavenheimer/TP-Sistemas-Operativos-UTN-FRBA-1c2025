@@ -46,17 +46,17 @@ type ReadRequest struct {
 type Metrics struct {
 	PageTableAccesses  int
 	InstructionFetches int
-	SwapsOut           int
-	SwapsIn            int
+	SwapsOut           int //Salieron de memoria
+	SwapsIn            int //Entraron a memoria
 	Reads              int
 	Writes             int
 }
 
 type Process struct {
-	Pid         uint
-	Size        int
-	Pages       []PageEntry
-	Metrics     *Metrics // metricas del proceso
+	Pid     uint
+	Size    int
+	Pages   []PageEntry
+	Metrics *Metrics // metricas del proceso
 }
 
 // Maps para procesos y métricas
