@@ -1,13 +1,8 @@
 package handlers
 
 import (
-	"bufio"
 	"encoding/json"
-	"fmt"
-	"log/slog"
-	"net"
 	"net/http"
-	"strings"
 
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/services"
