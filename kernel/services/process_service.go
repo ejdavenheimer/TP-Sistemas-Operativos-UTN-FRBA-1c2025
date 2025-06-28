@@ -75,7 +75,7 @@ func GetQueuesState() map[string][]models.ProcessResponse {
 
 	for _, q := range queues {
 		pcbsInQueue := make([]models.ProcessResponse, 0)
-		allPCBs := q.Queue.GetAll() // Asumo que GetAll() es un método seguro y retorna una copia del slice interno.
+		allPCBs := q.Queue.GetAll() // Asumo que GetAll() es un metodo seguro y retorna una copia del slice interno.
 		if allPCBs == nil {
 			slog.Warn("Kernel: GetAll() de cola retornó nil. Puede indicar un problema en ArrayList.", slog.String("queue", q.Name))
 			continue
