@@ -29,7 +29,7 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 		}
 
 		// Buscar el proceso en la cola de bloqueados
-		pcb, index, found := models.QueueBlocked.Find(func(pcb models.PCB) bool {
+		pcb, index, found := models.QueueBlocked.Find(func(pcb *models.PCB) bool {
 			return pcb.PID == pid
 		})
 

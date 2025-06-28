@@ -40,20 +40,15 @@ func SelectToExecute() bool {
 		return false // No hay CPU libre, no se puede ejecutar un proceso
 	}
 
-	var pcb models.PCB
-	var index int = -1 // inicializo en -1, valor default si da error
-	var err error
-
-	pcb, err = models.QueueReady.Get(0)
-	index = 0
+	pcb, err := models.QueueReady.Get(0)
 
 	if err != nil {
 		slog.Warn("Error obteniendo proceso de la cola READY:", "error", err)
 		return false //Error al obtener el proceso
 	}
 	//Lo saca de la cola READY. Ya está listo para ejecutarse.
-	models.QueueReady.Remove(index)
-	TransitionState(&pcb, models.EstadoExecuting)
+	models.QueueReady.Remove(0)
+	TransitionState(pcb, models.EstadoExecuting)
 
 	// Asigna el proceso a la CPU
 	cpu.PIDExecuting = pcb.PID
@@ -92,7 +87,7 @@ func SelectToExecute() bool {
 
 		// Liberar CPU
 		models.ConnectedCpuMap.MarkAsFree(key)
-	}(&pcb, *cpu, key)
+	}(pcb, *cpu, key)
 
 	return true
 }
@@ -184,7 +179,7 @@ func StartSuspensionTimer(pcb *models.PCB) {
 		TransitionState(pcb, models.EstadoSuspendidoBlocked)
 
 		models.QueueBlocked.Remove(int(pcb.PID))
-		models.QueueSuspBlocked.Add(*pcb)
+		models.QueueSuspBlocked.Add(pcb)
 	}
 }
 
@@ -192,20 +187,20 @@ func AddProcessToReady(pcb *models.PCB) {
 	switch models.KernelConfig.SchedulerAlgorithm {
 	case "FIFO":
 		// En FIFO agrego al final sin ordenar
-		models.QueueReady.Add(*pcb)
+		models.QueueReady.Add(pcb)
 
 	case "SJF", "SRT": // Inserto ordenadamente en la cola READY, ordenada por Rafaga ascendente
 		procesoInsertado := false
 		for i := 0; i < models.QueueReady.Size(); i++ {
 			procesoIterado, _ := models.QueueReady.Get(i)
 			if pcb.RafagaEstimada < procesoIterado.RafagaEstimada {
-				models.QueueReady.Insert(i, *pcb) // Inserto el proceso en la posición i
+				models.QueueReady.Insert(i, pcb) // Inserto el proceso en la posición i
 				procesoInsertado = true
 				break
 			}
 		}
 		if !procesoInsertado { // Si no se insertó antes, lo agrego al final
-			models.QueueReady.Add(*pcb)
+			models.QueueReady.Add(pcb)
 		}
 
 		if models.KernelConfig.SchedulerAlgorithm == "SRT" {

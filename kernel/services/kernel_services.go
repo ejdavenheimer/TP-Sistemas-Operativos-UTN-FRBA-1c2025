@@ -149,7 +149,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			"action": "continue",
 		})
 	case "DUMP_MEMORY":
-		pcb, index, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+		pcb, index, exists := models.QueueExec.Find(func(pcb *models.PCB) bool {
 			return pcb.PID == syscallRequest.Pid
 		})
 		if !exists || index == -1 {
@@ -178,7 +178,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 func EndProcess(pid uint, reason string) {
 	slog.Debug(fmt.Sprintf("[%d] Finaliza el proceso - Motivo: %s", pid, reason))
 
-	pcb, _, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+	pcb, _, exists := models.QueueExec.Find(func(pcb *models.PCB) bool {
 		return pcb.PID == pid
 	})
 
@@ -204,7 +204,7 @@ func EndProcess(pid uint, reason string) {
 func BlockedProcess(pid uint, reason string) {
 	slog.Debug(fmt.Sprintf("[%d] Se bloquea el proceso el proceso - Motivo: %s", pid, reason))
 	// Para que un proceso se bloquee tiene que estar en ejecución.
-	pcb, index, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+	pcb, index, exists := models.QueueExec.Find(func(pcb *models.PCB) bool {
 		return pcb.PID == pid
 	})
 

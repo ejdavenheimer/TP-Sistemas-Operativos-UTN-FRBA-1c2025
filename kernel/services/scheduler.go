@@ -52,7 +52,7 @@ func longTermScheduler() {
 		//3. Caso especial: si hay un proceso en NEW se lo admite directamente
 		if models.QueueNew.Size() == 1 {
 			pcb, _ := models.QueueNew.Get(0)
-			process := &pcb
+			process := pcb
 			admitProcess(process, models.QueueNew)
 			time.Sleep(500 * time.Millisecond)
 			continue
@@ -63,7 +63,7 @@ func longTermScheduler() {
 	}
 }
 
-func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB]) {
+func admitProcess(process *models.PCB, fromQueue *list.ArrayList[*models.PCB]) {
 	err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
 	if err != nil {
 		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
@@ -73,7 +73,7 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB]) {
 	if index != -1 {
 		fromQueue.Remove(index)
 	}
-	TransitionState(process, process.EstadoActual, models.EstadoReady)
+	TransitionState(process, models.EstadoReady)
 	AddProcessToReady(process)
 
 	//log obligatorio
@@ -85,7 +85,7 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB]) {
 
 }
 
-func findProcessIndexByPID(queue *list.ArrayList[models.PCB], pid uint) int {
+func findProcessIndexByPID(queue *list.ArrayList[*models.PCB], pid uint) int {
 	for i := 0; i < queue.Size(); i++ {
 		p, _ := queue.Get(i)
 		if p.PID == pid {
@@ -113,7 +113,7 @@ func scheduleFIFO() {
 	}
 
 	pcb, _ := models.QueueNew.Get(0)
-	process := &pcb
+	process := pcb
 	admitProcess(process, models.QueueNew)
 }
 
@@ -134,6 +134,6 @@ func scheduleShortestFirst() {
 	}
 
 	process, _ := models.QueueNew.Get(indexMin)
-	processPtr := &process
+	processPtr := process
 	admitProcess(processPtr, models.QueueNew)
 }

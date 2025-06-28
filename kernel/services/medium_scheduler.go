@@ -110,8 +110,8 @@ func mediumScheduleFIFO() {
 	}
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(0) // Elimina el primer proceso de la cola SUSPENDED READY
-	TransitionState(&process, models.EstadoReady)
-	AddProcessToReady(&process)
+	TransitionState(process, models.EstadoReady)
+	AddProcessToReady(process)
 
 }
 
@@ -121,7 +121,7 @@ func mediumScheduleShortestFirst() {
 		return
 	}
 
-	var slice []models.PCB
+	var slice []*models.PCB
 	for i := 0; i < models.QueueSuspReady.Size(); i++ {
 		value, _ := models.QueueSuspReady.Get(i)
 		slice = append(slice, value)
@@ -144,6 +144,6 @@ func mediumScheduleShortestFirst() {
 	// Eliminar solo el primer proceso (más chico) de la cola NEW
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(indexToRemove) // Eliminar el primer proceso de la cola SUSPENDED READY
-	TransitionState(&process, models.EstadoReady)
-	AddProcessToReady(&process) // Agregarlo a la cola READY
+	TransitionState(process, models.EstadoReady)
+	AddProcessToReady(process) // Agregarlo a la cola READY
 }
