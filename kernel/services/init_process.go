@@ -32,6 +32,8 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 
 	parentPID := -1 // Valor por defecto (para el primer proceso o proceso raíz)
 
+	// Si se pasan argumentos adicionales, el primer argumento se interpreta como el ParentPID.
+	// Si no se puede convertir, se usa el valor por defecto -1, lo que significa que el proceso no tiene un proceso padre o es el proceso raíz.
 	if len(additionalArgs) > 0 {
 		// El primer argumento adicional es el ParentPID
 		parentPIDVal, err := strconv.Atoi(additionalArgs[0]) // Convertir el primer argumento a int
