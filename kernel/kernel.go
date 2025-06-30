@@ -32,7 +32,11 @@ func main() {
 	}
 
 	ConfigPath := config.KernelConfigPath()
-    LogPath := config.KernelLogPath()
+    LogPath, err := log.BuildLogPath("kernel")
+    if err != nil {
+        slog.Error(fmt.Sprintf("No se pudo preparar el archivo de log: %v", err))
+        return
+    }
 
 	//Parametros
 	pseudocodeFile := os.Args[1]

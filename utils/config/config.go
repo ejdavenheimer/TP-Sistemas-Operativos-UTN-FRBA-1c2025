@@ -75,12 +75,3 @@ func CpuConfigPath() string {
 func IOConfigPath() string {
     return filepath.Join(GetProjectRoot(), "io/configs/io.json")
 }
-
-// Paths de log para cada módulo
-func KernelLogPath() string {
-    return filepath.Join(GetProjectRoot(), "logs/kernel.log")
-}
-
-func MemoriaLogPath() string {
-    return filepath.Join(GetProjectRoot(), "logs/memoria.log")
-}
