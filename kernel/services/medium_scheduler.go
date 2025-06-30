@@ -112,7 +112,7 @@ func mediumScheduleFIFO() {
 	models.QueueSuspReady.Remove(0) // Elimina el primer proceso de la cola SUSPENDED READY
 	TransitionState(&process, models.EstadoSuspendidoReady, models.EstadoReady)
 	AddProcessToReady(&process)
-
+    StartLongTermScheduler()
 }
 
 func mediumScheduleShortestFirst() {
@@ -146,4 +146,5 @@ func mediumScheduleShortestFirst() {
 	models.QueueSuspReady.Remove(indexToRemove) // Eliminar el primer proceso de la cola SUSPENDED READY
 	TransitionState(&process, models.EstadoSuspendidoReady, models.EstadoReady)
 	AddProcessToReady(&process) // Agregarlo a la cola READY
+	StartLongTermScheduler()
 }

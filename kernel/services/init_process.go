@@ -58,6 +58,7 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 	}
 
 	models.QueueNew.Add(*pcb)
+	StartLongTermScheduler()
 	//Log obligatorio
 	slog.Info(fmt.Sprintf("## PID %d Se crea el proceso - Estado : NEW", pid))
 

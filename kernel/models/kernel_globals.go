@@ -112,3 +112,4 @@ type ProcessRequest struct {
 }
 
 var NotifyReady = make(chan int, 1)
+var NotifyLongScheduler = make(chan int, 1)
