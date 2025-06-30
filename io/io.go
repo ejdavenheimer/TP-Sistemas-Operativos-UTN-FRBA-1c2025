@@ -21,7 +21,7 @@ import (
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-	ConfigPath = "io/configs/io.json" //"./configs/io.json"
+	//ConfigPath = "io/configs/io.json" //"./configs/io.json"
 // LogPath    = "io.log"
 )
 
@@ -33,7 +33,8 @@ func main() {
 
 	models.IoName = os.Args[1]
 	ioPort := os.Args[2]
-
+    
+	ConfigPath := config.IOConfigPath()
 	config.InitConfig(ConfigPath, &models.IoConfig)
 	models.IoConfig.PortIo, _ = strconv.Atoi(ioPort)
 

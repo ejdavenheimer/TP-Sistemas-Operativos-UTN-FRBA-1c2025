@@ -19,8 +19,8 @@ import (
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-	ConfigPath = "kernel/configs/kernel.json" //"./configs/kernel.json"
-	LogPath    = "./logs/kernel.log"          //"./kernel.log"
+	//ConfigPath = "kernel/configs/kernel.json" //"./configs/kernel.json"
+	//LogPath    = "./logs/kernel.log"          //"./kernel.log"
 )
 
 var pcb *models.PCB
@@ -30,6 +30,9 @@ func main() {
 		slog.Error("Faltan los parametros necesarios [archivo_pseudocódigo] y [tamanio_proceso]")
 		return
 	}
+
+	ConfigPath := config.KernelConfigPath()
+    LogPath := config.KernelLogPath()
 
 	//Parametros
 	pseudocodeFile := os.Args[1]

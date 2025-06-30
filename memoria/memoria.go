@@ -10,17 +10,19 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
 )
 
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-	ConfigPath = "memoria/configs/memoria.json" //"./configs/memoria.json"
-	LogPath    = "./logs/memoria.log"           //"./memoria.log"
+	//ConfigPath = "memoria/configs/memoria.json" //"./configs/memoria.json"
+	//LogPath    = "./logs/memoria.log"           //"./memoria.log"
 )
 
 func main() {
-
+    ConfigPath := config.MemoriaConfigPath()
+    LogPath := config.MemoriaLogPath()
 	helpers.InitMemory(ConfigPath, LogPath)
 	// MockUp para probar cosas de swap
 	//services.MockCargarProcesosEnMemoria()
