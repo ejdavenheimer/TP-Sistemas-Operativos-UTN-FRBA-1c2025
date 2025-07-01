@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
@@ -99,8 +100,16 @@ func AddProcessToQueue(pid uint, estado models.Estado) (bool, error) {
 	// Crea un nuevo PCB a partir de la solicitud.
 	// Puedes inicializar otros campos del PCB aquí si son obligatorios.
 	newPCB := &models.PCB{
-		PID:          pid,
-		EstadoActual: estado,
+		PID:            pid,
+		EstadoActual:   estado,
+		ParentPID:      -1,
+		PC:             0,
+		ME:             make(map[models.Estado]int),
+		MT:             make(map[models.Estado]time.Duration),
+		UltimoCambio:   time.Now(),
+		PseudocodePath: "test",
+		Size:           256,
+		RafagaEstimada: float32(models.KernelConfig.InitialEstimate),
 	}
 
 	var targetQueue *list.ArrayList[*models.PCB]
