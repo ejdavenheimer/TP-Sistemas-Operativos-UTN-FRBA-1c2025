@@ -26,6 +26,7 @@ func MediumTermScheduler() {
 	//models.QueueSuspReady.Add(pcb)
 	for {
 		//Si ambas colas están vacías, vuelve a mirar en otro momento
+
 		if models.QueueSuspReady.Size() == 0 && models.QueueSuspBlocked.Size() == 0 {
 			time.Sleep(500 * time.Millisecond)
 			continue
@@ -111,7 +112,7 @@ func mediumScheduleFIFO() {
 	models.QueueSuspReady.Remove(0) // Elimina el primer proceso de la cola SUSPENDED READY
 	TransitionState(process, models.EstadoReady)
 	AddProcessToReady(process)
-
+	StartLongTermScheduler()
 }
 
 func mediumScheduleShortestFirst() {
@@ -145,4 +146,5 @@ func mediumScheduleShortestFirst() {
 	models.QueueSuspReady.Remove(indexToRemove) // Eliminar el primer proceso de la cola SUSPENDED READY
 	TransitionState(process, models.EstadoReady)
 	AddProcessToReady(process) // Agregarlo a la cola READY
+	StartLongTermScheduler()
 }

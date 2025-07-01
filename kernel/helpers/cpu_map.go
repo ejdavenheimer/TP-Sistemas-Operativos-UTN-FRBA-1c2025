@@ -84,3 +84,14 @@ func (cpuMap *CpuMap) GetCPUByPid(pid uint) *models.CpuN {
 	return nil
 }
 
+func (sMap *CpuMap) FreeCPU() bool {
+	sMap.mx.Lock()
+	defer sMap.mx.Unlock()
+	for _, cpu := range sMap.M {
+		if cpu.IsFree {
+			return true
+		}
+	}
+	return false
+}
+

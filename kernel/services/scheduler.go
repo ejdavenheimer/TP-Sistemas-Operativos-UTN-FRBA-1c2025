@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
@@ -16,50 +15,49 @@ func StartScheduler() {
 	slog.Info("El planificador está en estado DETENIDO. Presione Enter para iniciar.")
 	fmt.Scanln()
 	SchedulerState = models.EstadoPlanificadorActivo
-	slog.Info("Planificador iniciado.")
 	go longTermScheduler()
+	StartLongTermScheduler()
+}
+
+func StartLongTermScheduler(){
+	select {
+	case models.NotifyLongScheduler <- 1:
+	default:
+	}
 }
 
 // Planificador de largo plazo
 func longTermScheduler() {
 	for {
-		if SchedulerState != models.EstadoPlanificadorActivo {
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
+		<- models.NotifyLongScheduler
+        slog.Debug("Planificador de Largo Plazo activo")
+		 for {
+			//1. Finalizar procesos pendientes en EXIT
+		    if models.QueueExit.Size() > 0 {
+			   FinishProcess()
+			   continue
+		    }
 
-		//0. Finalizar procesos pendientes en EXIT
-		if models.QueueExit.Size() > 0 {
-			FinishProcess()
-			continue
-		}
+		    // 2. Procesos suspendidos listos tienen prioridad
+		    if models.QueueSuspReady.Size() > 0 {
+			   continue
+		    }
 
-		// 1. Procesos suspendidos listos tienen prioridad
-		if models.QueueSuspReady.Size() > 0 {
-			//	pcb, _ := models.QueueSuspReady.Get(0)
-			//	process := &pcb
-			//	admitProcess(process, models.QueueSuspReady, "SUSP_READY")
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
+		    //3. Caso especial: si hay un proceso en NEW se lo admite directamente
+		    if models.QueueNew.Size() == 1 {
+			   pcb, _ := models.QueueNew.Get(0)
+			   process := pcb
+			   admitProcess(process, models.QueueNew)
+			   continue
+		    }
 
-		//2. Si no hay nada en NEW espera
-		if models.QueueNew.Size() == 0 {
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
-
-		//3. Caso especial: si hay un proceso en NEW se lo admite directamente
-		if models.QueueNew.Size() == 1 {
-			pcb, _ := models.QueueNew.Get(0)
-			process := pcb
-			admitProcess(process, models.QueueNew)
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
-
-		// 4. Planificación normal (algoritmo configurado)
-		runScheduler()
+            // 4. Planificación normal (algoritmo configurado)
+		    if models.QueueNew.Size() > 1{
+			   runScheduler()
+			   continue
+		    }
+		    break
+		 }
 	}
 }
 
@@ -78,10 +76,12 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[*models.PCB]) {
 
 	//log obligatorio
 	slog.Info(fmt.Sprintf("## PID %d Pasa del estado NEW al estado %s", process.PID, process.EstadoActual))
-	select {
-	case models.NotifyReady <- 1:
-	default:
-	}
+    if models.ConnectedCpuMap.FreeCPU() {
+       select {
+       case models.NotifyReady <- 1:
+       default:
+    }
+}
 
 }
 

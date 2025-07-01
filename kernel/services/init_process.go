@@ -8,10 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"sync"
-
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
+	"sync"
 )
 
 var (
@@ -59,6 +58,7 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 	}
 
 	models.QueueNew.Add(pcb)
+	StartLongTermScheduler()
 	//Log obligatorio
 	slog.Info(fmt.Sprintf("## PID %d Se crea el proceso - Estado : NEW", pid))
 

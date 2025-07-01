@@ -193,6 +193,7 @@ func EndProcess(pid uint, reason string) {
 		slog.Error(fmt.Sprintf("No se encontro  el proceso <%d>", pid))
 		return
 	}
+	StartLongTermScheduler()
 
 	slog.Debug(fmt.Sprintf("El proceso <%d> se encuentra en estado %s", pcb.PID, pcb.EstadoActual))
 

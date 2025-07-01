@@ -10,17 +10,24 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
 )
 
 const (
 	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
 	//NO borrar el comentario de ConfigPath
-	ConfigPath = "memoria/configs/memoria.json" //"./configs/memoria.json"
-	LogPath    = "./logs/memoria.log"           //"./memoria.log"
+	//ConfigPath = "memoria/configs/memoria.json" //"./configs/memoria.json"
+	//LogPath    = "./logs/memoria.log"           //"./memoria.log"
 )
 
 func main() {
-
+    ConfigPath := config.MemoriaConfigPath()
+    LogPath, err := log.BuildLogPath("memoria")
+    if err != nil {
+        slog.Error(fmt.Sprintf("No se pudo preparar el archivo de log: %v", err))
+        return
+    }
 	helpers.InitMemory(ConfigPath, LogPath)
 	// MockUp para probar cosas de swap
 	//services.MockCargarProcesosEnMemoria()
@@ -61,7 +68,7 @@ func main() {
 
 	slog.Debug("Memoria lista")
 
-	err := server.InitServer(models.MemoryConfig.PortMemory)
+	err = server.InitServer(models.MemoryConfig.PortMemory)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error initializing server: %v", err))
 		panic(err)
