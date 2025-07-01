@@ -29,72 +29,86 @@ func StartShortTermScheduler() {
 	}()
 }
 
-// Elige el siguiente proceso de READY y lo envía a ejecución
+// Se activa cuando hay un proceso en la cola de READY.
+// 1.Busca una CPU libre -> 2. aca un proceso de la cola de READY -> 3.Trnasiciona el estado a EXEC -> 4.Marca CPU como ocupada
+// 5. Ejecuta el proceso en otra Goroutine -> 6. Al finalizar el proceso (o ser interrumpido), libera la CPU
 func SelectToExecute() bool {
 	slog.Debug("Buscando CPU libre para ejecutar proceso...")
 
-	//Verificar CPUs disponibles
+	// Buscamos una CPU disponible para ejecutar nuestro proceso
 	cpu, ok := models.ConnectedCpuMap.GetFirstFree()
 	if !ok {
 		slog.Debug("No hay CPU disponible.")
 		return false // No hay CPU libre, no se puede ejecutar un proceso
 	}
 
-	var pcb models.PCB
-	var index int = -1 // inicializo en -1, valor default si da error
-	var err error
-
-	pcb, err = models.QueueReady.Get(0)
-	index = 0
+	pcb, err := models.QueueReady.Get(0)
 
 	if err != nil {
 		slog.Warn("Error obteniendo proceso de la cola READY:", "error", err)
 		return false //Error al obtener el proceso
 	}
 	//Lo saca de la cola READY. Ya está listo para ejecutarse.
-	models.QueueReady.Remove(index)
-	TransitionState(&pcb, models.EstadoReady, models.EstadoExecuting)
+	models.QueueReady.Remove(0)
+	TransitionState(pcb, models.EstadoExecuting)
 
-	// Asigna el proceso a la CPU
+	CPUID := assignProcessToCPU(pcb, cpu)
+
+	go runProcessInCPU(pcb, *cpu, CPUID)
+
+	return true
+}
+
+// Asigna el proceso a la CPU
+func assignProcessToCPU(pcb *models.PCB, cpu *cpuModels.CpuN) string {
 	cpu.PIDExecuting = pcb.PID
-	key := strconv.Itoa(cpu.Id)
-	models.ConnectedCpuMap.Set(key, cpu)
+	CPUID := strconv.Itoa(cpu.Id)
+	models.ConnectedCpuMap.Set(CPUID, cpu)
 
 	slog.Debug("CPU marcada como ocupada", "cpu_id", cpu.Id, "pid", cpu.PIDExecuting)
 	slog.Debug("Asignando proceso a CPU", "pid", pcb.PID, "cpu_id", cpu.Id)
+	return CPUID
+}
 
-	go func(pcb *models.PCB, cpu cpuModels.CpuN, key string) {
-		inicioEjecucion := time.Now()
-		result := ExecuteProcess(pcb, cpu)
-		tiempoEjecutado := time.Since(inicioEjecucion)
+func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
+	inicioEjecucion := time.Now()
+	result := ExecuteProcess(pcb, cpu)
+	tiempoEjecutado := time.Since(inicioEjecucion)
 
-		if models.KernelConfig.SchedulerAlgorithm == "SJF" || models.KernelConfig.SchedulerAlgorithm == "SRT" {
-			pcb.RafagaReal = float32(tiempoEjecutado.Milliseconds())
-			// Est(n+1)        =                α          * R(n)           + (1 - α)                      * Est(n)
-			pcb.RafagaEstimada = models.KernelConfig.Alpha*pcb.RafagaReal + (1-models.KernelConfig.Alpha)*pcb.RafagaEstimada
-		}
+	if models.KernelConfig.SchedulerAlgorithm == "SJF" || models.KernelConfig.SchedulerAlgorithm == "SRT" {
+		pcb.Mutex.Lock()
+		pcb.RafagaReal = float32(tiempoEjecutado.Milliseconds())
+		// Est(n+1)        =                α          * R(n)           + (1 - α)                      * Est(n)
+		pcb.RafagaEstimada = models.KernelConfig.Alpha*pcb.RafagaReal + (1-models.KernelConfig.Alpha)*pcb.RafagaEstimada
+		pcb.PC = result.PC
+		pcb.Mutex.Unlock()
+	}
 
-		switch result.StatusCodePCB {
-		case models.NeedFinish:
-			TransitionState(pcb, models.EstadoExecuting, models.EstadoExit)
+	switch result.StatusCodePCB {
+	case models.NeedFinish:
+		slog.Info(fmt.Sprintf("## (%d) - Terminando ejecución, pasando a EXIT", pcb.PID))
+		TransitionState(pcb, models.EstadoExit)
 
-		case models.NeedReplan:
-			TransitionState(pcb, models.EstadoExecuting, models.EstadoReady)
-			pcb.PC = result.PC
-			AddProcessToReady(pcb)
+	case models.NeedReplan:
+		slog.Info(fmt.Sprintf("## (%d) - Replanificando, pasando a READY", pcb.PID))
+		TransitionState(pcb, models.EstadoReady)
+		AddProcessToReady(pcb)
 
-		case models.NeedInterrupt:
-			TransitionState(pcb, models.EstadoExecuting, models.EstadoReady)
-			pcb.PC = result.PC
-			AddProcessToReady(pcb)
-			slog.Info(fmt.Sprintf("## (%d) - Desalojado por algoritmo SJF/SRT", pcb.PID))
-		}
+	case models.NeedInterrupt:
+		slog.Info(fmt.Sprintf("## (%d) - Desalojado por algoritmo SJF/SRT, pasando a READY", pcb.PID))
+		TransitionState(pcb, models.EstadoReady)
+		AddProcessToReady(pcb)
+	}
+	// Liberar CPU
+	models.ConnectedCpuMap.MarkAsFree(CPUID)
 
-		// Liberar CPU
-		models.ConnectedCpuMap.MarkAsFree(key)
-	}(&pcb, *cpu, key)
+	select {
+	case models.NotifyReady <- 1:
+		// Se pudo enviar la notificación
+	default:
+		// Ya hay una notificación pendiente, no hacemos nada
+	}
 
-	return true
 }
 
 func ExecuteProcess(pcb *models.PCB, cpu cpuModels.CpuN) models.PCBExecuteRequest {
@@ -135,8 +149,10 @@ func ExecuteProcess(pcb *models.PCB, cpu cpuModels.CpuN) models.PCBExecuteReques
 }
 
 // Actualiza el estado de un proceso, su LOG y sus metricas.
-func TransitionState(pcb *models.PCB, oldState models.Estado, newState models.Estado) {
+func TransitionState(pcb *models.PCB, newState models.Estado) {
+	oldState := pcb.EstadoActual
 	if oldState == newState {
+		slog.Warn(fmt.Sprintf("## (%d) El proceso ya está en el estado %s, no se realiza la transición.", pcb.PID, newState))
 		return
 	}
 
@@ -180,31 +196,34 @@ func StartSuspensionTimer(pcb *models.PCB) {
 	if pcb.EstadoActual == models.EstadoBlocked {
 		// Pasamos a SUSP.BLOCKED
 		slog.Info(fmt.Sprintf("## (%d) - Proceso pasa a SUSP.BLOCKED", pcb.PID))
-		TransitionState(pcb, models.EstadoBlocked, models.EstadoSuspendidoBlocked)
+		TransitionState(pcb, models.EstadoSuspendidoBlocked)
 
 		models.QueueBlocked.Remove(int(pcb.PID))
-		models.QueueSuspBlocked.Add(*pcb)
+		models.QueueSuspBlocked.Add(pcb)
 	}
 }
 
 func AddProcessToReady(pcb *models.PCB) {
+	pcb.Mutex.Lock()
+	defer pcb.Mutex.Unlock() // Desbloquea el mutex al final de la función
+
 	switch models.KernelConfig.SchedulerAlgorithm {
 	case "FIFO":
 		// En FIFO agrego al final sin ordenar
-		models.QueueReady.Add(*pcb)
+		models.QueueReady.Add(pcb)
 
 	case "SJF", "SRT": // Inserto ordenadamente en la cola READY, ordenada por Rafaga ascendente
 		procesoInsertado := false
 		for i := 0; i < models.QueueReady.Size(); i++ {
 			procesoIterado, _ := models.QueueReady.Get(i)
 			if pcb.RafagaEstimada < procesoIterado.RafagaEstimada {
-				models.QueueReady.Insert(i, *pcb) // Inserto el proceso en la posición i
+				models.QueueReady.Insert(i, pcb) // Inserto el proceso en la posición i
 				procesoInsertado = true
 				break
 			}
 		}
 		if !procesoInsertado { // Si no se insertó antes, lo agrego al final
-			models.QueueReady.Add(*pcb)
+			models.QueueReady.Add(pcb)
 		}
 
 		if models.KernelConfig.SchedulerAlgorithm == "SRT" {

@@ -55,8 +55,8 @@ func MediumTermScheduler() {
 	}
 }
 
-// SUSP. BLOCKED. En este momento se debe informar al módulo memoria que debe ser
-// movido de memoria principal a swap. Cabe aclarar que en este momento vamos
+// SWAP OUT. En este momento se debe informar al módulo memoria que debe ser
+// movido de memoria principal a disco. Cabe aclarar que en este momento vamos
 // a tener más memoria libre en el sistema por lo que se debe verificar si uno o
 // más nuevos procesos pueden entrar (tanto de la cola NEW como de SUSP. READY).
 func movePrincipalMemoryToSwap() {
@@ -110,9 +110,9 @@ func mediumScheduleFIFO() {
 	}
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(0) // Elimina el primer proceso de la cola SUSPENDED READY
-	TransitionState(&process, models.EstadoSuspendidoReady, models.EstadoReady)
-	AddProcessToReady(&process)
-    StartLongTermScheduler()
+	TransitionState(process, models.EstadoReady)
+	AddProcessToReady(process)
+	StartLongTermScheduler()
 }
 
 func mediumScheduleShortestFirst() {
@@ -121,7 +121,7 @@ func mediumScheduleShortestFirst() {
 		return
 	}
 
-	var slice []models.PCB
+	var slice []*models.PCB
 	for i := 0; i < models.QueueSuspReady.Size(); i++ {
 		value, _ := models.QueueSuspReady.Get(i)
 		slice = append(slice, value)
@@ -144,7 +144,7 @@ func mediumScheduleShortestFirst() {
 	// Eliminar solo el primer proceso (más chico) de la cola NEW
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(indexToRemove) // Eliminar el primer proceso de la cola SUSPENDED READY
-	TransitionState(&process, models.EstadoSuspendidoReady, models.EstadoReady)
-	AddProcessToReady(&process) // Agregarlo a la cola READY
+	TransitionState(process, models.EstadoReady)
+	AddProcessToReady(process) // Agregarlo a la cola READY
 	StartLongTermScheduler()
 }

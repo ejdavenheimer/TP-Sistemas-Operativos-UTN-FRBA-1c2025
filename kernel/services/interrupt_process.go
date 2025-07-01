@@ -47,7 +47,7 @@ func GetPCBConMayorRafagaRestante() *models.PCB { // De los procesos en ejecuciÃ
 		}
 		rafagaRestante := pcb.RafagaEstimada - pcb.RafagaReal
 		if max == nil || rafagaRestante > (max.RafagaEstimada-max.RafagaReal) {
-			max = &pcb
+			max = pcb
 		}
 	}
 	return max
