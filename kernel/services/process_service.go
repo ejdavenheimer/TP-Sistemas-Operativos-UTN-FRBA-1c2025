@@ -152,7 +152,12 @@ func AddProcessToQueue(pid uint, estado models.Estado) (bool, error) {
 	}
 
 	// Añadir el PCB a la cola de destino
-	targetQueue.Add(newPCB)
+	if queueName == "QueueReady" {
+		AddProcessToReady(newPCB)
+	} else {
+		targetQueue.Add(newPCB)
+	}
+
 	slog.Debug(fmt.Sprintf("Kernel: PCB %d añadido a la cola %s.", pid, queueName),
 		"pid", pid, slog.String("estado_destino", string(estado)))
 
@@ -245,7 +250,11 @@ func MoveProcessToState(pid uint, nuevoEstado models.Estado) (*models.PCB, bool,
 		return &models.PCB{}, false, fmt.Errorf("estado de destino inválido: %s", nuevoEstado)
 	}
 
-	targetQueue.Add(removedPCB)
+	if targetQueueName == "QueueReady" {
+		AddProcessToReady(removedPCB)
+	} else {
+		targetQueue.Add(removedPCB)
+	}
 	slog.Info(fmt.Sprintf("Kernel: PCB %d movido exitosamente a %s.",
 		pid, targetQueueName),
 		"pid", pid,
