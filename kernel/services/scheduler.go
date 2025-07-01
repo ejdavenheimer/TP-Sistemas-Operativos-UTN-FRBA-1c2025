@@ -19,7 +19,7 @@ func StartScheduler() {
 	StartLongTermScheduler()
 }
 
-func StartLongTermScheduler(){
+func StartLongTermScheduler() {
 	select {
 	case models.NotifyLongScheduler <- 1:
 	default:
@@ -29,35 +29,35 @@ func StartLongTermScheduler(){
 // Planificador de largo plazo
 func longTermScheduler() {
 	for {
-		<- models.NotifyLongScheduler
-        slog.Debug("Planificador de Largo Plazo activo")
-		 for {
+		<-models.NotifyLongScheduler
+		slog.Debug("Planificador de Largo Plazo activo")
+		for {
 			//1. Finalizar procesos pendientes en EXIT
-		    if models.QueueExit.Size() > 0 {
-			   FinishProcess()
-			   continue
-		    }
+			if models.QueueExit.Size() > 0 {
+				FinishProcess()
+				continue
+			}
 
-		    // 2. Procesos suspendidos listos tienen prioridad
-		    if models.QueueSuspReady.Size() > 0 {
-			   continue
-		    }
+			// 2. Procesos suspendidos listos tienen prioridad
+			if models.QueueSuspReady.Size() > 0 {
+				continue
+			}
 
-		    //3. Caso especial: si hay un proceso en NEW se lo admite directamente
-		    if models.QueueNew.Size() == 1 {
-			   pcb, _ := models.QueueNew.Get(0)
-			   process := pcb
-			   admitProcess(process, models.QueueNew)
-			   continue
-		    }
+			//3. Caso especial: si hay un proceso en NEW se lo admite directamente
+			if models.QueueNew.Size() == 1 {
+				pcb, _ := models.QueueNew.Get(0)
+				process := pcb
+				admitProcess(process, models.QueueNew)
+				continue
+			}
 
-            // 4. Planificación normal (algoritmo configurado)
-		    if models.QueueNew.Size() > 1{
-			   runScheduler()
-			   continue
-		    }
-		    break
-		 }
+			// 4. Planificación normal (algoritmo configurado)
+			if models.QueueNew.Size() > 1 {
+				runScheduler()
+				continue
+			}
+			break
+		}
 	}
 }
 
@@ -74,15 +74,11 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[*models.PCB]) {
 	TransitionState(process, models.EstadoReady)
 	AddProcessToReady(process)
 
-	//log obligatorio
-	slog.Info(fmt.Sprintf("## PID %d Pasa del estado NEW al estado %s", process.PID, process.EstadoActual))
-    if models.ConnectedCpuMap.FreeCPU() {
-       select {
-       case models.NotifyReady <- 1:
-       default:
-    }
-}
-
+	// Le mandamos una señal al PCP que notifica que hay un proceso en ready, si ya tiene la señal en 1 no hacemos nada.
+	select {
+	case models.NotifyReady <- 1:
+	default:
+	}
 }
 
 func findProcessIndexByPID(queue *list.ArrayList[*models.PCB], pid uint) int {
