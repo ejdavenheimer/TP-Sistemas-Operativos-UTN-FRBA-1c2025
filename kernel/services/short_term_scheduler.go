@@ -75,14 +75,15 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 	result := ExecuteProcess(pcb, cpu)
 	tiempoEjecutado := time.Since(inicioEjecucion)
 
+	pcb.Mutex.Lock()
+	pcb.PC = result.PC
+	// Si el algoritmo escogido es
 	if models.KernelConfig.SchedulerAlgorithm == "SJF" || models.KernelConfig.SchedulerAlgorithm == "SRT" {
-		pcb.Mutex.Lock()
 		pcb.RafagaReal = float32(tiempoEjecutado.Milliseconds())
 		// Est(n+1)        =                α          * R(n)           + (1 - α)                      * Est(n)
 		pcb.RafagaEstimada = models.KernelConfig.Alpha*pcb.RafagaReal + (1-models.KernelConfig.Alpha)*pcb.RafagaEstimada
-		pcb.PC = result.PC
-		pcb.Mutex.Unlock()
 	}
+	pcb.Mutex.Unlock()
 
 	switch result.StatusCodePCB {
 	case models.NeedFinish:
