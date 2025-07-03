@@ -11,7 +11,7 @@ import (
 )
 
 func SendInterruption(pid uint, portCpu int, ipCpu string) {
-	slog.Info("Iniciando pedido de interrupción del proceso", "PID", pid)
+	slog.Debug("Iniciando pedido de interrupción del proceso", "PID", pid)
 	//Conectarse con cpu y enviar PID
 	bodyRequest, err := json.Marshal(pid)
 	if err != nil {
@@ -30,7 +30,7 @@ func SendInterruption(pid uint, portCpu int, ipCpu string) {
 
 	//Recibir StatusOK por parte de CPU
 	if resp.StatusCode == http.StatusOK {
-		slog.Info("CPU respondió OK para desalojar el PCB")
+		slog.Debug("CPU respondió OK para desalojar el PCB")
 	} else {
 		slog.Warn("CPU respondió con error al desalojar el PCB", slog.Int("status", resp.StatusCode))
 	}

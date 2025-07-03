@@ -277,7 +277,7 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slog.Info(fmt.Sprintf("Página %d del proceso %d leída correctamente", request.PageNumber, request.Pid))
+	slog.Debug(fmt.Sprintf("Página %d del proceso %d leída correctamente", request.PageNumber, request.Pid))
 }
 
 func FramesInUseHandler(w http.ResponseWriter, r *http.Request) {
@@ -320,7 +320,7 @@ func FramesInUseHandlerV2(w http.ResponseWriter, r *http.Request) {
 	pidStr := queryParams.Get("pid")
 	pid, _ := strconv.ParseInt(pidStr, 10, 64)
 
-	slog.Info("Memoria: Recibida solicitud para obtener Frames en Uso.")
+	slog.Debug("Memoria: Recibida solicitud para obtener Frames en Uso.")
 
 	// Slice para recolectar todos los FrameInfo
 	allFrames := make([]models.FrameInfo, 0) // Inicializa un slice vacío

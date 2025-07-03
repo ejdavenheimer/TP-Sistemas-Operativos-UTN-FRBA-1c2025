@@ -184,7 +184,7 @@ func MoveProcessToState(pid uint, nuevoEstado models.Estado) (*models.PCB, bool,
 		return pcbToMove, true, fmt.Errorf("el proceso %d ya se encuentra en el estado %s", pid, nuevoEstado)
 	}
 
-	slog.Info(fmt.Sprintf("Kernel: Moviendo PCB %d de %s a %s.",
+	slog.Debug(fmt.Sprintf("Kernel: Moviendo PCB %d de %s a %s.",
 		pid, pcbToMove.EstadoActual, nuevoEstado))
 
 	// 3. Remover el PCB de su cola actual
@@ -255,7 +255,8 @@ func MoveProcessToState(pid uint, nuevoEstado models.Estado) (*models.PCB, bool,
 	} else {
 		targetQueue.Add(removedPCB)
 	}
-	slog.Info(fmt.Sprintf("Kernel: PCB %d movido exitosamente a %s.",
+
+	slog.Debug(fmt.Sprintf("Kernel: PCB %d movido exitosamente a %s.",
 		pid, targetQueueName),
 		"pid", pid,
 		slog.String("destino", targetQueueName))

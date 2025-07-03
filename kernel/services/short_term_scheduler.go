@@ -231,7 +231,7 @@ func AddProcessToReady(pcb *models.PCB) {
 			//Busca el proceso (PCB) que se esta ejecutando con la mayor rafaga restante estimada
 			processToInterrupt := GetPCBConMayorRafagaRestante()
 			if processToInterrupt == nil {
-				slog.Info("No hay procesos ejecutándose para interrumpir")
+				slog.Debug("No hay procesos ejecutándose para interrumpir")
 				return
 			}
 			if pcb.RafagaEstimada < processToInterrupt.RafagaEstimada {

@@ -14,7 +14,7 @@ import (
 )
 
 func MediumTermScheduler() {
-	slog.Info("Planificador de mediano plazo iniciado.")
+	slog.Debug("Planificador de mediano plazo iniciado.")
 	/////////////////////////////////////////////////////
 	//BORRAR DESPUÉS ESTE PCB, es solo de prueba
 	//var pcb = models.PCB{
@@ -63,7 +63,7 @@ func movePrincipalMemoryToSwap() {
 	//Armar estructura a enviar
 	var pcb, _ = models.QueueSuspBlocked.Get(0)
 
-	slog.Info("Iniciando solicitud para mover el proceso de memoria principal a Disco", "PID", pcb.PID)
+	slog.Debug("Iniciando solicitud para mover el proceso de memoria principal a Disco", "PID", pcb.PID)
 
 	//Conectarse con memoria y enviar PCB
 	bodyRequest, err := json.Marshal(pcb.PID)
@@ -82,7 +82,7 @@ func movePrincipalMemoryToSwap() {
 
 	//Memoria libera espacio, así que nos envía un OK
 	if resp.StatusCode == http.StatusOK {
-		slog.Info("Memoria swapeó el proceso y liberó espacio para que entre otro a ready")
+		slog.Debug("Memoria swapeó el proceso y liberó espacio para que entre otro a ready")
 	} else {
 		slog.Warn("Memoria respondió con error al swapear PCB", slog.Int("status", resp.StatusCode))
 	}

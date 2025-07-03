@@ -12,7 +12,7 @@ import (
 var SchedulerState models.EstadoPlanificador = models.EstadoPlanificadorDetenido
 
 func StartScheduler() {
-	slog.Info("El planificador está en estado DETENIDO. Presione Enter para iniciar.")
+	slog.Debug("El planificador está en estado DETENIDO. Presione Enter para iniciar.")
 	fmt.Scanln()
 	SchedulerState = models.EstadoPlanificadorActivo
 	go longTermScheduler()

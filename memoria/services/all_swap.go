@@ -31,7 +31,7 @@ func PutProcessInSwap(pid uint) error {
 		return fmt.Errorf("proceso PID %d no encontrado en tabla de frames", pid)
 	}
 
-	slog.Info("Iniciando suspensión de proceso", "PID", pid)
+	slog.Debug("Iniciando suspensión de proceso", "PID", pid)
 
 	slog.Debug("Frames libres antes de poner proceso en swap", "cantidad", contarFramesLibres())
 	slog.Debug("Tamaño actual del archivo de swap", "bytes", obtenerTamanioSwap())
@@ -80,8 +80,8 @@ func PutProcessInSwap(pid uint) error {
 	// Eliminar la entrada de ProcessFramesTable, ya que no ocupa frames en memoria
 	delete(models.ProcessFramesTable, pid)
 
-	slog.Info(fmt.Sprintf("Proceso PID %d movido a swap. Offset: %d, Tamaño: %d", pid, offset, totalSize))
-	slog.Info(fmt.Sprintf("Frames liberados para PID %d", pid))
+	slog.Debug(fmt.Sprintf("Proceso PID %d movido a swap. Offset: %d, Tamaño: %d", pid, offset, totalSize))
+	slog.Debug(fmt.Sprintf("Frames liberados para PID %d", pid))
 	slog.Debug("Frames libres después de swap-out", "cantidad", contarFramesLibres())
 	slog.Debug("Tamaño del archivo de swap luego del guardado", "bytes", obtenerTamanioSwap())
 
@@ -100,7 +100,7 @@ func RemoveProcessInSwap(pid uint) error {
 		return err
 	}
 
-	slog.Info(fmt.Sprintf("Inicio RemoveProcessInSwap para PID %d", pid))
+	slog.Debug(fmt.Sprintf("Inicio RemoveProcessInSwap para PID %d", pid))
 	slog.Debug("Tamaño actual del archivo de swap", "bytes", obtenerTamanioSwap())
 	slog.Debug("Frames libres antes de sacar proceso de swap", "cantidad", contarFramesLibres())
 
@@ -164,8 +164,8 @@ func RemoveProcessInSwap(pid uint) error {
 	// Eliminar el proceso de la tabla de procesos en swap
 	delete(models.ProcessSwapTable, pid)
 
-	slog.Info(fmt.Sprintf("Proceso PID %d removido de swap y cargado en UserMemory", pid))
-	slog.Info(fmt.Sprintf("Frames asignados al proceso PID %d: %v", pid, freeFrames))
+	slog.Debug(fmt.Sprintf("Proceso PID %d removido de swap y cargado en UserMemory", pid))
+	slog.Debug(fmt.Sprintf("Frames asignados al proceso PID %d: %v", pid, freeFrames))
 	slog.Debug("Frames libres después de swap-in", "cantidad", contarFramesLibres())
 	slog.Debug("Tamaño del archivo de swap luego del swap-in", "bytes", obtenerTamanioSwap())
 
@@ -268,5 +268,5 @@ func MockCargarProcesosEnMemoria() {
 	models.PageTables[pid2] = &models.PageTableLevel{IsLeaf: true, Entry: &models.PageEntry{Frame: frames2[0], Presence: true}}
 	models.ProcessMetrics[pid2] = &models.Metrics{}
 
-	slog.Info("Mock: procesos 1 y 2 cargados en memoria correctamente")
+	slog.Debug("Mock: procesos 1 y 2 cargados en memoria correctamente")
 }

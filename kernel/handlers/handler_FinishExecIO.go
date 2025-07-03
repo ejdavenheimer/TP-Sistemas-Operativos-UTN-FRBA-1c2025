@@ -19,7 +19,7 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		slog.Info("Solicitud de finalización de IO recibida", "pid", pid)
+		slog.Debug("Solicitud de finalización de IO recibida", "pid", pid)
 
 		// Validar si la cola de bloqueados está vacía
 		if models.QueueBlocked.Size() == 0 {
@@ -43,12 +43,12 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 
 		// Eliminar de la cola de bloqueados
 		models.QueueBlocked.Remove(index)
-		slog.Info("Proceso eliminado de la cola de bloqueados", "pid", pid)
+		slog.Debug("Proceso eliminado de la cola de bloqueados", "pid", pid)
 
 		// Cambiar estado y pasar a SUSPENDED_READY
 		pcb.EstadoActual = models.EstadoSuspendidoReady
 		models.QueueSuspReady.Add(pcb)
-		slog.Info("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
+		slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
 
 		writer.WriteHeader(http.StatusOK)
 	}

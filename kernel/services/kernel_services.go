@@ -29,7 +29,7 @@ func SleepDevice(pid uint, timeSleep int, device ioModel.Device) error {
 	}
 
 	//Envia la request de conexion a Kernel
-	slog.Info(fmt.Sprintf("Enviando syscall a dispositivo %s (%s:%d) - PID: %d - Tiempo: %dms",
+	slog.Debug(fmt.Sprintf("Enviando syscall a dispositivo %s (%s:%d) - PID: %d - Tiempo: %dms",
 		device.Name, device.Ip, device.Port, pid, timeSleep))
 
 	response, err := client.DoRequest(device.Port, device.Ip, "POST", "io", body)
@@ -143,7 +143,7 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 
-		slog.Info("Proceso inicializado correctamente", "PID", pcb.PID)
+		slog.Debug("Proceso inicializado correctamente", "PID", pcb.PID)
 
 		server.SendJsonResponse(writer, map[string]interface{}{
 			"action": "continue",
