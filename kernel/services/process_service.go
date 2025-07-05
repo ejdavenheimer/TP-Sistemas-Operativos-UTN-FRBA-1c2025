@@ -9,20 +9,15 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
 )
 
-func GetProcess(pid uint) models.ProcessResponse {
+func GetProcess(pid uint) *models.PCB {
 	pcb, _, exists := FindPCBInAnyQueue(pid)
-
-	var processResponse models.ProcessResponse
 
 	if !exists {
 		slog.Error(fmt.Sprintf("No se encontro el  proceso <%d>", pid))
-		return processResponse
+		return &models.PCB{}
 	}
 
-	processResponse.Pid = pcb.PID
-	processResponse.EstadoActual = pcb.EstadoActual
-
-	return processResponse
+	return pcb
 }
 
 // FindPCBInAnyQueue busca un PCB con el PID dado en cualquiera de las colas de planificación.

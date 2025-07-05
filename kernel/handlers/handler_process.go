@@ -25,7 +25,7 @@ func GetProcessHandler() func(http.ResponseWriter, *http.Request) {
 		pid := uint(pidInt)
 
 		processResponse := services.GetProcess(pid)
-		slog.Debug(fmt.Sprintf("PID: %d - Estado: : %s", processResponse.Pid, processResponse.EstadoActual))
+		slog.Debug(fmt.Sprintf("PID: %d - Estado: : %s", processResponse.PID, processResponse.EstadoActual))
 		response := map[string]interface{}{
 			"status": "success",
 			"data":   processResponse,
