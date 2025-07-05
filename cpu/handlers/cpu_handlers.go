@@ -32,6 +32,8 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 		models.CpuRegisters.PC = uint(request.PC)
 		var isFinished, isBlocked bool = false, false
 
+		models.InterruptControl.PID = int(instructionRequest.Pid) //TODO: consultar a Emer
+
 		for !models.InterruptControl.InterruptPending && !isFinished {
 			fetchResult := services.Fetch(request, cpuConfig)
 
