@@ -84,7 +84,9 @@ func UpdateProcessHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		_, isSuccess, _ := services.MoveProcessToState(processRequest.Pid, processRequest.EstadoActual)
+		//TODO: revisar si es necesario pasar needIncrementPC a MoveProcessToState
+		//var needIncrementPC bool = processRequest.EstadoActual == models.EstadoReady
+		_, isSuccess, _ := services.MoveProcessToState(processRequest.Pid, processRequest.EstadoActual, false)
 
 		if !isSuccess {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
