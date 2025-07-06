@@ -216,7 +216,6 @@ func BlockedProcess(pid uint, reason string) {
 
 	//models.QueueExec.Remove(index)
 
-	if !exists {
 	pcb, isSuccess, err := MoveProcessToState(pcb.PID, models.EstadoBlocked, false)
 	//pcb.EstadoActual = models.EstadoBlocked
 	if !isSuccess || err != nil {
