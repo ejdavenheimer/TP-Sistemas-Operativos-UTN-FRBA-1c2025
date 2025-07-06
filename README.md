@@ -2,6 +2,11 @@
 
 [The Rise of Gopher](https://docs.google.com/document/d/1zoFRoBn9QAfYSr0tITsL3PD6DtPzO2sq9AtvE8NGrkc/edit?tab=t.0)
 
+## Pruebas
+
+[Documento de prueba](https://docs.google.com/document/d/13XPliZvUBtYjaRfuVUGHWbYX8LBs8s3TDdaDa9MFr_I/edit?tab=t.0)
+[Repositorio de prueba](https://github.com/sisoputnfrba/revenge-of-the-cth-pruebas)
+
 ## Compilación del proyecto
 Para compilar los binarios de los módulos, utilizamos un Makefile con los siguientes comandos:
 
