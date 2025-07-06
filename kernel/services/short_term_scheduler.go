@@ -160,10 +160,6 @@ func TransitionState(pcb *models.PCB, newState models.Estado) {
 	pcb.Mutex.Lock()
 	defer pcb.Mutex.Unlock()
 
-	if newState == models.EstadoBlocked {
-		go StartSuspensionTimer(pcb)
-	}
-
 	if pcb.ME == nil {
 		pcb.ME = make(map[models.Estado]int)
 	}
@@ -190,8 +186,8 @@ func StartSuspensionTimer(pcb *models.PCB) {
 
 	time.Sleep(time.Duration(models.KernelConfig.SuspensionTime) * time.Millisecond)
 
-	pcb.Mutex.Lock()
-	defer pcb.Mutex.Unlock()
+	//pcb.Mutex.Lock()
+	//defer pcb.Mutex.Unlock()
 
 	// Si todavía está en estado BLOCKED, debe pasar a SUSP.BLOCKED
 	if pcb.EstadoActual == models.EstadoBlocked {

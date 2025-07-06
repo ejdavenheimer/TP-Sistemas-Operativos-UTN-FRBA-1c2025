@@ -32,6 +32,8 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 		models.CpuRegisters.PC = uint(request.PC)
 		var isFinished, isBlocked bool = false, false
 
+		models.InterruptControl.PID = int(instructionRequest.Pid) //TODO: consultar a Emer
+
 		for !models.InterruptControl.InterruptPending && !isFinished {
 			fetchResult := services.Fetch(request, cpuConfig)
 
@@ -101,7 +103,7 @@ func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Re
 	}
 }
 
-func InterruptProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
+func InterruptProcessHandler() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var pid int
 		if err := json.NewDecoder(r.Body).Decode(&pid); err != nil {
@@ -109,11 +111,10 @@ func InterruptProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter,
 			return
 		}
 
-		slog.Info("Interrupción recibida", slog.Int("pid", pid))
+		slog.Debug("Interrupción recibida", slog.Int("pid", pid))
 
-		// if pid == models.InterruptControl.PID {  ------DESCOMENTAR!!!!
-		if pid == 2 {
-			slog.Info("Interrupción informada al cpu", slog.Int("pid", pid))
+		if pid == models.InterruptControl.PID {
+			slog.Debug("Interrupción informada al cpu", slog.Int("pid", pid))
 			models.InterruptControl.InterruptPending = true
 			w.WriteHeader(http.StatusOK)
 		} else {

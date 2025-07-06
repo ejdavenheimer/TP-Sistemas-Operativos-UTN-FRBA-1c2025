@@ -9,20 +9,15 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
 )
 
-func GetProcess(pid uint) models.ProcessResponse {
+func GetProcess(pid uint) *models.PCB {
 	pcb, _, exists := FindPCBInAnyQueue(pid)
-
-	var processResponse models.ProcessResponse
 
 	if !exists {
 		slog.Error(fmt.Sprintf("No se encontro el  proceso <%d>", pid))
-		return processResponse
+		return &models.PCB{}
 	}
 
-	processResponse.Pid = pcb.PID
-	processResponse.EstadoActual = pcb.EstadoActual
-
-	return processResponse
+	return pcb
 }
 
 // FindPCBInAnyQueue busca un PCB con el PID dado en cualquiera de las colas de planificación.
@@ -168,7 +163,7 @@ func AddProcessToQueue(pid uint, estado models.Estado) (bool, error) {
 // y lo añade a la cola correspondiente a su NewEstado.
 // Retorna el PCB actualizado, un booleano indicando si la operación fue exitosa,
 // y un error si ocurre algún problema.
-func MoveProcessToState(pid uint, nuevoEstado models.Estado) (*models.PCB, bool, error) {
+func MoveProcessToState(pid uint, nuevoEstado models.Estado, needIncrementPC bool) (*models.PCB, bool, error) {
 	// 1. Encontrar el PCB en cualquiera de las colas
 	pcbToMove, currentQueue, found := FindPCBInAnyQueue(pid)
 	if !found {
@@ -201,13 +196,10 @@ func MoveProcessToState(pid uint, nuevoEstado models.Estado) (*models.PCB, bool,
 
 	currentQueue.Remove(index)
 
-	// 4. Actualizar el estado del PCB usando TransitionState
-	TransitionState(removedPCB, nuevoEstado)
-
 	// Puedes actualizar otros campos aquí si la transición lo requiere
 	// Por ejemplo, si pasa a READY, quizás resetear algún contador de CPU.
 
-	// 5. Determinar la cola de destino y añadir el PCB
+	// 4. Determinar la cola de destino y añadir el PCB
 	var targetQueue *list.ArrayList[*models.PCB]
 	var targetQueueName string
 
@@ -250,8 +242,21 @@ func MoveProcessToState(pid uint, nuevoEstado models.Estado) (*models.PCB, bool,
 		return &models.PCB{}, false, fmt.Errorf("estado de destino inválido: %s", nuevoEstado)
 	}
 
+	//Actualizo el estado del PCB
+	TransitionState(removedPCB, nuevoEstado)
+
 	if targetQueueName == "QueueReady" {
 		AddProcessToReady(removedPCB)
+		if needIncrementPC {
+			removedPCB.PC++
+			index = findProcessIndexByPID(targetQueue, removedPCB.PID)
+			err := targetQueue.Set(index, removedPCB)
+
+			if err == nil {
+				slog.Error("error: %v", err)
+				panic(err)
+			}
+		}
 	} else {
 		targetQueue.Add(removedPCB)
 	}

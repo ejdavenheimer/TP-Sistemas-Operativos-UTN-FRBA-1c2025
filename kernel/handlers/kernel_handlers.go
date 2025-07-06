@@ -94,7 +94,19 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
 			return
 		}
+
+		pcb, _, isSuccess := services.FindPCBInAnyQueue(uint(pid))
+
+		if !isSuccess {
+			slog.Error(fmt.Sprintf("No se encontre el proceso <%d>", pid))
+			panic(fmt.Sprintf("No se encontre el proceso <%d>", pid))
+		}
+
 		var state models.Estado = models.EstadoReady
+
+		if pcb.EstadoActual == models.EstadoSuspendidoBlocked {
+			state = models.EstadoSuspendidoReady
+		}
 
 		if device.Reason == "KILL" {
 			slog.Debug("Se murió :(")
@@ -104,7 +116,7 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			})
 		}
 
-		_, isSuccess, err = services.MoveProcessToState(uint(pid), state)
+		_, isSuccess, err = services.MoveProcessToState(pcb.PID, state, pcb.EstadoActual == models.EstadoReady)
 
 		if !isSuccess || err != nil {
 			slog.Error("Qué rompimos? :(")
@@ -117,7 +129,7 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 
 		if isSuccess {
 			slog.Debug(fmt.Sprintf("Se encontró un proceso esperando por el dispositivo [%s]", device.Name))
-			_, isSuccess, err = services.MoveProcessToState(uint(pidWaiting), state)
+			_, isSuccess, err = services.MoveProcessToState(uint(pidWaiting), state, true)
 
 			if !isSuccess || err != nil {
 				slog.Error("Qué rompimos? :(")

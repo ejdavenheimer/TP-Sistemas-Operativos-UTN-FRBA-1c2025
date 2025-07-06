@@ -187,7 +187,7 @@ func EndProcess(pid uint, reason string) {
 		return
 	}
 
-	pcb, isSuccess, err := MoveProcessToState(pcb.PID, models.EstadoExit)
+	pcb, isSuccess, err := MoveProcessToState(pcb.PID, models.EstadoExit, false)
 
 	if !isSuccess || err != nil {
 		slog.Error(fmt.Sprintf("No se encontro  el proceso <%d>", pid))
@@ -209,20 +209,21 @@ func BlockedProcess(pid uint, reason string) {
 		return pcb.PID == pid
 	})
 
-	if index == -1 {
+	if index == -1 || !exists {
 		slog.Error(fmt.Sprintf("No se encontro  el proceso <%d>", index))
 		return
 	}
 
-	models.QueueExec.Remove(index)
+	//models.QueueExec.Remove(index)
 
-	if !exists {
+	pcb, isSuccess, err := MoveProcessToState(pcb.PID, models.EstadoBlocked, false)
+	//pcb.EstadoActual = models.EstadoBlocked
+	if !isSuccess || err != nil {
 		slog.Error(fmt.Sprintf("No se encontro el proceso <%d>", pid))
 		return
 	}
 
-	pcb.EstadoActual = models.EstadoBlocked
-	models.QueueBlocked.Add(pcb)
+	StartSuspensionTimer(pcb)
 }
 
 func DumpServices(pid uint, size int) {
@@ -254,7 +255,7 @@ func DumpServices(pid uint, size int) {
 		return
 	}
 
-	_, isSuccess, err := MoveProcessToState(pid, models.EstadoExit)
+	_, isSuccess, err := MoveProcessToState(pid, models.EstadoExit, false)
 	if !isSuccess || err != nil {
 		slog.Error("Qué rompimos? :(")
 		return
