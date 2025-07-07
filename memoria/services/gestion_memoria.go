@@ -223,9 +223,9 @@ func SearchFrame(pid uint, pages []int) int {
 			slog.Debug(fmt.Sprintf("Frame enviado a CPU:%d", frame))
 			return frame
 		}
-		slog.Debug("NO SE ENCONTRO EL FRAME")
 
 	}
+	slog.Debug("NO SE ENCONTRO EL FRAME")
 	// Si no se encontró ningún frame para las páginas consultadas
 	return -1
 }

@@ -8,7 +8,6 @@ import (
 	memoryHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/helpers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
@@ -30,7 +29,7 @@ func main() {
 	}
 	helpers.InitMemory(ConfigPath, LogPath)
 	// MockUp para probar cosas de swap
-	services.MockCargarProcesosEnMemoria()
+	//services.MockCargarProcesosEnMemoria()
 
 	//Inicios
 	http.HandleFunc("GET /config/memoria", memoryHandler.MemoryConfigHandler)
