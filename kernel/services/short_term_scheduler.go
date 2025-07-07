@@ -197,6 +197,7 @@ func StartSuspensionTimer(pcb *models.PCB) {
 
 		models.QueueBlocked.Remove(int(pcb.PID))
 		models.QueueSuspBlocked.Add(pcb)
+		NotifyToMediumScheduler()
 	}
 }
 

@@ -54,7 +54,7 @@ const (
 )
 
 type PCB struct {
-	PID            uint                      // Identificador único del proceso
+	PID            uint                     // Identificador único del proceso
 	ParentPID      int                      // Identificador del proceso padre
 	PC             int                      // Program Counter
 	ME             map[Estado]int           // Métricas de Estado: cuántas veces pasó por cada estado
@@ -69,7 +69,7 @@ type PCB struct {
 }
 
 type MemoryRequest struct {
-	PID  uint    `json:"pid"`
+	PID  uint   `json:"pid"`
 	Size int    `json:"size"`
 	Path string `json:"path"`
 }
@@ -102,14 +102,15 @@ type Device struct {
 }
 
 type ProcessResponse struct {
-	Pid          uint    `json:"pid"`
+	Pid          uint   `json:"pid"`
 	EstadoActual Estado `json:"estadoActual"`
 }
 
 type ProcessRequest struct {
-	Pid          uint    `json:"pid"`
+	Pid          uint   `json:"pid"`
 	EstadoActual Estado `json:"estadoActual"`
 }
 
 var NotifyReady = make(chan int, 1)
 var NotifyLongScheduler = make(chan int, 1)
+var NotifyMediumScheduler = make(chan int, 1)

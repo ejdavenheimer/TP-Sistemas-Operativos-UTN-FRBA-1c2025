@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
-	//NO borrar el comentario de ConfigPath
-	//ConfigPath = "./configs/cpu.json"
-    //LogPath    = "./logs/cpu.log"
+// TODO: revisar para que se pueda pasar cualquiera de los dos formatos
+// NO borrar el comentario de ConfigPath
+// ConfigPath = "./configs/cpu.json"
+// LogPath    = "./logs/cpu.log"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func main() {
 		fmt.Println("Puerto inválido:", os.Args[2])
 		os.Exit(1)
 	}
-    ConfigPath := config.CpuConfigPath()
+	ConfigPath := "./configs/cpu.json"
 	config.InitConfig(ConfigPath, &models.CpuConfig)
 
 	// Sobrescribimos el valor en el config
