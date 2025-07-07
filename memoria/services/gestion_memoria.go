@@ -293,3 +293,7 @@ func AllocateFrame() int {
 	slog.Error("No hay frames libres disponibles para asignar")
 	return -1
 }
+
+func UpdatePage() {
+	slog.Warn("TODO: implementar lógica")
+}
