@@ -263,9 +263,9 @@ func (cache *PageCache) advancePointer() {
 	cache.ClockPointer = (cache.ClockPointer + 1) % cache.MaxEntries
 }
 
-// RemoveProcess desalojar todas las páginas de un Proceso específico de la caché.
+// RemoveProcessFromCache desalojar todas las páginas de un Proceso específico de la caché.
 // Las páginas modificadas se escriben de vuelta a la memoria principal.
-func (cache *PageCache) RemoveProcess(pid uint) {
+func (cache *PageCache) RemoveProcessFromCache(pid uint) {
 	cache.Mutex.Lock()
 	defer cache.Mutex.Unlock()
 

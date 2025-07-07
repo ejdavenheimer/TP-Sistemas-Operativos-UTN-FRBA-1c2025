@@ -99,5 +99,5 @@ func TestPageCache_RemoveProcess(t *testing.T) {
 	Cache.Put(1, 20, []byte("test 1"))
 	Cache.Put(2, 30, []byte("test 2"))
 
-	Cache.RemoveProcess(1)
+	Cache.RemoveProcessFromCache(1)
 }

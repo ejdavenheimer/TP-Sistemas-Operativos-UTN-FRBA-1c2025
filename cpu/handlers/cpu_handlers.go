@@ -32,7 +32,7 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 		models.CpuRegisters.PC = uint(request.PC)
 		var isFinished, isBlocked bool = false, false
 
-		models.InterruptControl.PID = int(instructionRequest.Pid) //TODO: consultar a Emer
+		models.InterruptControl.PID = int(instructionRequest.Pid)
 
 		for !models.InterruptControl.InterruptPending && !isFinished {
 			fetchResult := services.Fetch(request, cpuConfig)
@@ -62,7 +62,7 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 		}
 
 		if isBlocked {
-			response.StatusCodePCB = kernelModel.NeedReplan //TODO: chequear esto con emer
+			response.StatusCodePCB = kernelModel.NeedReplan
 			slog.Debug("ExecuteProcessHandler need re-plan")
 		}
 
