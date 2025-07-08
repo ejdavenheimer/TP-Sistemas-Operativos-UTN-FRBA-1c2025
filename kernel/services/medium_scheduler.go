@@ -6,29 +6,26 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"time"
 
 	"log/slog"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 )
 
+func NotifyToMediumScheduler() {
+	select {
+	case models.NotifyMediumScheduler <- 1:
+	default:
+	}
+}
+
 func MediumTermScheduler() {
-	slog.Debug("Planificador de mediano plazo iniciado.")
-	/////////////////////////////////////////////////////
-	//BORRAR DESPUÉS ESTE PCB, es solo de prueba
-	//var pcb = models.PCB{
-	//	PID:            1,
-	//	Size:           5,
-	//	PseudocodePath: "./scripts/prueba2",
-	//}
-	/////////////////////////////////////////////////////
-	//models.QueueSuspReady.Add(pcb)
 	for {
 		//Si ambas colas están vacías, vuelve a mirar en otro momento
+		<-models.NotifyMediumScheduler
+		slog.Debug("Planificador de mediano plazo iniciado.")
 
 		if models.QueueSuspReady.Size() == 0 && models.QueueSuspBlocked.Size() == 0 {
-			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
@@ -50,8 +47,6 @@ func MediumTermScheduler() {
 				mediumScheduleFIFO()
 			}
 		}
-
-		time.Sleep(500 * time.Millisecond)
 	}
 }
 

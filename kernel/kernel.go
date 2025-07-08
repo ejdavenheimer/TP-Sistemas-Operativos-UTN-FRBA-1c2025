@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
-	//NO borrar el comentario de ConfigPath
-	//ConfigPath = "kernel/configs/kernel.json" //"./configs/kernel.json"
-	//LogPath    = "./logs/kernel.log"          //"./kernel.log"
+// TODO: revisar para que se pueda pasar cualquiera de los dos formatos
+// NO borrar el comentario de ConfigPath
+// ConfigPath = "kernel/configs/kernel.json" //"./configs/kernel.json"
+// LogPath    = "./logs/kernel.log"          //"./kernel.log"
 )
 
 var pcb *models.PCB
@@ -31,12 +31,12 @@ func main() {
 		return
 	}
 
-	ConfigPath := config.KernelConfigPath()
-    LogPath, err := log.BuildLogPath("kernel")
-    if err != nil {
-        slog.Error(fmt.Sprintf("No se pudo preparar el archivo de log: %v", err))
-        return
-    }
+	ConfigPath := "./configs/kernel.json"
+	LogPath, err := log.BuildLogPath("kernel")
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo preparar el archivo de log: %v", err))
+		return
+	}
 
 	//Parametros
 	pseudocodeFile := os.Args[1]

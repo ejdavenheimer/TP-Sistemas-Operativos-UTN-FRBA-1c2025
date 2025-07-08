@@ -40,6 +40,7 @@ func longTermScheduler() {
 
 			// 2. Procesos suspendidos listos tienen prioridad
 			if models.QueueSuspReady.Size() > 0 {
+				NotifyToMediumScheduler()
 				continue
 			}
 

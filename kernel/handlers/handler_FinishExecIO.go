@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/services"
 )
 
 func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
@@ -50,6 +51,7 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 		models.QueueSuspReady.Add(pcb)
 		slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
 
+		services.NotifyToMediumScheduler()
 		writer.WriteHeader(http.StatusOK)
 	}
 }
