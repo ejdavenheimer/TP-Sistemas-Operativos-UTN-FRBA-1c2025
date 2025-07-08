@@ -31,7 +31,7 @@ type MemoryRequest struct {
 }
 
 type InstructionRequest struct {
-	Pid      int
+	Pid      uint
 	PC       int
 	PathName string
 }
@@ -46,8 +46,8 @@ type ReadRequest struct {
 type Metrics struct {
 	PageTableAccesses  int
 	InstructionFetches int
-	SwapsOut           int
-	SwapsIn            int
+	SwapsOut           int //Salieron de memoria
+	SwapsIn            int //Entraron a memoria
 	Reads              int
 	Writes             int
 }
@@ -55,7 +55,7 @@ type Metrics struct {
 type Process struct {
 	Pid     uint
 	Size    int
-	Pages   int      // cantidad de páginas que va a usar
+	Pages   []PageEntry
 	Metrics *Metrics // metricas del proceso
 }
 
@@ -83,21 +83,21 @@ type MemoryFrame struct {
 var FrameTable []MemoryFrame
 
 type ProcessFrames struct {
-	PID    int
+	PID    uint
 	Frames []int
 }
 
-var ProcessFramesTable = make(map[int]*ProcessFrames)
+var ProcessFramesTable = make(map[uint]*ProcessFrames)
 
 type SwapEntry struct {
 	Offset int64 // posición inicial en archivo
 	Size   int64 // tamaño en bytes del bloque de frames
 }
 
-var ProcessSwapTable = make(map[int]SwapEntry)
+var ProcessSwapTable = make(map[uint]SwapEntry)
 
 type PIDRequest struct {
-	PID int `json:"pid"`
+	PID uint `json:"pid"`
 }
 
 // Para buscar frames ocupados

@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"log/slog"
 	"net/http"
 
@@ -93,14 +94,29 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
 			return
 		}
+
+		pcb, _, isSuccess := services.FindPCBInAnyQueue(uint(pid))
+
+		if !isSuccess {
+			slog.Error(fmt.Sprintf("No se encontre el proceso <%d>", pid))
+			panic(fmt.Sprintf("No se encontre el proceso <%d>", pid))
+		}
+
 		var state models.Estado = models.EstadoReady
+
+		if pcb.EstadoActual == models.EstadoSuspendidoBlocked {
+			state = models.EstadoSuspendidoReady
+		}
 
 		if device.Reason == "KILL" {
 			slog.Debug("Se murió :(")
 			state = models.EstadoExit
+			models.ConnectedDeviceList.RemoveWhere(func(d ioModel.Device) bool {
+				return d.Port == device.Port
+			})
 		}
 
-		_, isSuccess, err = services.MoveProcessToState(pid, state)
+		_, isSuccess, err = services.MoveProcessToState(pcb.PID, state, pcb.EstadoActual == models.EstadoReady)
 
 		if !isSuccess || err != nil {
 			slog.Error("Qué rompimos? :(")
@@ -108,64 +124,20 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
+		//chequeo si hay un otro proceso esperando
+		pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(device.Name)
+
+		if isSuccess {
+			slog.Debug(fmt.Sprintf("Se encontró un proceso esperando por el dispositivo [%s]", device.Name))
+			_, isSuccess, err = services.MoveProcessToState(uint(pidWaiting), state, true)
+
+			if !isSuccess || err != nil {
+				slog.Error("Qué rompimos? :(")
+				http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
+				return
+			}
+		}
+
 		server.SendJsonResponse(writer, device)
-	}
-}
-
-func DeviceRegisterHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var request models.Device
-		err := json.NewDecoder(r.Body).Decode(&request)
-		if err != nil {
-			slog.Error("Error al decodificar dispositivo IO", "error", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-
-		models.ConnectedDevicesMap.Set(request.Name, ioModel.Device{
-			Name: request.Name,
-			Ip:   request.Ip,
-			Port: request.Port,
-		})
-
-		slog.Info(fmt.Sprintf("Dispositivo IO conectado: %s (%s:%d)", request.Name, request.Ip, request.Port))
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "OK"})
-	}
-}
-
-// EJECUTA UNA SYSCALL IO
-func ExecuteSyscallIOHandler() func(http.ResponseWriter, *http.Request) {
-	return func(writer http.ResponseWriter, request *http.Request) {
-		var syscallRequest models.SyscallRequest
-		err := json.NewDecoder(request.Body).Decode(&syscallRequest)
-		if err != nil {
-			http.Error(writer, "Error al decodificar el cuerpo de la solicitud", http.StatusBadRequest)
-			return
-		}
-
-		slog.Debug(fmt.Sprintf("BODY: %v", syscallRequest))
-		//BUSCA AL DISP SOLICITADO
-		deviceRequested, exists := models.ConnectedDevicesMap.Get(syscallRequest.Type)
-		if !exists || deviceRequested.Name == "" {
-			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
-			http.Error(writer, "Dispositivo no conectado.", http.StatusNotFound)
-			services.EndProcess(syscallRequest.Pid, fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
-			return
-		}
-
-		services.ExecuteSyscall(models.SyscallRequest{
-			Type:   syscallRequest.Type,
-			Pid:    syscallRequest.Pid,
-			Values: syscallRequest.Values,
-		}, writer)
-	}
-}
-
-func GetDevicesMap() func(http.ResponseWriter, *http.Request) {
-	return func(writer http.ResponseWriter, request *http.Request) {
-		models.ConnectedDevicesMap.GetAll()
-		writer.WriteHeader(http.StatusOK)
 	}
 }

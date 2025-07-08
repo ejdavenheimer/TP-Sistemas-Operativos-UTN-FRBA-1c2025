@@ -8,7 +8,7 @@ import (
 )
 
 // ClearMemoryOfProcess libera todos los recursos de memoria de un proceso específico
-func ClearMemoryOfProcess(pid uint) error {
+func ClearMemoryProcess(pid uint) error {
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
 
@@ -24,9 +24,9 @@ func ClearMemoryOfProcess(pid uint) error {
 	metrics := models.ProcessMetrics[pid]
 
 	// Verificar si el proceso está en swap y deswapearlo primero
-	if _, inSwap := models.ProcessSwapTable[int(pid)]; inSwap {
+	if _, inSwap := models.ProcessSwapTable[pid]; inSwap {
 		slog.Debug("Proceso encontrado en swap, deswapeando antes de eliminar", "pid", pid)
-		err := RemoveProcessInSwap(int(pid))
+		err := RemoveProcessInSwap(pid)
 		if err != nil {
 			slog.Error("Error al deswapear proceso", "pid", pid, "error", err)
 			return fmt.Errorf("error al deswapear proceso PID %d: %v", pid, err)

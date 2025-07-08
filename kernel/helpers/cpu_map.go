@@ -72,7 +72,7 @@ func (sMap *CpuMap) MarkAsFree(id string) {
 	}
 }
 
-func (cpuMap *CpuMap) GetCPUByPid(pid int) *models.CpuN {
+func (cpuMap *CpuMap) GetCPUByPid(pid uint) *models.CpuN {
 	cpuMap.mx.Lock()
 	defer cpuMap.mx.Unlock()
 
@@ -84,18 +84,14 @@ func (cpuMap *CpuMap) GetCPUByPid(pid int) *models.CpuN {
 	return nil
 }
 
-// func (sMap *CpuMap) GetMaxRafagaPCBExecuting() models.CpuN {
-// 	sMap.mx.Lock()
-// 	defer sMap.mx.Unlock()
+func (sMap *CpuMap) FreeCPU() bool {
+	sMap.mx.Lock()
+	defer sMap.mx.Unlock()
+	for _, cpu := range sMap.M {
+		if cpu.IsFree {
+			return true
+		}
+	}
+	return false
+}
 
-// 	var max models.CpuN
-// 	max.PIDRafaga = -1 // Valor imposible para inicializar
-
-// 	for _, cpu := range sMap.M {
-// 		if !cpu.IsFree && cpu.PIDRafaga > max.PIDRafaga {
-// 			max = cpu
-// 		}
-// 	}
-
-// 	return max
-// }

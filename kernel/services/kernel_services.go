@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"io"
 	"log/slog"
 	"net/http"
@@ -17,7 +18,7 @@ import (
 )
 
 // este servicio le solicita al dispositivo que duerme por el tiempo que le pasemos.
-func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
+func SleepDevice(pid uint, timeSleep int, device ioModel.Device) error {
 	//Crea y codifica la request de conexion a Kernel
 	var request = models.DeviceRequest{Pid: pid, SuspensionTime: timeSleep}
 	body, err := json.Marshal(request)
@@ -28,7 +29,7 @@ func SleepDevice(pid int, timeSleep int, device ioModel.Device) error {
 	}
 
 	//Envia la request de conexion a Kernel
-	slog.Info(fmt.Sprintf("Enviando syscall a dispositivo %s (%s:%d) - PID: %d - Tiempo: %dms",
+	slog.Debug(fmt.Sprintf("Enviando syscall a dispositivo %s (%s:%d) - PID: %d - Tiempo: %dms",
 		device.Name, device.Ip, device.Port, pid, timeSleep))
 
 	response, err := client.DoRequest(device.Port, device.Ip, "POST", "io", body)
@@ -75,10 +76,20 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 
-		// Chequeo si el dispositivo se encuentra libre
-		// En caso de que no se encuentre libre se deberá bloquear el proceso.
-		if !deviceRequested.IsFree {
+		// Se crea una lista auxiliar con dispositivos del mismo tipo
+		connectedDeviceListAux := models.ConnectedDeviceList.FindAll(func(d ioModel.Device) bool {
+			return syscallRequest.Values[0] == d.Name
+		})
+
+		// Se busca los dispositivos que se encuentren libres
+		deviceRequestedAux, indexAux, exists := connectedDeviceListAux.Find(func(d ioModel.Device) bool {
+			return d.IsFree
+		})
+
+		// En caso de que no encuentre ningún dispositivo libre, se bloquea el proceso
+		if index < 0 || !exists {
 			slog.Debug("El dispositivo se encuentra ocupado...")
+			helpers.AddPidForDevice(deviceRequested.Name, int(syscallRequest.Pid))
 			BlockedProcess(syscallRequest.Pid, fmt.Sprintf("El dispositivo %s no se encuentra disponible", syscallRequest.Type))
 			server.SendJsonResponse(writer, map[string]interface{}{
 				"action": "block",
@@ -86,15 +97,15 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 			return
 		}
 
-		deviceRequested.IsFree = false
-		deviceRequested.PID = syscallRequest.Pid
-		err := models.ConnectedDeviceList.Set(index, deviceRequested)
+		deviceRequestedAux.IsFree = false
+		deviceRequestedAux.PID = syscallRequest.Pid
+		err := models.ConnectedDeviceList.Set(index+indexAux, deviceRequestedAux)
 		if err != nil {
 			slog.Error(fmt.Sprintf("error: %v", err))
 			return
 		}
 
-		device := ioModel.Device{Ip: deviceRequested.Ip, Port: deviceRequested.Port, Name: syscallRequest.Values[0]}
+		device := ioModel.Device{Ip: deviceRequestedAux.Ip, Port: deviceRequestedAux.Port, Name: syscallRequest.Values[0]}
 		sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
 		err = SleepDevice(syscallRequest.Pid, sleepTime, device)
 
@@ -125,20 +136,20 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		}
 
 		// Paso en pid del padre como primer argumento
-		additionalArgs := []string{strconv.Itoa(parentPID)}
+		additionalArgs := []string{fmt.Sprintf("%d", parentPID)}
 		pcb, err := InitProcess(pseudocodeFile, processSize, additionalArgs)
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		slog.Info("Proceso inicializado correctamente", "PID", pcb.PID)
+		slog.Debug("Proceso inicializado correctamente", "PID", pcb.PID)
 
 		server.SendJsonResponse(writer, map[string]interface{}{
 			"action": "continue",
 		})
 	case "DUMP_MEMORY":
-		pcb, index, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+		pcb, index, exists := models.QueueExec.Find(func(pcb *models.PCB) bool {
 			return pcb.PID == syscallRequest.Pid
 		})
 		if !exists || index == -1 {
@@ -164,10 +175,10 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 	}
 }
 
-func EndProcess(pid int, reason string) {
+func EndProcess(pid uint, reason string) {
 	slog.Debug(fmt.Sprintf("[%d] Finaliza el proceso - Motivo: %s", pid, reason))
 
-	pcb, _, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+	pcb, _, exists := models.QueueExec.Find(func(pcb *models.PCB) bool {
 		return pcb.PID == pid
 	})
 
@@ -176,12 +187,13 @@ func EndProcess(pid int, reason string) {
 		return
 	}
 
-	pcb, isSuccess, err := MoveProcessToState(pcb.PID, models.EstadoExit)
+	pcb, isSuccess, err := MoveProcessToState(pcb.PID, models.EstadoExit, false)
 
 	if !isSuccess || err != nil {
 		slog.Error(fmt.Sprintf("No se encontro  el proceso <%d>", pid))
 		return
 	}
+	StartLongTermScheduler()
 
 	slog.Debug(fmt.Sprintf("El proceso <%d> se encuentra en estado %s", pcb.PID, pcb.EstadoActual))
 
@@ -190,27 +202,28 @@ func EndProcess(pid int, reason string) {
 	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", pid))
 }
 
-func BlockedProcess(pid int, reason string) {
+func BlockedProcess(pid uint, reason string) {
 	slog.Debug(fmt.Sprintf("[%d] Se bloquea el proceso el proceso - Motivo: %s", pid, reason))
 	// Para que un proceso se bloquee tiene que estar en ejecución.
-	pcb, index, exists := models.QueueExec.Find(func(pcb models.PCB) bool {
+	pcb, index, exists := models.QueueExec.Find(func(pcb *models.PCB) bool {
 		return pcb.PID == pid
 	})
 
-	if index == -1 {
+	if index == -1 || !exists {
 		slog.Error(fmt.Sprintf("No se encontro  el proceso <%d>", index))
 		return
 	}
 
-	models.QueueExec.Remove(index)
+	//models.QueueExec.Remove(index)
 
-	if !exists {
+	pcb, isSuccess, err := MoveProcessToState(pcb.PID, models.EstadoBlocked, false)
+	//pcb.EstadoActual = models.EstadoBlocked
+	if !isSuccess || err != nil {
 		slog.Error(fmt.Sprintf("No se encontro el proceso <%d>", pid))
 		return
 	}
 
-	pcb.EstadoActual = models.EstadoBlocked
-	models.QueueBlocked.Add(pcb)
+	StartSuspensionTimer(pcb)
 }
 
 func DumpServices(pid uint, size int) {
@@ -222,14 +235,14 @@ func DumpServices(pid uint, size int) {
 		return
 	}
 
-	BlockedProcess(int(pid), "dumping services")
+	BlockedProcess(pid, "dumping services")
 
 	response, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/dump-memory", body)
 	var dumpMemoryResponse memoriaModel.DumpMemoryResponse
 
 	if err != nil || response.StatusCode != 200 {
 		slog.Error(fmt.Sprintf("error: %v", err))
-		EndProcess(int(pid), "DUMP MEMORY")
+		EndProcess(pid, "DUMP MEMORY")
 		return
 	}
 
@@ -242,7 +255,7 @@ func DumpServices(pid uint, size int) {
 		return
 	}
 
-	_, isSuccess, err := MoveProcessToState(int(pid), models.EstadoExit)
+	_, isSuccess, err := MoveProcessToState(pid, models.EstadoExit, false)
 	if !isSuccess || err != nil {
 		slog.Error("Qué rompimos? :(")
 		return
@@ -281,5 +294,5 @@ func FinishDevice(port int) (bool, int) {
 		return false, -1
 	}
 
-	return true, deviceRequested.PID
+	return true, int(deviceRequested.PID)
 }

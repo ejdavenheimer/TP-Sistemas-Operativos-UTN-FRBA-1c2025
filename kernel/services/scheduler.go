@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
@@ -13,57 +12,57 @@ import (
 var SchedulerState models.EstadoPlanificador = models.EstadoPlanificadorDetenido
 
 func StartScheduler() {
-	slog.Info("El planificador está en estado DETENIDO. Presione Enter para iniciar.")
+	slog.Debug("El planificador está en estado DETENIDO. Presione Enter para iniciar.")
 	fmt.Scanln()
 	SchedulerState = models.EstadoPlanificadorActivo
-	slog.Info("Planificador iniciado.")
 	go longTermScheduler()
+	StartLongTermScheduler()
+}
+
+func StartLongTermScheduler() {
+	select {
+	case models.NotifyLongScheduler <- 1:
+	default:
+	}
 }
 
 // Planificador de largo plazo
 func longTermScheduler() {
 	for {
-		if SchedulerState != models.EstadoPlanificadorActivo {
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
+		<-models.NotifyLongScheduler
+		slog.Debug("Planificador de Largo Plazo activo")
+		for {
+			//1. Finalizar procesos pendientes en EXIT
+			if models.QueueExit.Size() > 0 {
+				FinishProcess()
+				continue
+			}
 
-		//0. Finalizar procesos pendientes en EXIT
-		if models.QueueExit.Size() > 0 {
-			FinishProcess()
-			continue
-		}
+			// 2. Procesos suspendidos listos tienen prioridad
+			if models.QueueSuspReady.Size() > 0 {
+				NotifyToMediumScheduler()
+				continue
+			}
 
-		// 1. Procesos suspendidos listos tienen prioridad
-		if models.QueueSuspReady.Size() > 0 {
-			//	pcb, _ := models.QueueSuspReady.Get(0)
-			//	process := &pcb
-			//	admitProcess(process, models.QueueSuspReady, "SUSP_READY")
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
+			//3. Caso especial: si hay un proceso en NEW se lo admite directamente
+			if models.QueueNew.Size() == 1 {
+				pcb, _ := models.QueueNew.Get(0)
+				process := pcb
+				admitProcess(process, models.QueueNew)
+				continue
+			}
 
-		//2. Si no hay nada en NEW espera
-		if models.QueueNew.Size() == 0 {
-			time.Sleep(500 * time.Millisecond)
-			continue
+			// 4. Planificación normal (algoritmo configurado)
+			if models.QueueNew.Size() > 1 {
+				runScheduler()
+				continue
+			}
+			break
 		}
-
-		//3. Caso especial: si hay un proceso en NEW se lo admite directamente
-		if models.QueueNew.Size() == 1 {
-			pcb, _ := models.QueueNew.Get(0)
-			process := &pcb
-			admitProcess(process, models.QueueNew, "NEW")
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
-
-		// 4. Planificación normal (algoritmo configurado)
-		runScheduler()
 	}
 }
 
-func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB], estadoOrigen string) {
+func admitProcess(process *models.PCB, fromQueue *list.ArrayList[*models.PCB]) {
 	err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
 	if err != nil {
 		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
@@ -73,15 +72,17 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[models.PCB], es
 	if index != -1 {
 		fromQueue.Remove(index)
 	}
-	process.EstadoActual = models.EstadoReady
-	process.UltimoCambio = time.Now()
-	models.QueueReady.Add(*process)
+	TransitionState(process, models.EstadoReady)
+	AddProcessToReady(process)
 
-	//log obligatorio
-	slog.Info(fmt.Sprintf("## PID %d Pasa del estado NEW al estado %s", process.PID, process.EstadoActual))
+	// Le mandamos una señal al PCP que notifica que hay un proceso en ready, si ya tiene la señal en 1 no hacemos nada.
+	select {
+	case models.NotifyReady <- 1:
+	default:
+	}
 }
 
-func findProcessIndexByPID(queue *list.ArrayList[models.PCB], pid int) int {
+func findProcessIndexByPID(queue *list.ArrayList[*models.PCB], pid uint) int {
 	for i := 0; i < queue.Size(); i++ {
 		p, _ := queue.Get(i)
 		if p.PID == pid {
@@ -109,8 +110,8 @@ func scheduleFIFO() {
 	}
 
 	pcb, _ := models.QueueNew.Get(0)
-	process := &pcb
-	admitProcess(process, models.QueueNew, "NEW")
+	process := pcb
+	admitProcess(process, models.QueueNew)
 }
 
 func scheduleShortestFirst() {
@@ -130,6 +131,6 @@ func scheduleShortestFirst() {
 	}
 
 	process, _ := models.QueueNew.Get(indexMin)
-	processPtr := &process
-	admitProcess(processPtr, models.QueueNew, "NEW")
+	processPtr := process
+	admitProcess(processPtr, models.QueueNew)
 }

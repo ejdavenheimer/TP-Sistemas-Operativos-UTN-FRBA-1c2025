@@ -9,13 +9,13 @@ import (
 )
 
 type loNecesario struct {
-	PID    int
+	PID    uint
 	Puerto int
 	IP     string
 }
 
 func SendInterruptionHandler(resp http.ResponseWriter, req *http.Request) {
-	slog.Info("Me meti al SendInterruption")
+	slog.Debug("Me meti al SendInterruption")
 	var pcb loNecesario
 	err := json.NewDecoder(req.Body).Decode(&pcb)
 

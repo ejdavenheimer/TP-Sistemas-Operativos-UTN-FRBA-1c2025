@@ -16,10 +16,16 @@ func GetProcessHandler() func(http.ResponseWriter, *http.Request) {
 		queryParams := request.URL.Query()
 		pidStr := queryParams.Get("pid")
 
-		pid, _ := strconv.ParseInt(pidStr, 10, 64)
+		pidInt, err := strconv.ParseInt(pidStr, 10, 64)
+		if err != nil || pidInt < 0 {
+			http.Error(writer, "Parámetro pid inválido", http.StatusBadRequest)
+			return
+		}
+		
+		pid := uint(pidInt)
 
-		processResponse := services.GetProcess(int(pid))
-		slog.Debug(fmt.Sprintf("PID: %d - Estado: : %s", processResponse.Pid, processResponse.EstadoActual))
+		processResponse := services.GetProcess(pid)
+		slog.Debug(fmt.Sprintf("PID: %d - Estado: : %s", processResponse.PID, processResponse.EstadoActual))
 		response := map[string]interface{}{
 			"status": "success",
 			"data":   processResponse,
@@ -78,7 +84,9 @@ func UpdateProcessHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		_, isSuccess, _ := services.MoveProcessToState(processRequest.Pid, processRequest.EstadoActual)
+		//TODO: revisar si es necesario pasar needIncrementPC a MoveProcessToState
+		//var needIncrementPC bool = processRequest.EstadoActual == models.EstadoReady
+		_, isSuccess, _ := services.MoveProcessToState(processRequest.Pid, processRequest.EstadoActual, false)
 
 		if !isSuccess {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)

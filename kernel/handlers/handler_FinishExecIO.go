@@ -7,11 +7,12 @@ import (
 	"net/http"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/services"
 )
 
 func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		var pid int
+		var pid uint
 		err := json.NewDecoder(request.Body).Decode(&pid)
 		if err != nil {
 			slog.Warn("Error al decodificar PID desde IO", "error", err)
@@ -19,7 +20,7 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		slog.Info("Solicitud de finalización de IO recibida", "pid", pid)
+		slog.Debug("Solicitud de finalización de IO recibida", "pid", pid)
 
 		// Validar si la cola de bloqueados está vacía
 		if models.QueueBlocked.Size() == 0 {
@@ -29,7 +30,7 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 		}
 
 		// Buscar el proceso en la cola de bloqueados
-		pcb, index, found := models.QueueBlocked.Find(func(pcb models.PCB) bool {
+		pcb, index, found := models.QueueBlocked.Find(func(pcb *models.PCB) bool {
 			return pcb.PID == pid
 		})
 
@@ -43,13 +44,14 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 
 		// Eliminar de la cola de bloqueados
 		models.QueueBlocked.Remove(index)
-		slog.Info("Proceso eliminado de la cola de bloqueados", "pid", pid)
+		slog.Debug("Proceso eliminado de la cola de bloqueados", "pid", pid)
 
 		// Cambiar estado y pasar a SUSPENDED_READY
 		pcb.EstadoActual = models.EstadoSuspendidoReady
 		models.QueueSuspReady.Add(pcb)
-		slog.Info("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
+		slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
 
+		services.NotifyToMediumScheduler()
 		writer.WriteHeader(http.StatusOK)
 	}
 }

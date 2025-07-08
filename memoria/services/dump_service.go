@@ -2,9 +2,10 @@ package services
 
 import (
 	"fmt"
+	"log/slog"
+
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/helpers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
-	"log/slog"
 )
 
 func ExecuteDumpMemory(pid uint, size int) error {

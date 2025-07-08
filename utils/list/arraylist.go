@@ -2,6 +2,7 @@ package list
 
 import (
 	"fmt"
+	"sync"
 )
 
 // List Definir la interfaz List
@@ -10,19 +11,22 @@ type List[T any] interface {
 	Dequeue() (T, error)                                 // Eliminar y devolver el primer elemento de la lista
 	Filter(value T, predicate func(a, b T) bool) List[T] // Filtra elementos de la lista
 	Find(predicate func(T) bool) (T, int, bool)          // Permite buscar un elemento de la lista dado un predicado.
+	FindAll(predicate func(T) bool) *ArrayList[T]        // FindAll encuentra todos los elementos que satisfacen el predicado y los devuelve en una nueva lista
 	ForEach(callback func(T))                            // A cada elemento de la lista se le va aplicar la función que le pase
 	Get(index int) (T, error)                            // Obtener un elemento a partir de un índice dado
 	GetAll() []T                                         // Retorna todos los elementos que se encuentra en la lista
 	Insert(index int, item T) error                      // Insertar un elemento en el índice dado
 	Pop() (T, error)                                     // Remover el último elemento de la lista
 	Remove(index int)                                    // Eliminar un elemento en el índice dado
-	Set(index int, newValue T) error                     // Modifica el valor de un elemento de la lista a partir de su índice.
-	Size() int                                           // Retornar el tamaño de la lista
-	Sort(less func(a, b T) bool)                         // Ordena una Lista de acuerdo al criterio
+	RemoveWhere(match func(T) bool)
+	Set(index int, newValue T) error // Modifica el valor de un elemento de la lista a partir de su índice.
+	Size() int                       // Retornar el tamaño de la lista
+	Sort(less func(a, b T) bool)     // Ordena una Lista de acuerdo al criterio
 }
 
 // ArrayList implements List
 type ArrayList[T any] struct {
+	mu    sync.RWMutex
 	items []T
 }
 
@@ -39,6 +43,9 @@ type ArrayList[T any] struct {
 //		list.Add(20)
 //	}
 func (list *ArrayList[T]) Add(item T) {
+	list.mu.Lock() // Bloqueo exclusivo para evitar cambios simultáneos
+	defer list.mu.Unlock()
+
 	list.items = append(list.items, item)
 }
 
@@ -56,6 +63,9 @@ func (list *ArrayList[T]) Add(item T) {
 //		fmt.Println("Valor: ", value) //output: 10
 //	}
 func (list *ArrayList[T]) Dequeue() (T, error) {
+	list.mu.Lock() // Bloqueo exclusivo para evitar cambios simultáneos
+	defer list.mu.Unlock()
+
 	if len(list.items) == 0 {
 		var zero T // Devuelve el valor "cero" del tipo T
 		return zero, fmt.Errorf("list is empty")
@@ -86,6 +96,9 @@ func (list *ArrayList[T]) Dequeue() (T, error) {
 //		filtered := list.Filter(20, predicate)
 //	}
 func (list *ArrayList[T]) Filter(value T, predicate func(a, b T) bool) List[T] {
+	list.mu.Lock() // Bloqueo exclusivo para evitar cambios simultáneos
+	defer list.mu.Unlock()
+
 	filteredList := &ArrayList[T]{}
 
 	for _, item := range list.items {
@@ -116,6 +129,9 @@ func (list *ArrayList[T]) Filter(value T, predicate func(a, b T) bool) List[T] {
 //		})
 //	}
 func (list *ArrayList[T]) Find(predicate func(T) bool) (T, int, bool) {
+	list.mu.RLock() //Bloqueo de solo lectura: permite otras lecturas concurrentes
+	defer list.mu.RUnlock()
+
 	for i, item := range list.items {
 		if predicate(item) {
 			return item, i, true
@@ -123,6 +139,31 @@ func (list *ArrayList[T]) Find(predicate func(T) bool) (T, int, bool) {
 	}
 	var zero T
 	return zero, -1, false
+}
+
+// NewArrayList crea y devuelve una nueva instancia de ArrayList.
+func newArrayList[T any]() *ArrayList[T] {
+	return &ArrayList[T]{
+		items: make([]T, 0), // Inicializa el slice interno vacío
+	}
+}
+
+// FindAll encuentra todos los elementos que satisfacen el predicado y los devuelve en una nueva instancia de ArrayList.
+// Si ningún elemento cumple la condición, devuelve un ArrayList vacío.
+func (list *ArrayList[T]) FindAll(predicate func(T) bool) *ArrayList[T] {
+	list.mu.RLock() //Bloqueo de solo lectura: permite otras lecturas concurrentes
+	defer list.mu.RUnlock()
+
+	// Crea una nueva instancia de ArrayList para almacenar los elementos filtrados
+	filteredList := newArrayList[T]()
+
+	for _, item := range list.items {
+		if predicate(item) {
+			filteredList.Add(item)
+		}
+	}
+
+	return filteredList
 }
 
 // Get devuelve el elemento en el índice proporcionado.
@@ -142,6 +183,9 @@ func (list *ArrayList[T]) Find(predicate func(T) bool) (T, int, bool) {
 //		fmt.Println("Valor: ", value) //Output: 20
 //	}
 func (list *ArrayList[T]) Get(index int) (T, error) {
+	list.mu.RLock() //Bloqueo de solo lectura: permite otras lecturas concurrentes
+	defer list.mu.RUnlock()
+
 	// Validar si el índice está dentro del rango
 	if index < 0 || index >= len(list.items) {
 		// Get item from a List
@@ -167,6 +211,9 @@ func (list *ArrayList[T]) Get(index int) (T, error) {
 //		_ := list.Insert(1, 100) [10, 100, 30]
 //	}
 func (list *ArrayList[T]) Insert(index int, item T) error {
+	list.mu.Lock() // Bloqueo exclusivo para evitar cambios simultáneos
+	defer list.mu.Unlock()
+
 	if index < 0 || index > len(list.items) {
 		return fmt.Errorf("index out of range: %d", index)
 	}
@@ -192,6 +239,9 @@ func (list *ArrayList[T]) Insert(index int, item T) error {
 //		fmt.Println("Valor: ", value) //Output: 30
 //	}
 func (list *ArrayList[T]) Pop() (T, error) {
+	list.mu.Lock() // Bloqueo exclusivo para evitar cambios simultáneos
+	defer list.mu.Unlock()
+
 	if len(list.items) == 0 {
 		var zero T
 		return zero, fmt.Errorf("list is empty")
@@ -219,8 +269,23 @@ func (list *ArrayList[T]) Pop() (T, error) {
 //		list.Remove(1)  //[10, 30]
 //	}
 func (list *ArrayList[T]) Remove(index int) {
+	list.mu.Lock() // Bloqueo exclusivo para evitar cambios simultáneos
+	defer list.mu.Unlock()
+
 	if index >= 0 && index < len(list.items) {
 		list.items = append(list.items[:index], list.items[index+1:]...)
+	}
+}
+
+func (list *ArrayList[T]) RemoveWhere(match func(T) bool) {
+	list.mu.Lock() // Bloqueo exclusivo para evitar cambios simultáneos
+	defer list.mu.Unlock()
+
+	for i, item := range list.items {
+		if match(item) {
+			list.items = append(list.items[:i], list.items[i+1:]...)
+			break
+		}
 	}
 }
 
@@ -245,6 +310,9 @@ func (list *ArrayList[T]) Remove(index int) {
 //		_ = persons.Set(index, person) //Person{id: 1, name: "test", mail: "pepe@mail.com"}
 //	}
 func (list *ArrayList[T]) Set(index int, newValue T) error {
+	list.mu.Lock() // Bloqueo exclusivo para evitar cambios simultáneos
+	defer list.mu.Unlock()
+
 	if index < 0 || index >= len(list.items) {
 		return fmt.Errorf("index out of range:  %d", index)
 	}
@@ -267,6 +335,9 @@ func (list *ArrayList[T]) Set(index int, newValue T) error {
 //	    fmt.Println("Size: ", size) //output: 3
 //	}
 func (list *ArrayList[T]) Size() int {
+	list.mu.RLock() ///Bloqueo de solo lectura: permite otras lecturas concurrentes
+	defer list.mu.RUnlock()
+
 	return len(list.items)
 }
 
@@ -292,6 +363,9 @@ func (list *ArrayList[T]) Size() int {
 //		list.Sort(predicate) //[10, 20, 30, 40]
 //	}
 func (list *ArrayList[T]) Sort(less func(a, b T) bool) {
+	list.mu.Lock() // Bloqueo exclusivo para evitar cambios simultáneos
+	defer list.mu.Unlock()
+
 	size := list.Size()
 	for i := 0; i < size-1; i++ {
 		for j := 0; j < size-i-1; j++ {
@@ -322,6 +396,9 @@ func (list *ArrayList[T]) Sort(less func(a, b T) bool) {
 //	    })
 //	}
 func (list *ArrayList[T]) ForEach(callback func(T)) {
+	list.mu.Lock() // Bloqueo exclusivo para evitar cambios simultáneos
+	defer list.mu.Unlock()
+
 	for _, item := range list.items {
 		callback(item)
 	}
@@ -329,6 +406,9 @@ func (list *ArrayList[T]) ForEach(callback func(T)) {
 
 // GetAll retorna una copia de todos los elementos que se encuentra en la lista
 func (list *ArrayList[T]) GetAll() []T {
+	list.mu.RLock() //Bloqueo de solo lectura: permite otras lecturas concurrentes
+	defer list.mu.RUnlock()
+
 	//list.mu.Lock() // Bloquear el mutex
 	//defer list.mu.Unlock() // Asegurar que se libere
 

@@ -3,18 +3,21 @@ package services
 import (
 	"errors"
 	"fmt"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 )
 
 var (
-    ErrProcessNotFound = errors.New("proceso no encontrado")
-    ErrMemoryViolation = errors.New("violacion de memoria")
-    ErrInvalidRead     = errors.New("lectura invalida")
+	ErrProcessNotFound = errors.New("proceso no encontrado")
+	ErrMemoryViolation = errors.New("violacion de memoria")
+	ErrInvalidRead     = errors.New("lectura invalida")
 )
+
+var WriteToMemoryMock = WriteToMemory //TODO: lo agregue para los test, chequear si es necesario
 
 func GeInstruction(pid uint, pc uint, path string) (string, bool, error) {
 	err := GetInstructionsByPid(pid, path, models.InstructionsMap)
@@ -79,6 +82,7 @@ func InsertData(pid uint, instructionsMap map[uint][]string, data []byte) {
 	for _, instr := range instructions {
 		instr = strings.TrimSpace(instr) // elimina \r y espacios sobrantes
 		cleaned = append(cleaned, instr)
+		IncrementMetric(pid, "fetch")
 	}
 	// Insertar las instrucciones en la memoria de instrucciones
 	instructionsMap[pid] = cleaned
@@ -99,47 +103,50 @@ func FindScriptByID(dir string, pid string) (string, error) {
 }
 
 func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
-    process, ok := models.ProcessTable[pid]
-    if !ok {
-        return nil, ErrProcessNotFound
-    }
-    slog.Debug(fmt.Sprintf("PID: %d - Dirección física solicitada: %d - Tamaño: %d\n", pid, physicalAddress, size))
+	process, ok := models.ProcessTable[pid]
+	if !ok {
+		return nil, ErrProcessNotFound
+	}
+	slog.Debug(fmt.Sprintf("PID: %d - Dirección física solicitada: %d - Tamaño: %d\n", pid, physicalAddress, size))
 
-    if size <= 0 || size > models.MemoryConfig.PageSize {
-        return nil, ErrInvalidRead
-    }
+	if size <= 0 || size > models.MemoryConfig.PageSize {
+		return nil, ErrInvalidRead
+	}
 
-    maxAddress := process.Pages * models.MemoryConfig.PageSize
-    if physicalAddress < 0 || physicalAddress+size > maxAddress {
-        return nil, ErrMemoryViolation
-    }
+	maxAddress := len(process.Pages) * models.MemoryConfig.PageSize
+	if physicalAddress < 0 || physicalAddress+size > maxAddress {
+		return nil, ErrMemoryViolation
+	}
 
-    data, err := readFromMemory(physicalAddress, size)
-    if err != nil {
-        return nil, err
-    }
+	data, err := readFromMemory(physicalAddress, size)
+	if err != nil {
+		return nil, err
+	}
 
-    return data, nil
+	UpdatePageBit(pid, physicalAddress, "use")
+	IncrementMetric(pid, "reads")
+
+	return data, nil
 }
 
 func readFromMemory(physicalAddress int, size int) ([]byte, error) {
-    // Verifico que la dirección y el tamaño estén dentro del rango válido
-    if physicalAddress < 0 || physicalAddress+size > len(models.UserMemory) {
-        return nil, fmt.Errorf("dirección fuera de rango")
-    }
+	// Verifico que la dirección y el tamaño estén dentro del rango válido
+	if physicalAddress < 0 || physicalAddress+size > len(models.UserMemory) {
+		return nil, fmt.Errorf("dirección fuera de rango")
+	}
 
-    // Copio la porción de memoria solicitada
-    data := make([]byte, size)
-    copy(data, models.UserMemory[physicalAddress:physicalAddress+size])
+	// Copio la porción de memoria solicitada
+	data := make([]byte, size)
+	copy(data, models.UserMemory[physicalAddress:physicalAddress+size])
 
-    return data, nil
+	return data, nil
 }
 
 func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
 	// Verificar que el proceso existe
-    if _, ok := models.ProcessTable[pid]; !ok {
+	if _, ok := models.ProcessTable[pid]; !ok {
 		return fmt.Errorf("proceso %d no encontrado", pid)
 	}
 
@@ -151,20 +158,51 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 	// Escribir en memoria física
 	copy(models.UserMemory[physicalAddress:physicalAddress+len(data)], data)
 
-	// Obtener número de página a partir de dirección física
-	pageSize := models.MemoryConfig.PageSize
-	pageNumber := physicalAddress / pageSize
-
-	// Marcar bit de modificación
-	root := models.PageTables[pid]
-	entry, err := FindPageEntry(root, pageNumber)
-	if err != nil {
-		return fmt.Errorf("no se encontró entrada de página: %v", err)
-	}
-	entry.Modified = true
-	// Actualizar métricas
-	if metrics, ok := models.ProcessMetrics[pid]; ok {
-		metrics.Writes++
-	}
+	UpdatePageBit(pid, physicalAddress, "use")
+	UpdatePageBit(pid, physicalAddress, "modified")
+	IncrementMetric(pid, "writes")
 	return nil
+}
+
+func UpdatePageBit(pid uint, physicalAddress int, bit string) {
+	pageNumber := physicalAddress / models.MemoryConfig.PageSize
+	entry, err := FindPageEntry(pid, models.PageTables[pid], pageNumber)
+	if err != nil {
+		slog.Warn(fmt.Sprintf("No se pudo actualizar bit '%s' para PID %d, página %d: %v", bit, pid, pageNumber, err))
+		return
+	}
+
+	switch bit {
+	case "presence_on":
+		entry.Presence = true
+	case "presence_off":
+		entry.Presence = false
+	case "use":
+		entry.Use = true
+	case "modified":
+		entry.Modified = true
+	default:
+		slog.Warn(fmt.Sprintf("El bit es desconocido: %s", bit))
+	}
+}
+
+func IncrementMetric(pid uint, metric string) {
+	if m, ok := models.ProcessMetrics[pid]; ok {
+		switch metric {
+		case "reads":
+			m.Reads++
+		case "writes":
+			m.Writes++
+		case "swap_out":
+			m.SwapsOut++
+		case "swap_in":
+			m.SwapsIn++
+		case "page_table":
+			m.PageTableAccesses++
+		case "fetch":
+			m.InstructionFetches++
+		default:
+			slog.Warn(fmt.Sprintf("Métrica desconocida: %s", metric))
+		}
+	}
 }

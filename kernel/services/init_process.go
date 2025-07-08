@@ -10,9 +10,13 @@ import (
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
+	"sync"
 )
 
-var nextPID int
+var (
+	nextPID  uint = 0
+	pidMutex sync.Mutex
+)
 
 func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string) (*models.PCB, error) {
 	_, err := os.Stat(pseudocodeFile)
@@ -27,6 +31,8 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 
 	parentPID := -1 // Valor por defecto (para el primer proceso o proceso raíz)
 
+	// Si se pasan argumentos adicionales, el primer argumento se interpreta como el ParentPID.
+	// Si no se puede convertir, se usa el valor por defecto -1, lo que significa que el proceso no tiene un proceso padre o es el proceso raíz.
 	if len(additionalArgs) > 0 {
 		// El primer argumento adicional es el ParentPID
 		parentPIDVal, err := strconv.Atoi(additionalArgs[0]) // Convertir el primer argumento a int
@@ -53,7 +59,8 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 		RafagaEstimada: float32(models.KernelConfig.InitialEstimate),
 	}
 
-	models.QueueNew.Add(*pcb)
+	models.QueueNew.Add(pcb)
+	StartLongTermScheduler()
 	//Log obligatorio
 	slog.Info(fmt.Sprintf("## PID %d Se crea el proceso - Estado : NEW", pid))
 
@@ -61,7 +68,7 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 }
 
 // Envía una solicitud a Memoria para asignar espacio y cargar instrucciones
-func requestMemorySpace(pid int, processSize int, pseudocodePath string) error {
+func requestMemorySpace(pid uint, processSize int, pseudocodePath string) error {
 	request := models.MemoryRequest{
 		PID:  pid,
 		Size: processSize,
@@ -81,15 +88,11 @@ func requestMemorySpace(pid int, processSize int, pseudocodePath string) error {
 	return nil
 }
 
-func generatePID() int {
-	nextPID++
-	return nextPID - 1
-}
-func updateStateMetrics(pcb *models.PCB, estado models.Estado) {
-	// Incrementa el contador de veces que el proceso estuvo en ese estado
-	pcb.ME[estado]++
+func generatePID() uint {
+	pidMutex.Lock()
+	defer pidMutex.Unlock()
 
-	// Actualiza el tiempo que el proceso ha estado en este estado
-	duration := time.Since(pcb.UltimoCambio)
-	pcb.MT[estado] += duration
+	pid := nextPID
+	nextPID++
+	return pid
 }

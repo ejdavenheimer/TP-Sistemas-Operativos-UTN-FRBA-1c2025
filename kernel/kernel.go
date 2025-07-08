@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	//TODO: revisar para que se pueda pasar cualquiera de los dos formatos
-	//NO borrar el comentario de ConfigPath
-	ConfigPath = "kernel/configs/kernel.json" //"./configs/kernel.json"
-	LogPath    = "./logs/kernel.log"          //"./kernel.log"
+// TODO: revisar para que se pueda pasar cualquiera de los dos formatos
+// NO borrar el comentario de ConfigPath
+// ConfigPath = "kernel/configs/kernel.json" //"./configs/kernel.json"
+// LogPath    = "./logs/kernel.log"          //"./kernel.log"
 )
 
 var pcb *models.PCB
@@ -28,6 +28,13 @@ var pcb *models.PCB
 func main() {
 	if len(os.Args) < 3 {
 		slog.Error("Faltan los parametros necesarios [archivo_pseudocódigo] y [tamanio_proceso]")
+		return
+	}
+
+	ConfigPath := "./configs/kernel.json"
+	LogPath, err := log.BuildLogPath("kernel")
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se pudo preparar el archivo de log: %v", err))
 		return
 	}
 

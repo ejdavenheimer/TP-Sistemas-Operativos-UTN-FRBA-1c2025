@@ -21,18 +21,16 @@ type Device struct {
 	Ip     string
 	Port   int
 	IsFree bool
-	PID    int
+	PID    uint
 }
 
 type DeviceResponse struct {
-	Pid    int
+	Pid    uint
+	Name   string
 	Reason string
 	Port   int
 }
 
-type IORequest struct {
-	PID    int `json:"pid"`
-	TimeIO int `json:"tiempo"`
-}
+var IoName string
 
 var Shutdown = make(chan os.Signal, 1)

@@ -18,7 +18,7 @@ func FinishProcess() {
 		return
 	}
 
-	slog.Info("Iniciando finalización del proceso", slog.Int("PID", pcb.PID))
+	slog.Debug("Iniciando finalización del proceso", "PID", pcb.PID)
 	//Conectarse con memoria y enviar PCB
 	bodyRequest, err := json.Marshal(pcb.PID)
 	if err != nil {
@@ -36,14 +36,15 @@ func FinishProcess() {
 
 	//Recibir StatusOK por parte de memoria
 	if resp.StatusCode == http.StatusOK {
-		slog.Info("Memoria respondió OK al liberar PCB")
+		slog.Debug("Memoria respondió OK al liberar PCB")
 	} else {
 		slog.Warn("Memoria respondió con error al liberar PCB", slog.Int("status", resp.StatusCode))
 	}
 
 	//Logear métricas
+	// TODO: no coincide con log obligatorio, creo que el obligatorio esta dando vuelta
 	slog.Info("Métricas de estado",
-		slog.Int("PID", pcb.PID),
+		"PID", pcb.PID,
 		slog.Int("NEW_COUNT", int(pcb.ME[models.EstadoNew])),
 		slog.Int("NEW_TIME", int(pcb.MT[models.EstadoNew])),
 		slog.Int("READY_COUNT", pcb.ME[models.EstadoReady]),
@@ -51,7 +52,7 @@ func FinishProcess() {
 	)
 
 	//Liberar PCB asociado
-	slog.Info("Liberado PCB de la cola de EXIT")
+	slog.Debug("Liberado PCB de la cola de EXIT")
 
 	//Intentar inicializar un proceso de SUSP READY sino los de NEW
 	//Ya lo hace el plani de mediano plazo

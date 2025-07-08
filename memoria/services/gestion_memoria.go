@@ -66,13 +66,14 @@ func ReserveMemory(pid uint, size int, path string) error {
 
 	// Registrar los frames asignados en ProcessFramesTable para que swap pueda usarlo
 	memoryLock.Lock()
-	models.ProcessFramesTable[int(pid)] = &models.ProcessFrames{
-		PID:    int(pid),
+	models.ProcessFramesTable[pid] = &models.ProcessFrames{
+		PID:    pid,
 		Frames: assignedFrames,
 	}
 	memoryLock.Unlock()
 
-	NewProcess(pid, size, pageCount)
+	NewProcess(pid, size, pageCount, assignedFrames)
+
 	slog.Debug("PCB registrado", slog.Int("pid", int(pid)), slog.Int("pages", pageCount), slog.Int("size", size))
 	return nil
 }
@@ -165,20 +166,27 @@ func createPageTableLevel(currentLevel, maxLevels int) *models.PageTableLevel {
 	return level
 }
 
-func NewProcess(pid uint, size int, pageCount int) {
+func NewProcess(pid uint, size int, pageCount int, assignedFrames []int) {
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
 
-	metrics := &models.Metrics{}
+	pages := make([]models.PageEntry, pageCount)
+	for i := 0; i < pageCount; i++ {
+		pages[i] = models.PageEntry{
+			Frame:    assignedFrames[i],
+			Presence: true,
+			Use:      false,
+			Modified: false,
+		}
+	}
 
 	models.ProcessTable[pid] = &models.Process{
 		Pid:     pid,
 		Size:    size,
-		Pages:   pageCount,
+		Pages:   pages,
 		Metrics: &models.Metrics{},
 	}
-
-	models.ProcessMetrics[pid] = metrics
+	models.ProcessMetrics[pid] = &models.Metrics{}
 }
 
 func releaseFrames(pid uint, frames []int) {
@@ -193,7 +201,7 @@ func releaseFrames(pid uint, frames []int) {
 	delete(models.InstructionsMap, pid)
 
 	// Limpiar también ProcessFramesTable
-	delete(models.ProcessFramesTable, int(pid))
+	delete(models.ProcessFramesTable, pid)
 }
 
 func SearchFrame(pid uint, pages []int) int {
@@ -209,7 +217,7 @@ func SearchFrame(pid uint, pages []int) int {
 
 	for _, pageNumber := range pages {
 		//slog.Debug(fmt.Sprintf("BUSCANDO FRAME %d", pages))
-		frame, err := getFrameFromPageNumber(pageTableRoot, pageNumber)
+		frame, err := getFrameFromPageNumber(pid, pageTableRoot, pageNumber)
 		if err == nil && frame != -1 {
 			// Retornamos el primer frame válido encontrado
 			slog.Debug(fmt.Sprintf("Frame enviado a CPU:%d", frame))
@@ -222,19 +230,20 @@ func SearchFrame(pid uint, pages []int) int {
 	return -1
 }
 
-func getFrameFromPageNumber(root *models.PageTableLevel, pageNumber int) (int, error) {
-	entry, err := FindPageEntry(root, pageNumber)
+func getFrameFromPageNumber(pid uint, root *models.PageTableLevel, pageNumber int) (int, error) {
+	entry, err := FindPageEntry(pid, root, pageNumber)
 	if err != nil {
 		return -1, err
 	}
 	return entry.Frame, nil
 }
 
-func FindPageEntry(root *models.PageTableLevel, pageNumber int) (*models.PageEntry, error) {
+func FindPageEntry(pid uint, root *models.PageTableLevel, pageNumber int) (*models.PageEntry, error) {
 	currentLevel := root
 	indices := getPageIndices(pageNumber, models.MemoryConfig.NumberOfLevels, models.MemoryConfig.EntriesPerPage)
 
 	for i, index := range indices {
+		IncrementMetric(pid, "page_table")
 		// Si estamos en el último índice, deberíamos encontrar una hoja
 		if i == len(indices)-1 {
 			nextLevel, exists := currentLevel.SubTables[index]
@@ -283,4 +292,8 @@ func AllocateFrame() int {
 	}
 	slog.Error("No hay frames libres disponibles para asignar")
 	return -1
+}
+
+func UpdatePage() {
+	slog.Warn("TODO: implementar lógica")
 }
