@@ -4,7 +4,7 @@
 
 ## Pruebas
 
-[Documento de prueba](https://docs.google.com/document/d/13XPliZvUBtYjaRfuVUGHWbYX8LBs8s3TDdaDa9MFr_I/edit?tab=t.0)
+[Documento de prueba](https://docs.google.com/document/d/13XPliZvUBtYjaRfuVUGHWbYX8LBs8s3TDdaDa9MFr_I/edit?tab=t.0) |
 [Repositorio de prueba](https://github.com/sisoputnfrba/revenge-of-the-cth-pruebas)
 
 ## Compilación del proyecto
