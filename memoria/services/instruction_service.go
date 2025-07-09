@@ -19,12 +19,7 @@ var (
 
 var WriteToMemoryMock = WriteToMemory //TODO: lo agregue para los test, chequear si es necesario
 
-func GeInstruction(pid uint, pc uint, path string) (string, bool, error) {
-	err := GetInstructionsByPid(pid, path, models.InstructionsMap)
-	if err != nil {
-		return "", false, errors.New("instruction not found")
-	}
-
+func GeInstruction(pid uint, pc uint) (string, bool, error) {
 	instructions, exists := models.InstructionsMap[pid]
 	if !exists || uint32(pc) >= uint32(len(instructions)) {
 		return "", false, errors.New("instruction not found")
