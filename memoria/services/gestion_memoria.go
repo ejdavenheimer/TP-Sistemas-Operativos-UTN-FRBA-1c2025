@@ -32,7 +32,7 @@ func ReserveMemory(pid uint, size int, path string) error {
 	}
 
 	// Cargar instrucciones del script
-	err := GetInstructions(pid, path, models.InstructionsMap)
+	err := GetInstructionsByName(pid, path, models.InstructionsMap, models.MemoryConfig.ScriptsPath)
 	if err != nil {
 		slog.Error("Error al cargar instrucciones", "error", err)
 		return fmt.Errorf("falló la carga de instrucciones para el PID %d", pid)

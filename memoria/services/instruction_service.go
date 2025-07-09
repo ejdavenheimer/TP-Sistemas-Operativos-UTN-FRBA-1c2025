@@ -46,7 +46,7 @@ func GetInstructions(pid uint, path string, instructionsMap map[uint][]string) e
 }
 
 func GetInstructionsByPid(pid uint, path string, instructionsMap map[uint][]string) error {
-	path, err := FindScriptByID(path, fmt.Sprintf("%d", pid))
+	path, err := FindScriptByName(path, fmt.Sprintf("%d", pid))
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se encontró archivo para el ID %d: %v", pid, err))
 		return nil
@@ -100,6 +100,37 @@ func FindScriptByID(dir string, pid string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no se encontró archivo con ID %s no encontrado", pid)
+}
+
+// Busca un archivo por nombre exacto en el directorio dado
+func FindScriptByName(dir string, scriptName string) (string, error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, file := range files {
+		if !file.IsDir() && file.Name() == scriptName {
+			return filepath.Join(dir, file.Name()), nil
+		}
+	}
+	return "", fmt.Errorf("no se encontró archivo con nombre %s", scriptName)
+}
+
+// Modifico GetInstructions para buscar por nombre en scripts_path
+func GetInstructionsByName(pid uint, scriptName string, instructionsMap map[uint][]string, scriptsPath string) error {
+	path, err := FindScriptByName(scriptsPath, scriptName)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se encontró archivo para el nombre %s: %v", scriptName, err))
+		return err
+	}
+	data := ExtractInstructions(path)
+	if data == nil {
+		return fmt.Errorf("no se pudieron cargar las instrucciones desde el archivo")
+	}
+
+	InsertData(pid, instructionsMap, data)
+	return nil
 }
 
 func Read(pid uint, physicalAddress int, size int) ([]byte, error) {

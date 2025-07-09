@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
+	"sync"
+
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
-	"sync"
 )
 
 var (
@@ -19,28 +20,19 @@ var (
 )
 
 func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string) (*models.PCB, error) {
-	_, err := os.Stat(pseudocodeFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			slog.Error("El archivo pseudocódigo no existe", "path", pseudocodeFile)
-			return nil, fmt.Errorf("El archivo pseudocódigo no existe: %v", err)
-		}
-		slog.Error("Error al verificar archivo pseudocódigo", "path", pseudocodeFile, "err", err)
-		return nil, fmt.Errorf("Error al verificar archivo pseudocódigo: %v", err)
-	}
+	// Extraigo solo el nombre del archivo, por si viene una ruta
+	pseudocodeName := filepath.Base(pseudocodeFile)
+
+	// Ya no verifico existencia local, la verificación será en Memoria
 
 	parentPID := -1 // Valor por defecto (para el primer proceso o proceso raíz)
-
-	// Si se pasan argumentos adicionales, el primer argumento se interpreta como el ParentPID.
-	// Si no se puede convertir, se usa el valor por defecto -1, lo que significa que el proceso no tiene un proceso padre o es el proceso raíz.
 	if len(additionalArgs) > 0 {
-		// El primer argumento adicional es el ParentPID
-		parentPIDVal, err := strconv.Atoi(additionalArgs[0]) // Convertir el primer argumento a int
+		parentPIDVal, err := strconv.Atoi(additionalArgs[0])
 		if err != nil {
 			slog.Warn("No se pudo parsear ParentPID, utilizando valor por defecto -1")
-			parentPID = -1 // Si el parseo falla, mantenemos el valor por defecto
+			parentPID = -1
 		} else {
-			parentPID = parentPIDVal // Si es válido, asignamos el ParentPID
+			parentPID = parentPIDVal
 		}
 	}
 
@@ -54,14 +46,13 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 		MT:             make(map[models.Estado]time.Duration),
 		EstadoActual:   models.EstadoNew,
 		UltimoCambio:   time.Now(),
-		PseudocodePath: pseudocodeFile,
+		PseudocodePath: pseudocodeName,
 		Size:           processSize,
 		RafagaEstimada: float32(models.KernelConfig.InitialEstimate),
 	}
 
 	models.QueueNew.Add(pcb)
 	StartLongTermScheduler()
-	//Log obligatorio
 	slog.Info(fmt.Sprintf("## PID %d Se crea el proceso - Estado : NEW", pid))
 
 	return pcb, nil
@@ -69,10 +60,12 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 
 // Envía una solicitud a Memoria para asignar espacio y cargar instrucciones
 func requestMemorySpace(pid uint, processSize int, pseudocodePath string) error {
+	// Extraigo solo el nombre del archivo, por si viene una ruta
+	pseudocodeName := filepath.Base(pseudocodePath)
 	request := models.MemoryRequest{
 		PID:  pid,
 		Size: processSize,
-		Path: pseudocodePath,
+		Path: pseudocodeName,
 	}
 
 	body, err := json.Marshal(request)
