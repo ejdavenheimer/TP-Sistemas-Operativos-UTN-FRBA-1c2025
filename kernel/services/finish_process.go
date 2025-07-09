@@ -13,7 +13,7 @@ import (
 // func FinishProcess(pcb models.PCB) {
 func FinishProcess() {
 	pcb, err := models.QueueExit.Dequeue()
-	if err == nil {
+	if err != nil {
 		slog.Error(fmt.Sprintf("Error al sacar pcb de QueueExit, ya que está vacía: %v", err))
 		return
 	}
