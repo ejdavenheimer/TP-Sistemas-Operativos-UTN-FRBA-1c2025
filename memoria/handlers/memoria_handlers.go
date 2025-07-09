@@ -7,11 +7,14 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"sync"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 )
+
+var ProcessTableLock sync.RWMutex
 
 func GetInstructionHandler(configPath string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -196,7 +199,7 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 
 	//EJECUCION ESCRITURA
 	dataBytes := []byte(request.Data)
-	if err := services.WriteToMemory(request.Pid, request.PhysicalAddress, dataBytes); err != nil {
+	if _, err := services.WriteToMemory(request.Pid, request.PhysicalAddress, dataBytes); err != nil {
 		slog.Error("WRITE failed", "error", err)
 		http.Error(w, "Write failed", http.StatusInternalServerError)
 		return
@@ -229,7 +232,9 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 
 	// Validar existencia del proceso
+	ProcessTableLock.RLock()
 	process, ok := models.ProcessTable[request.Pid]
+	ProcessTableLock.RUnlock()
 	if !ok {
 		slog.Warn(fmt.Sprintf("PID %d no encontrado en memoria", request.Pid))
 		http.Error(w, "Process Not Found", http.StatusNotFound)

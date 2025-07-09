@@ -34,7 +34,7 @@ func main() {
 		fmt.Println("Puerto inválido:", os.Args[2])
 		os.Exit(1)
 	}
-	ConfigPath := "./configs/cpu.json"
+	ConfigPath := "./configs/cpu.json"//config.CpuConfigPath()//
 	config.InitConfig(ConfigPath, &models.CpuConfig)
 
 	// Sobrescribimos el valor en el config

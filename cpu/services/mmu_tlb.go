@@ -55,6 +55,7 @@ func TranslateAddress(pid uint, logicalAddress int) int {
 		if frame, ok := searchTLB(pid, pageNumber); ok {
 			//si la encuentra imprime TLB HIT y traduce
 			slog.Info(fmt.Sprintf("PID: %d - TLB HIT - Pagina: %d", pid, pageNumber))
+			slog.Info(fmt.Sprintf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame))
 			return frame*pageSize + offset
 		}
 		slog.Info(fmt.Sprintf("PID: %d - TLB MISS - Página: %d", pid, pageNumber))
@@ -64,6 +65,7 @@ func TranslateAddress(pid uint, logicalAddress int) int {
 			return -1
 		}
 		insert_tlb(pid, pageNumber, frame)
+		slog.Info(fmt.Sprintf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)) 
 		return frame*pageSize + offset
 	}
 	// TLB desactivada
@@ -73,7 +75,8 @@ func TranslateAddress(pid uint, logicalAddress int) int {
 		slog.Warn("Violación de memoria detectada (TLB MISS)", "pid", pid, "page", pageNumber)
 		return -1
 	}
-	slog.Debug("RequestMemoryFrame", "pid", pid, "frame", frame)
+	//slog.Debug("RequestMemoryFrame", "pid", pid, "frame", frame)
+	slog.Info(fmt.Sprintf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame))
 	return frame*pageSize + offset
 
 }
@@ -104,7 +107,6 @@ func searchTLB(pid uint, pagina int) (int, bool) {
 			return tlb[i].FrameNumber, true
 		}
 	}
-
 	return 0, false
 }
 

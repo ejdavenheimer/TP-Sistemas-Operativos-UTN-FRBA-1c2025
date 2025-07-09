@@ -129,7 +129,9 @@ func GetInstructionsByName(pid uint, scriptName string, instructionsMap map[uint
 }
 
 func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
+	ProcessTableLock.RLock() 
 	process, ok := models.ProcessTable[pid]
+	ProcessTableLock.RUnlock()
 	if !ok {
 		return nil, ErrProcessNotFound
 	}
@@ -168,17 +170,22 @@ func readFromMemory(physicalAddress int, size int) ([]byte, error) {
 	return data, nil
 }
 
-func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
+func WriteToMemory(pid uint, physicalAddress int, data []byte) (int,error) {
+	slog.Debug(fmt.Sprintf("WriteToMemory solicitado - PID: %d - Dirección física: %d - Bytes: %d", pid, physicalAddress, len(data)))
+	// Verificar que el proceso existe
+	ProcessTableLock.RLock() 
+	_, ok := models.ProcessTable[pid]
+	ProcessTableLock.RUnlock()
+	if !ok {
+		return -1, fmt.Errorf("proceso %d no encontrado", pid)
+	}
+
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
-	// Verificar que el proceso existe
-	if _, ok := models.ProcessTable[pid]; !ok {
-		return fmt.Errorf("proceso %d no encontrado", pid)
-	}
 
 	// Validación límites de memoria
 	if physicalAddress < 0 || physicalAddress+len(data) > len(models.UserMemory) {
-		return fmt.Errorf("violación de memoria física en dirección %d", physicalAddress)
+		return -1, fmt.Errorf("violación de memoria física en dirección %d", physicalAddress)
 	}
 
 	// Escribir en memoria física
@@ -187,7 +194,10 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 	UpdatePageBit(pid, physicalAddress, "use")
 	UpdatePageBit(pid, physicalAddress, "modified")
 	IncrementMetric(pid, "writes")
-	return nil
+
+	frame := physicalAddress / models.MemoryConfig.PageSize
+	slog.Debug(fmt.Sprintf("WriteToMemory - PID: %d - Dir: %d - Bytes: %d", pid, physicalAddress, len(data)))
+	return frame, nil
 }
 
 func UpdatePageBit(pid uint, physicalAddress int, bit string) {

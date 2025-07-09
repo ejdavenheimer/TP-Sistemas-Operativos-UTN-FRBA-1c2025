@@ -9,6 +9,9 @@ import (
 
 // ClearMemoryOfProcess libera todos los recursos de memoria de un proceso específico
 func ClearMemoryProcess(pid uint) error {
+	ProcessTableLock.Lock()
+	defer ProcessTableLock.Unlock()
+
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
 

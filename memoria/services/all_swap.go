@@ -6,10 +6,11 @@ import (
 	"log/slog"
 	"os"
 	"time"
+	"sync"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 )
-
+var ProcessTableLock sync.RWMutex
 // En el archivo de swap, cambiar las líneas que usan ProcessFramesTable:
 
 func PutProcessInSwap(pid uint) error {
@@ -235,12 +236,14 @@ func MockCargarProcesosEnMemoria() {
 		models.FreeFrames[frameIdx] = false
 	}
 	// Inicializar ProcessTable, PageTables y Metrics para el proceso 1
+	ProcessTableLock.RUnlock()
 	models.ProcessTable[pid1] = &models.Process{
 		Pid:     pid1,
 		Size:    2 * pageSize,
 		Pages:   []models.PageEntry{{Frame: frames1[0], Presence: true}, {Frame: frames1[1], Presence: true}},
 		Metrics: &models.Metrics{},
 	}
+	ProcessTableLock.RUnlock()
 	models.PageTables[pid1] = &models.PageTableLevel{IsLeaf: true, Entry: &models.PageEntry{Frame: frames1[0], Presence: true}}
 	models.ProcessMetrics[pid1] = &models.Metrics{}
 
@@ -259,12 +262,14 @@ func MockCargarProcesosEnMemoria() {
 		models.FreeFrames[frameIdx] = false
 	}
 	// Inicializar ProcessTable, PageTables y Metrics para el proceso 2
+	ProcessTableLock.RUnlock()
 	models.ProcessTable[pid2] = &models.Process{
 		Pid:     pid2,
 		Size:    pageSize,
 		Pages:   []models.PageEntry{{Frame: frames2[0], Presence: true}},
 		Metrics: &models.Metrics{},
 	}
+	ProcessTableLock.RUnlock()
 	models.PageTables[pid2] = &models.PageTableLevel{IsLeaf: true, Entry: &models.PageEntry{Frame: frames2[0], Presence: true}}
 	models.ProcessMetrics[pid2] = &models.Metrics{}
 

@@ -172,12 +172,14 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 	logicalAddress, err := strconv.Atoi(request.Values[1])
 	if err != nil {
 		slog.Error("Dirección lógica inválida")
+		increase_PC()
 		return
 	}
 
 	size, err := strconv.Atoi(request.Values[2])
 	if err != nil {
 		slog.Error("Tamaño inválido")
+		increase_PC()
 		return
 	}
 
@@ -199,6 +201,7 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 			content = getPageFromMemory(request.Pid, pageNumber)
 			if content == nil {
 				slog.Error("No se pudo traer la página desde memoria")
+				increase_PC()
 				return
 			}
 			Cache.Put(request.Pid, pageNumber, content)
@@ -206,15 +209,31 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 		}
 
 		entryKey := getEntryKey(request.Pid, pageNumber)
-		idx := Cache.PageMap[entryKey]
-		entry := &Cache.Entries[idx]
+        idx := Cache.PageMap[entryKey]
+        entry := &Cache.Entries[idx]
 
-		entry.LockerBit = true
-		data := content[offset : offset+size]
-		cleanData := bytes.Trim(data, "\x00")
-		entry.UseBit = true
-		entry.LockerBit = false
-    
+        entry.LockerBit = true
+
+        if content == nil {
+	        slog.Error("Contenido en caché es nil")
+	        entry.LockerBit = false
+			increase_PC()
+	        return
+        }
+
+        if offset+size > len(content) {
+	        slog.Error("Slice out of bounds en ExecuteRead", "offset", offset, "size", size, "len", len(content))
+	        entry.LockerBit = false
+			increase_PC()
+	        return
+        }
+
+        data := content[offset : offset+size]
+        cleanData := bytes.Trim(data, "\x00")
+
+        entry.UseBit = true
+        entry.LockerBit = false
+
 		slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, string(cleanData)))
 		increase_PC()
 		return
@@ -230,12 +249,14 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 	jsonBody, err := json.Marshal(readRequest)
 	if err != nil {
 		slog.Error("No se pudo serializar la request a Memoria")
+		increase_PC()
 		return
 	}
 
 	response, err := client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST", "memoria/leerMemoria", jsonBody)
 	if err != nil {
 		slog.Error("Error al comunicarse con Memoria")
+		increase_PC()
 		return
 	}
 
@@ -249,6 +270,7 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 	defer response.Body.Close()
 	if err := json.NewDecoder(response.Body).Decode(&memoryValue); err != nil {
 		slog.Error("No se pudo leer el valor de memoria")
+		increase_PC()
 		return
 	}
 
@@ -284,6 +306,10 @@ func getPageFromMemory(pid uint, pageNumber int) []byte {
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		slog.Error("Error decodificando página", "error", err)
 		return nil
+	}
+
+	if len(res.Content) < models.MemConfig.PageSize {
+		slog.Warn("Página leída con tamaño menor al esperado", "len", len(res.Content), "esperado", models.MemConfig.PageSize)
 	}
 	return res.Content
 }

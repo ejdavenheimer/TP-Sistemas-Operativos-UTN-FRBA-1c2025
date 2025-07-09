@@ -167,9 +167,12 @@ func createPageTableLevel(currentLevel, maxLevels int) *models.PageTableLevel {
 }
 
 func NewProcess(pid uint, size int, pageCount int, assignedFrames []int) {
+	ProcessTableLock.Lock()
+	defer ProcessTableLock.Unlock()
+
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
-
+	
 	pages := make([]models.PageEntry, pageCount)
 	for i := 0; i < pageCount; i++ {
 		pages[i] = models.PageEntry{
@@ -187,6 +190,7 @@ func NewProcess(pid uint, size int, pageCount int, assignedFrames []int) {
 		Metrics: &models.Metrics{},
 	}
 	models.ProcessMetrics[pid] = &models.Metrics{}
+	slog.Info(fmt.Sprintf("Proceso %d agregado a ProcessTable con %d páginas y tamaño %d", pid, pageCount, size))
 }
 
 func releaseFrames(pid uint, frames []int) {
