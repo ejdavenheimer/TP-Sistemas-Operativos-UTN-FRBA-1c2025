@@ -141,6 +141,7 @@ func mediumScheduleShortestFirst() {
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(indexToRemove) // Eliminar el primer proceso de la cola SUSPENDED READY
 	TransitionState(process, models.EstadoReady)
+	slog.Info(fmt.Sprintf("## PID: %d - Finalizó IO y pasa a READY", process.PID))
 	AddProcessToReady(process) // Agregarlo a la cola READY
 	StartLongTermScheduler()
 }
