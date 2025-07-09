@@ -365,9 +365,13 @@ func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, i
 			increase_PC()
 			*isFinished = false
 		case "block":
+			Cache.RemoveProcessFromCache(pid)
+			RemoveTLBEntriesByPID(pid)
 			*isBlocked = true
 			*isFinished = true
 		case "exit":
+			Cache.RemoveProcessFromCache(pid)
+			RemoveTLBEntriesByPID(pid)
 			*isFinished = true
 		default:
 			slog.Error(fmt.Sprintf("acción desconocida de syscall: %v", action))
