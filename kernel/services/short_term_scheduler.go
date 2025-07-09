@@ -15,18 +15,16 @@ import (
 
 // INICIA PLANIFICADOR DE CORTO PLAZO
 func StartShortTermScheduler() {
-	go func() {
-		for {
-			<-models.NotifyReady // Espera bloqueado hasta recibir señal
-			for models.QueueReady.Size() > 0 {
-				ok := SelectToExecute()
-				if !ok {
-					slog.Debug("No se pudo seleccionar ningún proceso para ejecutar.")
-					break // Si no hay CPU libre, salgo del for interno y espero nueva señal
-				}
+	for {
+		<-models.NotifyReady // Espera bloqueado hasta recibir señal
+		for models.QueueReady.Size() > 0 {
+			ok := SelectToExecute()
+			if !ok {
+				slog.Debug("No se pudo seleccionar ningún proceso para ejecutar.")
+				break // Si no hay CPU libre, salgo del for interno y espero nueva señal
 			}
 		}
-	}()
+	}
 }
 
 // Se activa cuando hay un proceso en la cola de READY.
@@ -51,6 +49,8 @@ func SelectToExecute() bool {
 	//Lo saca de la cola READY. Ya está listo para ejecutarse.
 	models.QueueReady.Remove(0)
 	TransitionState(pcb, models.EstadoExecuting)
+	//Lo pasamos a la cola de EXECUTING
+	models.QueueExec.Add(pcb)
 
 	CPUID := assignProcessToCPU(pcb, cpu)
 
@@ -83,6 +83,12 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 		// Est(n+1)        =                α          * R(n)           + (1 - α)                      * Est(n)
 		pcb.RafagaEstimada = models.KernelConfig.Alpha*pcb.RafagaReal + (1-models.KernelConfig.Alpha)*pcb.RafagaEstimada
 	}
+	// Remover el proceso de la cola EXEC antes de cambiar de estado
+	index := findProcessIndexByPID(models.QueueExec, pcb.PID)
+	if index != -1 {
+		models.QueueExec.Remove(index)
+	}
+
 	pcb.Mutex.Unlock()
 
 	switch result.StatusCodePCB {
@@ -90,7 +96,6 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 		slog.Info(fmt.Sprintf("## (%d) - Terminando ejecución, pasando a EXIT", pcb.PID))
 		TransitionState(pcb, models.EstadoExit)
 		models.QueueExit.Add(pcb)
-		StartLongTermScheduler()
 
 	case models.NeedReplan:
 		slog.Info(fmt.Sprintf("## (%d) - Replanificando, pasando a READY", pcb.PID))
@@ -197,7 +202,11 @@ func StartSuspensionTimer(pcb *models.PCB) {
 		slog.Info(fmt.Sprintf("## (%d) - Proceso pasa a SUSP.BLOCKED", pcb.PID))
 		TransitionState(pcb, models.EstadoSuspendidoBlocked)
 
-		models.QueueBlocked.Remove(int(pcb.PID))
+		index := findProcessIndexByPID(models.QueueBlocked, pcb.PID)
+		if index != -1 {
+			models.QueueBlocked.Remove(index)
+		}
+
 		models.QueueSuspBlocked.Add(pcb)
 		NotifyToMediumScheduler()
 	}
