@@ -44,12 +44,20 @@ func FinishProcess() {
 
 	//Logear métricas
 	// TODO: no coincide con log obligatorio, creo que el obligatorio esta dando vuelta
-	slog.Info(fmt.Sprintf("## PID: (<%d>) - Métricas de estado - NEW_COUNT: %d; NEW_TIME_MS: %d; READY_COUNT: %d; READY_TIME_MS: %d",
+	slog.Info(fmt.Sprintf("## PID: (<%d>) - Métricas de estado - NEW_COUNT: %d; NEW_TIME_MS: %d; READY_COUNT: %d; READY_TIME_MS: %d; BLOCKED_COUNT: %d; BLOCKED_TIME_MS: %d; EXEC_COUNT: %d; EXEC_TIME_MS: %d; SUSP_BLOCKED_COUNT: %d; SUSP_BLOCKED_TIME_MS: %d; SUSP_READY_COUNT: %d; SUSP_READY_TIME_MS: %d",
 		pcb.PID,
 		pcb.ME[models.EstadoNew],
 		pcb.MT[models.EstadoNew].Milliseconds(),
 		pcb.ME[models.EstadoReady],
 		pcb.MT[models.EstadoReady].Milliseconds(),
+		pcb.ME[models.EstadoBlocked],
+		pcb.MT[models.EstadoBlocked].Milliseconds(),
+		pcb.ME[models.EstadoExecuting],
+		pcb.MT[models.EstadoExecuting].Milliseconds(),
+		pcb.ME[models.EstadoSuspendidoBlocked],
+		pcb.MT[models.EstadoSuspendidoBlocked].Milliseconds(),
+		pcb.ME[models.EstadoSuspendidoReady],
+		pcb.MT[models.EstadoSuspendidoReady].Milliseconds(),
 	))
 
 	//Liberar PCB asociado
