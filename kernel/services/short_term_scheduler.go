@@ -89,6 +89,7 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 	case models.NeedFinish:
 		slog.Info(fmt.Sprintf("## (%d) - Terminando ejecución, pasando a EXIT", pcb.PID))
 		TransitionState(pcb, models.EstadoExit)
+		models.QueueExit.Add(pcb)
 
 	case models.NeedReplan:
 		slog.Info(fmt.Sprintf("## (%d) - Replanificando, pasando a READY", pcb.PID))
