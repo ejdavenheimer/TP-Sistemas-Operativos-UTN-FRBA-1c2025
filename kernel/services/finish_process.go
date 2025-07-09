@@ -36,6 +36,7 @@ func FinishProcess() {
 
 	//Recibir StatusOK por parte de memoria
 	if resp.StatusCode == http.StatusOK {
+		slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", pcb.PID))
 		slog.Debug("Memoria respondió OK al liberar PCB")
 	} else {
 		slog.Warn("Memoria respondió con error al liberar PCB", slog.Int("status", resp.StatusCode))
@@ -43,13 +44,13 @@ func FinishProcess() {
 
 	//Logear métricas
 	// TODO: no coincide con log obligatorio, creo que el obligatorio esta dando vuelta
-	slog.Info("Métricas de estado",
-		"PID", pcb.PID,
-		slog.Int("NEW_COUNT", int(pcb.ME[models.EstadoNew])),
-		slog.Int("NEW_TIME", int(pcb.MT[models.EstadoNew])),
-		slog.Int("READY_COUNT", pcb.ME[models.EstadoReady]),
-		slog.Int("READY_TIME", int(pcb.MT[models.EstadoReady])),
-	)
+	slog.Info(fmt.Sprintf("## PID: (<%d>) - Métricas de estado - NEW_COUNT: %d; NEW_TIME_MS: %d; READY_COUNT: %d; READY_TIME_MS: %d",
+		pcb.PID,
+		pcb.ME[models.EstadoNew],
+		pcb.MT[models.EstadoNew].Milliseconds(),
+		pcb.ME[models.EstadoReady],
+		pcb.MT[models.EstadoReady].Milliseconds(),
+	))
 
 	//Liberar PCB asociado
 	slog.Debug("Liberado PCB de la cola de EXIT")
