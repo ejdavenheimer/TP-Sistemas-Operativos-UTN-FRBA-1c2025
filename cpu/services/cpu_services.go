@@ -109,16 +109,16 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 
 	// Si la cache esta activa
 	if IsEnabled() {
-		content, found := Cache.Get(request.Pid, pageNumber)
+		_, found := Cache.Get(request.Pid, pageNumber)
 		slog.Debug("Buscando en la cache")
 		if !found {
-			content = getPageFromMemory(request.Pid, pageNumber)
+			content := getPageFromMemory(request.Pid, pageNumber)
 			if content == nil {
 				slog.Error("No se pudo traer la página desde memoria")
 				return
 			}
-			Cache.Put(request.Pid, pageNumber, content)
-			content, _ = Cache.Get(request.Pid, pageNumber) // Reobtener la referencia
+			frame := physicalAddress / models.MemConfig.PageSize
+			Cache.Put(request.Pid, pageNumber, frame, content)
 		}
 		entryKey := getEntryKey(request.Pid, pageNumber)
 		idx := Cache.PageMap[entryKey]
@@ -126,6 +126,10 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 
 		entry.LockerBit = true
 		copy(entry.Content[offset:], []byte(value))
+		if offset+len(value) > len(entry.Content) {
+			slog.Error("WRITE fuera de los límites de la página en caché")
+			return
+		}
 		entry.ModifiedBit = true
 		entry.LockerBit = false
 
@@ -205,8 +209,8 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 				increase_PC()
 				return
 			}
-			Cache.Put(request.Pid, pageNumber, content)
-			content, _ = Cache.Get(request.Pid, pageNumber) // Reobtener la referencia
+			frame := physicalAddress / models.MemConfig.PageSize
+			Cache.Put(request.Pid, pageNumber, frame, content)
 		}
 
 		entryKey := getEntryKey(request.Pid, pageNumber)
@@ -323,7 +327,7 @@ func ExecuteGoto(request models.ExecuteInstructionRequest) {
 	result := value - 1
 
 	if value < 0 {
-		slog.Error(fmt.Sprintf("El valor de parámetros de GOTO no puede ser negativo"))
+		slog.Error("El valor de parámetros de GOTO no puede ser negativo")
 		return
 	}
 

@@ -143,3 +143,9 @@ type GroupedFrameInfo struct { // Renombrada para evitar conflicto con models.Fr
 	PID    uint  `json:"pid"`
 	Frames []int `json:"frames"` // Un slice de frames
 }
+
+type WriteRequest struct {
+	Pid             uint   `json:"PID"`
+	PhysicalAddress int    `json:"PhysicalAddress"`
+	Data            string `json:"Data"`
+}

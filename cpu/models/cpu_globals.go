@@ -74,8 +74,8 @@ type MemoryReadRequest struct {
 
 type WriteRequest struct {
 	PID             uint
-	Data            string
 	PhysicalAddress int
+	Data            string
 }
 
 // DEFINICION DE ERRORES

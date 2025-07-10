@@ -12,9 +12,14 @@ import (
 var memoryLock sync.Mutex
 
 func ReserveMemory(pid uint, size int, path string) error {
+	// Validar tamaño
+	if size <= 0 {
+		return fmt.Errorf("el tamaño del proceso debe ser mayor a 0 (PID %d)", pid)
+	}
 	// Calcula cuantas páginas necesita
 	pageSize := models.MemoryConfig.PageSize
 	pageCount := int(math.Ceil(float64(size) / float64(pageSize)))
+	//slog.Debug("Page count calculado", "pid", pid, "size", size, "pageCount", pageCount)
 
 	// Verifico que haya frames libres suficientes
 	memoryLock.Lock()
@@ -64,17 +69,12 @@ func ReserveMemory(pid uint, size int, path string) error {
 		}
 	}
 
-	// Registrar los frames asignados en ProcessFramesTable para que swap pueda usarlo
-	memoryLock.Lock()
-	models.ProcessFramesTable[pid] = &models.ProcessFrames{
-		PID:    pid,
-		Frames: assignedFrames,
-	}
-	memoryLock.Unlock()
-
 	NewProcess(pid, size, pageCount, assignedFrames)
 
 	slog.Debug("PCB registrado", slog.Int("pid", int(pid)), slog.Int("pages", pageCount), slog.Int("size", size))
+	if _, exists := models.ProcessTable[pid]; !exists {
+		slog.Warn("Proceso no registrado en ProcessTable al finalizar ReserveMemory", "pid", pid)
+	}
 	return nil
 }
 
@@ -167,12 +167,8 @@ func createPageTableLevel(currentLevel, maxLevels int) *models.PageTableLevel {
 }
 
 func NewProcess(pid uint, size int, pageCount int, assignedFrames []int) {
-	ProcessTableLock.Lock()
-	defer ProcessTableLock.Unlock()
-
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
-	
 	pages := make([]models.PageEntry, pageCount)
 	for i := 0; i < pageCount; i++ {
 		pages[i] = models.PageEntry{
@@ -182,14 +178,19 @@ func NewProcess(pid uint, size int, pageCount int, assignedFrames []int) {
 			Modified: false,
 		}
 	}
-
+	ProcessTableLock.Lock()
 	models.ProcessTable[pid] = &models.Process{
 		Pid:     pid,
 		Size:    size,
 		Pages:   pages,
 		Metrics: &models.Metrics{},
 	}
+	ProcessTableLock.Unlock()
 	models.ProcessMetrics[pid] = &models.Metrics{}
+	models.ProcessFramesTable[pid] = &models.ProcessFrames{
+		PID:    pid,
+		Frames: assignedFrames,
+	}
 	slog.Info(fmt.Sprintf("Proceso %d agregado a ProcessTable con %d páginas y tamaño %d", pid, pageCount, size))
 }
 
@@ -203,12 +204,14 @@ func releaseFrames(pid uint, frames []int) {
 
 	delete(models.PageTables, pid)
 	delete(models.InstructionsMap, pid)
-
-	// Limpiar también ProcessFramesTable
 	delete(models.ProcessFramesTable, pid)
+	delete(models.ProcessTable, pid)
+	delete(models.ProcessMetrics, pid)
+
+	slog.Warn("Rollback de proceso ejecutado", "pid", pid)
 }
 
-func SearchFrame(pid uint, pages []int) int {
+func SearchFrame(pid uint, pageNumber int) int {
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
 
@@ -219,15 +222,12 @@ func SearchFrame(pid uint, pages []int) int {
 		return -1
 	}
 
-	for _, pageNumber := range pages {
-		//slog.Debug(fmt.Sprintf("BUSCANDO FRAME %d", pages))
-		frame, err := getFrameFromPageNumber(pid, pageTableRoot, pageNumber)
-		if err == nil && frame != -1 {
-			// Retornamos el primer frame válido encontrado
-			slog.Debug(fmt.Sprintf("Frame enviado a CPU:%d", frame))
-			return frame
-		}
+	slog.Debug("SearchFrame recibido", "pid", pid, "pageNumber", pageNumber)
 
+	frame, err := getFrameFromPageNumber(pid, pageTableRoot, pageNumber)
+	if err == nil && frame != -1 {
+		slog.Debug(fmt.Sprintf("Frame enviado a CPU: %d", frame))
+		return frame
 	}
 	slog.Debug("NO SE ENCONTRO EL FRAME")
 	// Si no se encontró ningún frame para las páginas consultadas
@@ -279,7 +279,7 @@ func getPageIndices(pageNumber int, levels int, entriesPerLevel int) []int {
 		indices[i] = pageNumber % entriesPerLevel
 		pageNumber /= entriesPerLevel
 	}
-	//slog.Debug("Índices de página calculados", "indices", indices)
+	//slog.Debug("getPageIndices", "pageNumber", pageNumber, "indices", indices)
 	return indices
 }
 
