@@ -48,7 +48,7 @@ func notifyKernel(pid uint, message string, ioConfig *models.Config) {
 
 	slog.Debug("Se envía notificación de finalización de dispositivo.")
 	//Envia la request de conexion a Kernel
-	_, err = client.DoRequest(ioConfig.PortKernel, ioConfig.IpKernel, "POST", "kernel/dispositivo-finalizado", body)
+	_, err = client.DoRequest(ioConfig.PortKernel, ioConfig.IpKernel, "POST", "kernel/informar-io-finalizada", body)
 
 	if err != nil {
 		slog.Error(fmt.Sprintf("error: %v", err))

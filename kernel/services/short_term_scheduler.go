@@ -240,7 +240,7 @@ func ExecuteProcess(pcb *models.PCB, cpu cpuModels.CpuN) models.PCBExecuteReques
 // Actualiza el estado de un proceso, su LOG y sus metricas.
 func TransitionState(pcb *models.PCB, newState models.Estado) {
 	oldState := pcb.EstadoActual
-	if oldState == newState {
+	if oldState == newState && pcb.EstadoActual != models.EstadoExit {
 		slog.Warn(fmt.Sprintf("## (%d) El proceso ya está en el estado %s, no se realiza la transición.", pcb.PID, newState))
 		return
 	}

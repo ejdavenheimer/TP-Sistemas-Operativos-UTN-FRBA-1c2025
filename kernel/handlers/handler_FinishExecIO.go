@@ -6,37 +6,39 @@ import (
 	"log/slog"
 	"net/http"
 
+	ioModels "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/services"
 )
 
 func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		var pid uint
-		err := json.NewDecoder(request.Body).Decode(&pid)
+		var req ioModels.DeviceResponse
+		err := json.NewDecoder(request.Body).Decode(&req)
 		if err != nil {
 			slog.Warn("Error al decodificar PID desde IO", "error", err)
 			http.Error(writer, "PID inválido", http.StatusBadRequest)
 			return
 		}
 
-		slog.Debug("Solicitud de finalización de IO recibida", "pid", pid)
+		slog.Debug("Solicitud de finalización de IO recibida", "pid", req.Pid)
+		slog.Debug(fmt.Sprintf("Motivo de desalojo: %s", req.Reason))
 
 		// Validar si la cola de bloqueados está vacía
 		if models.QueueBlocked.Size() == 0 {
-			slog.Warn("Cola de bloqueados vacía, no se puede procesar PID", "pid", pid)
+			slog.Warn("Cola de bloqueados vacía, no se puede procesar PID", "pid", req.Pid)
 			http.Error(writer, "No hay procesos bloqueados", http.StatusConflict)
 			return
 		}
 
 		// Buscar el proceso en la cola de bloqueados
 		pcb, index, found := models.QueueBlocked.Find(func(pcb *models.PCB) bool {
-			return pcb.PID == pid
+			return pcb.PID == req.Pid
 		})
 
 		if !found {
-			slog.Warn("Proceso no encontrado en la cola de bloqueados", "pid", pid)
-			http.Error(writer, fmt.Sprintf("PID %d no está bloqueado", pid), http.StatusNotFound)
+			slog.Warn("Proceso no encontrado en la cola de bloqueados", "pid", req.Pid)
+			http.Error(writer, fmt.Sprintf("PID %d no está bloqueado", req.Pid), http.StatusNotFound)
 			return
 		}
 
@@ -44,12 +46,12 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 
 		// Eliminar de la cola de bloqueados
 		models.QueueBlocked.Remove(index)
-		slog.Debug("Proceso eliminado de la cola de bloqueados", "pid", pid)
+		slog.Debug("Proceso eliminado de la cola de bloqueados", "pid", req.Pid)
 
 		// Cambiar estado y pasar a SUSPENDED_READY
 		pcb.EstadoActual = models.EstadoSuspendidoReady
 		models.QueueSuspReady.Add(pcb)
-		slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
+		slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", req.Pid)
 
 		services.NotifyToMediumScheduler()
 		writer.WriteHeader(http.StatusOK)

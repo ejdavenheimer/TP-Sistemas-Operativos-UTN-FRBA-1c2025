@@ -153,7 +153,7 @@ func BlockedProcess(pid uint, reason string) {
 	// LOG OBLIGATORIO DE BLOQUEO POR IO
 	slog.Info(fmt.Sprintf("## (%d) - Bloqueado por IO: %s", pid, reason))
 
-	StartSuspensionTimer(pcb)
+	//StartSuspensionTimer(pcb)
 }
 
 func DumpServices(pid uint, size int) {
