@@ -19,12 +19,7 @@ var (
 
 var WriteToMemoryMock = WriteToMemory //TODO: lo agregue para los test, chequear si es necesario
 
-func GeInstruction(pid uint, pc uint, path string) (string, bool, error) {
-	err := GetInstructionsByPid(pid, path, models.InstructionsMap)
-	if err != nil {
-		return "", false, errors.New("instruction not found")
-	}
-
+func GeInstruction(pid uint, pc uint) (string, bool, error) {
 	instructions, exists := models.InstructionsMap[pid]
 	if !exists || uint32(pc) >= uint32(len(instructions)) {
 		return "", false, errors.New("instruction not found")
@@ -46,7 +41,7 @@ func GetInstructions(pid uint, path string, instructionsMap map[uint][]string) e
 }
 
 func GetInstructionsByPid(pid uint, path string, instructionsMap map[uint][]string) error {
-	path, err := FindScriptByID(path, fmt.Sprintf("%d", pid))
+	path, err := FindScriptByName(path, fmt.Sprintf("%d", pid))
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se encontró archivo para el ID %d: %v", pid, err))
 		return nil
@@ -102,8 +97,41 @@ func FindScriptByID(dir string, pid string) (string, error) {
 	return "", fmt.Errorf("no se encontró archivo con ID %s no encontrado", pid)
 }
 
+// Busca un archivo por nombre exacto en el directorio dado
+func FindScriptByName(dir string, scriptName string) (string, error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, file := range files {
+		if !file.IsDir() && file.Name() == scriptName {
+			return filepath.Join(dir, file.Name()), nil
+		}
+	}
+	return "", fmt.Errorf("no se encontró archivo con nombre %s", scriptName)
+}
+
+// Modifico GetInstructions para buscar por nombre en scripts_path
+func GetInstructionsByName(pid uint, scriptName string, instructionsMap map[uint][]string, scriptsPath string) error {
+	path, err := FindScriptByName(scriptsPath, scriptName)
+	if err != nil {
+		slog.Error(fmt.Sprintf("No se encontró archivo para el nombre %s: %v", scriptName, err))
+		return err
+	}
+	data := ExtractInstructions(path)
+	if data == nil {
+		return fmt.Errorf("no se pudieron cargar las instrucciones desde el archivo")
+	}
+
+	InsertData(pid, instructionsMap, data)
+	return nil
+}
+
 func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
+	ProcessTableLock.RLock()
 	process, ok := models.ProcessTable[pid]
+	ProcessTableLock.RUnlock()
 	if !ok {
 		return nil, ErrProcessNotFound
 	}
@@ -143,12 +171,18 @@ func readFromMemory(physicalAddress int, size int) ([]byte, error) {
 }
 
 func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
-	memoryLock.Lock()
-	defer memoryLock.Unlock()
-	// Verificar que el proceso existe
-	if _, ok := models.ProcessTable[pid]; !ok {
+	ProcessTableLock.RLock()
+	_, ok := models.ProcessTable[pid]
+	ProcessTableLock.RUnlock()
+
+	//slog.Debug("Procesos activos", "ProcessTable", models.ProcessTable)
+	//slog.Debug(fmt.Sprintf("WriteToMemory solicitado - PID: %d - Dirección física: %d - Bytes: %d", pid, physicalAddress, len(data)))
+	if !ok {
 		return fmt.Errorf("proceso %d no encontrado", pid)
 	}
+
+	memoryLock.Lock()
+	defer memoryLock.Unlock()
 
 	// Validación límites de memoria
 	if physicalAddress < 0 || physicalAddress+len(data) > len(models.UserMemory) {
@@ -161,6 +195,8 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 	UpdatePageBit(pid, physicalAddress, "use")
 	UpdatePageBit(pid, physicalAddress, "modified")
 	IncrementMetric(pid, "writes")
+
+	slog.Debug(fmt.Sprintf("WriteToMemory - PID: %d - Dir: %d - Bytes: %d", pid, physicalAddress, len(data)))
 	return nil
 }
 

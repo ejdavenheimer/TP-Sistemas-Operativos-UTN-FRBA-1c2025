@@ -23,7 +23,7 @@ const (
 // LogPath    = "./logs/kernel.log"          //"./kernel.log"
 )
 
-var pcb *models.PCB
+//var pcb *models.PCB
 
 func main() {
 	if len(os.Args) < 3 {
@@ -31,7 +31,7 @@ func main() {
 		return
 	}
 
-	ConfigPath := "./configs/kernel.json"
+	ConfigPath := "./configs/kernel.json" //config.KernelConfigPath()//
 	LogPath, err := log.BuildLogPath("kernel")
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo preparar el archivo de log: %v", err))
@@ -57,7 +57,7 @@ func main() {
 	go services.StartScheduler()
 
 	// Iniciar el proceso
-	pcb, err = services.InitProcess(pseudocodeFile, processSize, additionalArgs)
+	_, err = services.InitProcess(pseudocodeFile, processSize, additionalArgs)
 	if err != nil {
 		slog.Error("Error al iniciar proceso", "err", err)
 		return

@@ -1,12 +1,14 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 )
 
 // PageCache representa la caché de páginas de la CPU.
@@ -98,12 +100,13 @@ func (cache *PageCache) Get(pid uint, page int) ([]byte, bool) {
 
 	//Cache HIT
 	cache.Entries[index].UseBit = true
+	slog.Info(fmt.Sprintf("PID: %d - Cache Hit - Pagina: %d", pid, page))
 	slog.Debug(fmt.Sprintf("Cache HIT: PID %d, Page %d (slot %d). Content: %s", pid, page, index, cache.Entries[index].Content))
 	return cache.Entries[index].Content, true
 }
 
 // Put añade una página a la caché o actualiza una existente.
-func (cache *PageCache) Put(pid uint, pageNumber int, content []byte) {
+func (cache *PageCache) Put(pid uint, pageNumber int, frameAsignado int, content []byte) {
 	time.Sleep(time.Duration(models.CpuConfig.CacheDelay) * time.Millisecond)
 
 	cache.Mutex.Lock()
@@ -136,12 +139,14 @@ func (cache *PageCache) Put(pid uint, pageNumber int, content []byte) {
 		PID:         pid,
 		PageNumber:  pageNumber,
 		Content:     content,
+		Frame:       frameAsignado,
 		ModifiedBit: true,
 		UseBit:      true,
 		LockerBit:   false,
 	}
 	cache.Entries = append(cache.Entries, newCacheEntry)
 	cache.PageMap[key] = len(cache.Entries) - 1
+	slog.Info(fmt.Sprintf("PID: %d - Cache Add - Pagina: %d", pid, pageNumber))
 	slog.Debug(fmt.Sprintf("Cache Add: PID %d, Page %d en nuevo slot %d. Total: %d/%d", pid, pageNumber, len(cache.Entries)-1, len(cache.Entries), cache.MaxEntries))
 }
 
@@ -161,13 +166,28 @@ func (cache *PageCache) replaceVictim(newPID uint, newPage int, newContent []byt
 	victim := cache.Entries[victimIndex]
 	slog.Debug(fmt.Sprintf("Víctima seleccionada (slot %d): PID %d, Page %d (U=%t, M=%t)", victimIndex, victim.PID, victim.PageNumber, victim.UseBit, victim.ModifiedBit))
 
-	if victim.ModifiedBit && cache.Algorithm == "CLOCK" {
+	if victim.ModifiedBit { //&& cache.Algorithm == "CLOCK"
 		slog.Debug(fmt.Sprintf("Víctima (PID %d, Page %d) modificada. Escribiendo a Memoria Principal.", victim.PID, victim.PageNumber))
-		err := services.WriteToMemoryMock(uint(victim.PID), victim.PageNumber, newContent)
+		physicalAddress := victim.Frame * models.MemConfig.PageSize
+
+		writeReq := models.WriteRequest{
+			PID:             victim.PID,
+			PhysicalAddress: physicalAddress,
+			Data:            string(victim.Content), // O base64 si hace falta
+		}
+
+		body, err := json.Marshal(writeReq)
 		if err != nil {
-			slog.Error(fmt.Sprintf("WRITE failed, unable to write to memory: %v", err))
+			slog.Error(fmt.Sprintf("Error al serializar WriteRequest para PID %d página %d: %v", victim.PID, victim.PageNumber, err))
 			return
 		}
+
+		_, err = client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST", "memoria/write", body)
+		if err != nil {
+			slog.Error(fmt.Sprintf("Fallo la escritura en Memoria para PID %d página %d: %v", victim.PID, victim.PageNumber, err))
+			return
+		}
+		slog.Info(fmt.Sprintf("PID: %d - Memory Update - Página: %d - Frame: %d", victim.PID, victim.PageNumber, victim.Frame))
 	}
 
 	// Eliminar de pageMap antes de reemplazar en Entries
@@ -177,12 +197,13 @@ func (cache *PageCache) replaceVictim(newPID uint, newPage int, newContent []byt
 		PID:         newPID,
 		PageNumber:  newPage,
 		Content:     newContent,
+		Frame:       victim.Frame,
 		ModifiedBit: true,
 		UseBit:      true,
 		LockerBit:   false,
 	}
 
-	cache.PageMap[getEntryKey(victim.PID, victim.PageNumber)] = victimIndex //victim.PageNumber
+	cache.PageMap[getEntryKey(newPID, newPage)] = victimIndex //victim.PageNumber
 
 	slog.Debug(fmt.Sprintf("Nueva página (PID %d, Page %d) cargada en slot %d de caché.", newPID, newPage, victimIndex))
 	cache.advancePointer()
@@ -192,7 +213,7 @@ func (cache *PageCache) replaceVictim(newPID uint, newPage int, newContent []byt
 func (cache *PageCache) findVictimIndexClock() int {
 	for {
 		entry := &cache.Entries[cache.ClockPointer]
-        
+
 		// Si bit de lockeo es true no puede ser reemplazada
 		if entry.LockerBit {
 			cache.advancePointer()
@@ -219,7 +240,7 @@ func (cache *PageCache) findVictimIndexClockM() int {
 		//Primer pasada: busca (0,0)
 		for i := 0; i < cache.MaxEntries; i++ {
 			entry := &cache.Entries[cache.ClockPointer]
-            
+
 			// Si bit de lockeo es true no puede ser reemplazada
 			if entry.LockerBit {
 				cache.advancePointer()
@@ -293,11 +314,27 @@ func (cache *PageCache) RemoveProcessFromCache(pid uint) {
 		slog.Debug(fmt.Sprintf("DESALOJO: Encontrada página %d del Proceso %d. U=%t, M=%t.", entry.PageNumber, pid, entry.UseBit, entry.ModifiedBit))
 		if entry.ModifiedBit {
 			slog.Debug(fmt.Sprintf("DESALOJO: Página %d (Proceso %d) modificada. Escribiendo a Memoria Principal.", entry.PageNumber, pid))
-			err := services.WriteToMemoryMock(uint(pid), entry.PageNumber, entry.Content)
+			physicalAddress := entry.Frame * models.MemConfig.PageSize
+
+			writeReq := models.WriteRequest{
+				PID:             pid,
+				PhysicalAddress: physicalAddress,
+				Data:            string(entry.Content),
+			}
+
+			body, err := json.Marshal(writeReq)
 			if err != nil {
-				slog.Error(fmt.Sprintf("WRITE failed, unable to write to memory: %v", err))
+				slog.Error(fmt.Sprintf("Error al serializar WriteRequest para PID %d página %d: %v", pid, entry.PageNumber, err))
 				return
 			}
+
+			_, err = client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST", "memoria/write", body)
+			if err != nil {
+				slog.Error(fmt.Sprintf("Fallo la escritura en Memoria para PID %d página %d: %v", pid, entry.PageNumber, err))
+				return
+			}
+
+			slog.Info(fmt.Sprintf("PID: %d - Memory Update - Página: %d - Frame: %d", pid, entry.PageNumber, entry.Frame))
 		}
 	}
 

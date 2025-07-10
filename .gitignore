@@ -10,6 +10,7 @@
 /memoria/memoria
 /kernel/kernel
 /bin/
+/.vscode/
 
 # Test binary, built with `go test -c`
 *.test

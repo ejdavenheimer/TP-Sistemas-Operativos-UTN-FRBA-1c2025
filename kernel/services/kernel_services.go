@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"io"
 	"log/slog"
 	"net/http"
@@ -61,63 +60,6 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 	syscallName := syscallRequest.Type
 	slog.Info(fmt.Sprintf("## %d - Solicitó syscall: %s", syscallRequest.Pid, syscallName))
 	switch syscallName {
-	case "IO":
-		// Primero chequea si existe el dispositivo
-		deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
-			return syscallRequest.Values[0] == d.Name
-		})
-
-		if !exists || deviceRequested.Name == "" {
-			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
-			EndProcess(syscallRequest.Pid, fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
-			server.SendJsonResponse(writer, map[string]interface{}{
-				"action": "exit",
-			})
-			return
-		}
-
-		// Se crea una lista auxiliar con dispositivos del mismo tipo
-		connectedDeviceListAux := models.ConnectedDeviceList.FindAll(func(d ioModel.Device) bool {
-			return syscallRequest.Values[0] == d.Name
-		})
-
-		// Se busca los dispositivos que se encuentren libres
-		deviceRequestedAux, indexAux, exists := connectedDeviceListAux.Find(func(d ioModel.Device) bool {
-			return d.IsFree
-		})
-
-		// En caso de que no encuentre ningún dispositivo libre, se bloquea el proceso
-		if index < 0 || !exists {
-			slog.Debug("El dispositivo se encuentra ocupado...")
-			helpers.AddPidForDevice(deviceRequested.Name, int(syscallRequest.Pid))
-			BlockedProcess(syscallRequest.Pid, fmt.Sprintf("El dispositivo %s no se encuentra disponible", syscallRequest.Type))
-			server.SendJsonResponse(writer, map[string]interface{}{
-				"action": "block",
-			})
-			return
-		}
-
-		deviceRequestedAux.IsFree = false
-		deviceRequestedAux.PID = syscallRequest.Pid
-		err := models.ConnectedDeviceList.Set(index+indexAux, deviceRequestedAux)
-		if err != nil {
-			slog.Error(fmt.Sprintf("error: %v", err))
-			return
-		}
-
-		device := ioModel.Device{Ip: deviceRequestedAux.Ip, Port: deviceRequestedAux.Port, Name: syscallRequest.Values[0]}
-		sleepTime, _ := strconv.Atoi(syscallRequest.Values[1])
-		err = SleepDevice(syscallRequest.Pid, sleepTime, device)
-
-		if err != nil {
-			slog.Error(fmt.Sprintf("error: %v", err))
-			return
-		}
-
-		//Acá se bloquea el proceso
-		server.SendJsonResponse(writer, map[string]interface{}{
-			"action": "block",
-		})
 	case "INIT_PROC":
 		if len(syscallRequest.Values) < 2 {
 			slog.Error("INIT_PROC necesita 2 parametros: path y tamaño")
@@ -146,21 +88,6 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		slog.Debug("Proceso inicializado correctamente", "PID", pcb.PID)
 
 		server.SendJsonResponse(writer, map[string]interface{}{
-			"action": "continue",
-		})
-	case "DUMP_MEMORY":
-		pcb, index, exists := models.QueueExec.Find(func(pcb *models.PCB) bool {
-			return pcb.PID == syscallRequest.Pid
-		})
-		if !exists || index == -1 {
-			slog.Warn("TODO: ver que pasa en este caso por ahora hago un exit")
-			server.SendJsonResponse(writer, map[string]string{
-				"action": "exit",
-			})
-			return
-		}
-		DumpServices(uint(pcb.PID), pcb.Size)
-		server.SendJsonResponse(writer, map[string]string{
 			"action": "continue",
 		})
 	case "EXIT":
@@ -223,7 +150,10 @@ func BlockedProcess(pid uint, reason string) {
 		return
 	}
 
-	StartSuspensionTimer(pcb)
+	// LOG OBLIGATORIO DE BLOQUEO POR IO
+	slog.Info(fmt.Sprintf("## (%d) - Bloqueado por IO: %s", pid, reason))
+
+	//StartSuspensionTimer(pcb)
 }
 
 func DumpServices(pid uint, size int) {

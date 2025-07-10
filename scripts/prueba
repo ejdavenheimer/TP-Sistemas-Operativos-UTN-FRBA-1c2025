@@ -1,9 +1,0 @@
-NOOP
-READ 0 10
-WRITE 0 B
-READ 0 10
-INIT_PROC scripts/prueba2 300
-INIT_PROC scripts/prueba2 180
-INIT_PROC scripts/prueba2 65
-INIT_PROC scripts/prueba2 500
-EXIT

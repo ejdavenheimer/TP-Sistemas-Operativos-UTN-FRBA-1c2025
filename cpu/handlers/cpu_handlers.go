@@ -2,14 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
-	"log/slog"
-	"net/http"
-
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/services"
 	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
+	"log/slog"
+	"net/http"
 )
 
 func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
@@ -30,11 +29,12 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 		}
 
 		models.CpuRegisters.PC = uint(request.PC)
-		var isFinished, isBlocked bool = false, false
+
+		var isFinished, isBlocked, isSyscall bool = false, false, false
+		var syscallRequest kernelModel.SyscallRequest
 
 		models.InterruptControl.PID = int(instructionRequest.Pid)
-
-		for !models.InterruptControl.InterruptPending && !isFinished {
+		for !models.InterruptControl.InterruptPending && !isFinished && !isBlocked {
 			fetchResult := services.Fetch(request, cpuConfig)
 
 			if fetchResult.Instruction == "" {
@@ -42,7 +42,7 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 				return
 			}
 
-			services.DecodeAndExecute(instructionRequest.Pid, fetchResult.Instruction, cpuConfig, &isFinished, &isBlocked)
+			services.DecodeAndExecute(instructionRequest.Pid, fetchResult.Instruction, cpuConfig, &isFinished, &isBlocked, &isSyscall, &syscallRequest)
 
 			if !isFinished && fetchResult.IsLast {
 				isFinished = fetchResult.IsLast
@@ -61,9 +61,15 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 			slog.Debug("ExecuteProcessHandler need interrupt")
 		}
 
-		if isBlocked {
+		if isBlocked && !isSyscall {
 			response.StatusCodePCB = kernelModel.NeedReplan
 			slog.Debug("ExecuteProcessHandler need re-plan")
+		}
+
+		if isSyscall {
+			response.StatusCodePCB = kernelModel.NeedExecuteSyscall
+			response.SyscallRequest = syscallRequest
+			slog.Debug("ExecuteProcessHandler need execute syscall")
 		}
 
 		if isFinished && !isBlocked && !models.InterruptControl.InterruptPending {
@@ -73,33 +79,6 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 
 		models.InterruptControl.InterruptPending = false
 		server.SendJsonResponse(w, response)
-	}
-}
-
-// TODO: deprecado, borrar!
-func ExecuteHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var instructionRequest memoriaModel.InstructionRequest
-
-		// Decodifica el request (codificado en formato json).
-		err := json.NewDecoder(r.Body).Decode(&instructionRequest)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		instructionResponse := services.GetInstruction(instructionRequest, cpuConfig)
-		if instructionResponse.Instruction == nil {
-			http.Error(w, "No instruction found", http.StatusBadRequest)
-			return
-		}
-
-		instructions, _ := instructionResponse.Instruction[uint(instructionRequest.Pid)]
-		models.CpuRegisters.PC = 0
-		var isFinished, isBlocked bool = false, false
-		for _, instr := range instructions {
-			services.DecodeAndExecute(instructionRequest.Pid, instr, cpuConfig, &isFinished, &isBlocked)
-		}
 	}
 }
 

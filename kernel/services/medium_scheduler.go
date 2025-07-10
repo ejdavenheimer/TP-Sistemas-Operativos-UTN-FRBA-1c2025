@@ -64,7 +64,7 @@ func movePrincipalMemoryToSwap() {
 	bodyRequest, err := json.Marshal(pcb.PID)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al pasar a formato json el pcb: %v", err))
-		panic(err)
+		return
 	}
 	url := fmt.Sprintf("http://%s:%d/memoria/swapIn", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
 	slog.Debug("Enviando PCB a memoria", slog.String("url", url))
@@ -106,6 +106,7 @@ func mediumScheduleFIFO() {
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(0) // Elimina el primer proceso de la cola SUSPENDED READY
 	TransitionState(process, models.EstadoReady)
+	slog.Info(fmt.Sprintf("## PID: %d - Finalizó IO y pasa a READY", process.PID))
 	AddProcessToReady(process)
 	StartLongTermScheduler()
 }
@@ -140,6 +141,7 @@ func mediumScheduleShortestFirst() {
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(indexToRemove) // Eliminar el primer proceso de la cola SUSPENDED READY
 	TransitionState(process, models.EstadoReady)
+	slog.Info(fmt.Sprintf("## PID: %d - Finalizó IO y pasa a READY", process.PID))
 	AddProcessToReady(process) // Agregarlo a la cola READY
 	StartLongTermScheduler()
 }

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -15,18 +17,16 @@ import (
 
 // INICIA PLANIFICADOR DE CORTO PLAZO
 func StartShortTermScheduler() {
-	go func() {
-		for {
-			<-models.NotifyReady // Espera bloqueado hasta recibir señal
-			for models.QueueReady.Size() > 0 {
-				ok := SelectToExecute()
-				if !ok {
-					slog.Debug("No se pudo seleccionar ningún proceso para ejecutar.")
-					break // Si no hay CPU libre, salgo del for interno y espero nueva señal
-				}
+	for {
+		<-models.NotifyReady // Espera bloqueado hasta recibir señal
+		for models.QueueReady.Size() > 0 {
+			ok := SelectToExecute()
+			if !ok {
+				slog.Debug("No se pudo seleccionar ningún proceso para ejecutar.")
+				break // Si no hay CPU libre, salgo del for interno y espero nueva señal
 			}
 		}
-	}()
+	}
 }
 
 // Se activa cuando hay un proceso en la cola de READY.
@@ -51,10 +51,12 @@ func SelectToExecute() bool {
 	//Lo saca de la cola READY. Ya está listo para ejecutarse.
 	models.QueueReady.Remove(0)
 	TransitionState(pcb, models.EstadoExecuting)
+	//Lo pasamos a la cola de EXECUTING
+	models.QueueExec.Add(pcb)
 
 	CPUID := assignProcessToCPU(pcb, cpu)
 
-	go runProcessInCPU(pcb, *cpu, CPUID)
+	runProcessInCPU(pcb, *cpu, CPUID)
 
 	return true
 }
@@ -73,6 +75,7 @@ func assignProcessToCPU(pcb *models.PCB, cpu *cpuModels.CpuN) string {
 func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 	inicioEjecucion := time.Now()
 	result := ExecuteProcess(pcb, cpu)
+
 	tiempoEjecutado := time.Since(inicioEjecucion)
 
 	pcb.Mutex.Lock()
@@ -83,12 +86,19 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 		// Est(n+1)        =                α          * R(n)           + (1 - α)                      * Est(n)
 		pcb.RafagaEstimada = models.KernelConfig.Alpha*pcb.RafagaReal + (1-models.KernelConfig.Alpha)*pcb.RafagaEstimada
 	}
+	// Remover el proceso de la cola EXEC antes de cambiar de estado
+	index := findProcessIndexByPID(models.QueueExec, pcb.PID)
+	if index != -1 && result.StatusCodePCB != models.NeedExecuteSyscall {
+		models.QueueExec.Remove(index)
+	}
+
 	pcb.Mutex.Unlock()
 
 	switch result.StatusCodePCB {
 	case models.NeedFinish:
 		slog.Info(fmt.Sprintf("## (%d) - Terminando ejecución, pasando a EXIT", pcb.PID))
 		TransitionState(pcb, models.EstadoExit)
+		models.QueueExit.Add(pcb)
 
 	case models.NeedReplan:
 		slog.Info(fmt.Sprintf("## (%d) - Replanificando, pasando a READY", pcb.PID))
@@ -99,6 +109,84 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 		slog.Info(fmt.Sprintf("## (%d) - Desalojado por algoritmo SJF/SRT, pasando a READY", pcb.PID))
 		TransitionState(pcb, models.EstadoReady)
 		AddProcessToReady(pcb)
+	case models.NeedExecuteSyscall:
+		syscallName := result.SyscallRequest.Type
+		slog.Info(fmt.Sprintf("## %d - Solicitó syscall: %s", result.SyscallRequest.Pid, syscallName))
+		if syscallName == "IO" {
+			// Primero chequea si existe el dispositivo
+			deviceRequested, index, exists := models.ConnectedDeviceList.Find(func(d ioModel.Device) bool {
+				return result.SyscallRequest.Values[0] == d.Name
+			})
+
+			if !exists || deviceRequested.Name == "" {
+				slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", result.SyscallRequest.Values[0]))
+				EndProcess(result.SyscallRequest.Pid, fmt.Sprintf("No se encontro al dispositivo %s", result.SyscallRequest.Values[0]))
+				//server.SendJsonResponse(writer, map[string]interface{}{
+				//	"action": "exit",
+				//})
+				return
+			}
+
+			// Se crea una lista auxiliar con dispositivos del mismo tipo
+			connectedDeviceListAux := models.ConnectedDeviceList.FindAll(func(d ioModel.Device) bool {
+				return result.SyscallRequest.Values[0] == d.Name
+			})
+
+			// Se busca los dispositivos que se encuentren libres
+			deviceRequestedAux, indexAux, exists := connectedDeviceListAux.Find(func(d ioModel.Device) bool {
+				return d.IsFree
+			})
+
+			// En caso de que no encuentre ningún dispositivo libre, se bloquea el proceso
+			if index < 0 || !exists {
+				slog.Debug("El dispositivo se encuentra ocupado...")
+				helpers.AddPidForDevice(deviceRequested.Name, int(result.SyscallRequest.Pid))
+				BlockedProcess(result.SyscallRequest.Pid, fmt.Sprintf("El dispositivo %s no se encuentra disponible", result.SyscallRequest.Type))
+				//server.SendJsonResponse(writer, map[string]interface{}{
+				//	"action": "block",
+				//})
+				return
+			}
+
+			deviceRequestedAux.IsFree = false
+			deviceRequestedAux.PID = result.SyscallRequest.Pid
+			err := models.ConnectedDeviceList.Set(index+indexAux, deviceRequestedAux)
+			if err != nil {
+				slog.Error(fmt.Sprintf("error: %v", err))
+				return
+			}
+
+			device := ioModel.Device{Ip: deviceRequestedAux.Ip, Port: deviceRequestedAux.Port, Name: result.SyscallRequest.Values[0]}
+			sleepTime, _ := strconv.Atoi(result.SyscallRequest.Values[1])
+			err = SleepDevice(result.SyscallRequest.Pid, sleepTime, device)
+
+			if err != nil {
+				slog.Error(fmt.Sprintf("error: %v", err))
+				return
+			}
+
+			//Acá se bloquea el proceso
+			//server.SendJsonResponse(writer, map[string]interface{}{
+			//	"action": "block",
+			//})
+		}
+
+		if syscallName == "DUMP_MEMORY" {
+			pcb, index, exists := models.QueueExec.Find(func(pcb *models.PCB) bool {
+				return pcb.PID == result.SyscallRequest.Pid
+			})
+			if !exists || index == -1 {
+				slog.Warn("TODO: ver que pasa en este caso por ahora hago un exit")
+				//server.SendJsonResponse(writer, map[string]string{
+				//	"action": "exit",
+				//})
+				return
+			}
+			DumpServices(uint(pcb.PID), pcb.Size)
+			//server.SendJsonResponse(writer, map[string]string{
+			//	"action": "continue",
+			//})
+		}
 	}
 	// Liberar CPU
 	models.ConnectedCpuMap.MarkAsFree(CPUID)
@@ -121,7 +209,7 @@ func ExecuteProcess(pcb *models.PCB, cpu cpuModels.CpuN) models.PCBExecuteReques
 	bodyRequest, err := json.Marshal(pcbExecute)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al pasar a formato json el pcb: %v", err))
-		panic(err)
+		return models.PCBExecuteRequest{}
 	}
 
 	//Envía a CPU
@@ -152,7 +240,7 @@ func ExecuteProcess(pcb *models.PCB, cpu cpuModels.CpuN) models.PCBExecuteReques
 // Actualiza el estado de un proceso, su LOG y sus metricas.
 func TransitionState(pcb *models.PCB, newState models.Estado) {
 	oldState := pcb.EstadoActual
-	if oldState == newState {
+	if oldState == newState && pcb.EstadoActual != models.EstadoExit {
 		slog.Warn(fmt.Sprintf("## (%d) El proceso ya está en el estado %s, no se realiza la transición.", pcb.PID, newState))
 		return
 	}
@@ -195,7 +283,11 @@ func StartSuspensionTimer(pcb *models.PCB) {
 		slog.Info(fmt.Sprintf("## (%d) - Proceso pasa a SUSP.BLOCKED", pcb.PID))
 		TransitionState(pcb, models.EstadoSuspendidoBlocked)
 
-		models.QueueBlocked.Remove(int(pcb.PID))
+		index := findProcessIndexByPID(models.QueueBlocked, pcb.PID)
+		if index != -1 {
+			models.QueueBlocked.Remove(index)
+		}
+
 		models.QueueSuspBlocked.Add(pcb)
 		NotifyToMediumScheduler()
 	}
