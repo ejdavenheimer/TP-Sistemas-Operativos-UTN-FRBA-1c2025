@@ -6,8 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
-
 	cpuModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
@@ -104,41 +102,41 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		var state models.Estado = models.EstadoReady
-
-		if pcb.EstadoActual == models.EstadoSuspendidoBlocked {
-			state = models.EstadoSuspendidoReady
-		}
+		//var state models.Estado = models.EstadoReady
+		//
+		//if pcb.EstadoActual == models.EstadoSuspendidoBlocked {
+		//	state = models.EstadoSuspendidoReady
+		//}
 
 		if device.Reason == "KILL" {
 			slog.Debug("Se murió :(")
-			state = models.EstadoExit
+			//state = models.EstadoExit
 			models.ConnectedDeviceList.RemoveWhere(func(d ioModel.Device) bool {
 				return d.Port == device.Port
 			})
 		}
 
-		_, isSuccess, err = services.MoveProcessToState(pcb.PID, state, pcb.EstadoActual == models.EstadoReady)
+		_, isSuccess, err = services.MoveProcessToState(pcb.PID, models.EstadoExit, pcb.EstadoActual == models.EstadoReady)
 
 		if !isSuccess || err != nil {
 			slog.Error("Qué rompimos? :(")
 			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
 			return
 		}
-
-		//chequeo si hay un otro proceso esperando
-		pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(device.Name)
-
-		if isSuccess {
-			slog.Debug(fmt.Sprintf("Se encontró un proceso esperando por el dispositivo [%s]", device.Name))
-			_, isSuccess, err = services.MoveProcessToState(uint(pidWaiting), state, true)
-
-			if !isSuccess || err != nil {
-				slog.Error("Qué rompimos? :(")
-				http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
-				return
-			}
-		}
+		//
+		////chequeo si hay un otro proceso esperando
+		//pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(device.Name)
+		//
+		//if isSuccess {
+		//	slog.Debug(fmt.Sprintf("Se encontró un proceso esperando por el dispositivo [%s]", device.Name))
+		//	_, isSuccess, err = services.MoveProcessToState(uint(pidWaiting), state, true)
+		//
+		//	if !isSuccess || err != nil {
+		//		slog.Error("Qué rompimos? :(")
+		//		http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
+		//		return
+		//	}
+		//}
 
 		server.SendJsonResponse(writer, device)
 	}

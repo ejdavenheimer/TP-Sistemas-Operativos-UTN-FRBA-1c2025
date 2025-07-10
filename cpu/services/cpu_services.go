@@ -366,10 +366,9 @@ func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) me
 	return instructionResponse
 }
 
-func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, isFinished *bool, isBlocked *bool) {
+func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, isFinished *bool, isBlocked *bool, isSyscall *bool, syscallRequest *kernelModel.SyscallRequest) {
 	value := strings.Split(instructions, " ")
 
-	var syscallRequest kernelModel.SyscallRequest
 	executeInstructionRequest := models.ExecuteInstructionRequest{
 		Pid:    pid,
 		Values: value[0:],
@@ -384,37 +383,42 @@ func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, i
 		ExecuteRead(executeInstructionRequest)
 	case "GOTO":
 		ExecuteGoto(executeInstructionRequest)
-	case "INIT_PROC", "DUMP_MEMORY", "IO":
-		syscallRequest = kernelModel.SyscallRequest{
-			Pid:    pid,
-			Type:   value[0],
-			Values: value[1:],
-		}
-		action := ExecuteSyscall(syscallRequest, cpuConfig)
+	case "INIT_PROC":
+		syscallRequest.Pid = pid
+		syscallRequest.Type = value[0]
+		syscallRequest.Values = value[1:]
+		action := ExecuteSyscall(*syscallRequest, cpuConfig)
 		switch action {
 		case "continue":
 			increase_PC()
 			*isFinished = false
 		case "block":
-			Cache.RemoveProcessFromCache(pid)
-			RemoveTLBEntriesByPID(pid)
+			//Cache.RemoveProcessFromCache(pid)
+			//RemoveTLBEntriesByPID(pid)
 			*isBlocked = true
 			*isFinished = true
 		case "exit":
-			Cache.RemoveProcessFromCache(pid)
-			RemoveTLBEntriesByPID(pid)
+			//Cache.RemoveProcessFromCache(pid)
+			//RemoveTLBEntriesByPID(pid)
 			*isFinished = true
 		default:
 			slog.Error(fmt.Sprintf("acción desconocida de syscall: %v", action))
 			*isFinished = true
 		}
 		increase_PC()
+	case "DUMP_MEMORY", "IO":
+		syscallRequest.Pid = pid
+		syscallRequest.Type = value[0]
+		syscallRequest.Values = value[1:]
+		Cache.RemoveProcessFromCache(pid)
+		RemoveTLBEntriesByPID(pid)
+		*isBlocked = true
+		*isSyscall = true
+		increase_PC()
 	case "EXIT":
-		syscallRequest = kernelModel.SyscallRequest{
-			Pid:  pid,
-			Type: value[0],
-		}
-		action := ExecuteSyscall(syscallRequest, cpuConfig)
+		syscallRequest.Pid = pid
+		syscallRequest.Type = value[0]
+		action := ExecuteSyscall(*syscallRequest, cpuConfig)
 		switch action {
 		case "exit":
 			*isFinished = true
