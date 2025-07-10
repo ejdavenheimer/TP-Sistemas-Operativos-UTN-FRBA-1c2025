@@ -123,7 +123,7 @@ func ExecuteProcess(pcb *models.PCB, cpu cpuModels.CpuN) models.PCBExecuteReques
 	bodyRequest, err := json.Marshal(pcbExecute)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al pasar a formato json el pcb: %v", err))
-		panic(err)
+		return models.PCBExecuteRequest{}
 	}
 
 	//Envía a CPU
