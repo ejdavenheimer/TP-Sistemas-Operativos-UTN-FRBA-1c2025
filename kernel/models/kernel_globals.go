@@ -82,17 +82,19 @@ const (
 )
 
 type PCBExecuteRequest struct {
-	PID           uint
-	PC            int
-	StatusCodePCB StatusCodePCB
+	PID            uint
+	PC             int
+	StatusCodePCB  StatusCodePCB
+	SyscallRequest SyscallRequest
 }
 
 type StatusCodePCB int
 
 const (
-	NeedFinish    StatusCodePCB = 100
-	NeedReplan    StatusCodePCB = 101
-	NeedInterrupt StatusCodePCB = 102
+	NeedFinish         StatusCodePCB = 100
+	NeedReplan         StatusCodePCB = 101
+	NeedInterrupt      StatusCodePCB = 102
+	NeedExecuteSyscall StatusCodePCB = 103
 )
 
 type Device struct {

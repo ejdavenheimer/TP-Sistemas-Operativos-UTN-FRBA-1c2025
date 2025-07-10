@@ -69,7 +69,6 @@ func main() {
 
 	http.HandleFunc("GET /", handlers.HandshakeHandler(fmt.Sprintf("Bienvenido al módulo de CPU%s", idCpu)))
 	http.HandleFunc("GET /cpu", handlers.HandshakeHandler("Cpu en funcionamiento 🚀"))
-	http.HandleFunc("POST /cpu/process", cpuHandler.ExecuteHandler(models.CpuConfig)) //TODO: deprecado, borrar EP
 	http.HandleFunc("POST /cpu/exec", cpuHandler.ExecuteProcessHandler(models.CpuConfig))
 	http.HandleFunc("POST /cpu/interrupt", cpuHandler.InterruptProcessHandler())
 
