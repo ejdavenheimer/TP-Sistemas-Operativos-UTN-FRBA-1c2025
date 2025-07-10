@@ -69,8 +69,8 @@ func ExecuteSyscall(syscallRequest models.SyscallRequest, writer http.ResponseWr
 		})
 
 		if !exists || deviceRequested.Name == "" {
-			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
-			EndProcess(syscallRequest.Pid, fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Type))
+			slog.Error(fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Values[0]))
+			EndProcess(syscallRequest.Pid, fmt.Sprintf("No se encontro al dispositivo %s", syscallRequest.Values[0]))
 			server.SendJsonResponse(writer, map[string]interface{}{
 				"action": "exit",
 			})
