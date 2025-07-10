@@ -11,7 +11,6 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/config"
 )
 
 const (
@@ -22,7 +21,7 @@ const (
 )
 
 func main() {
-	ConfigPath := config.MemoriaConfigPath()//"./configs/memoria.json"
+	ConfigPath := "./configs/memoria.json"
 	LogPath, err := log.BuildLogPath("memoria")
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo preparar el archivo de log: %v", err))

@@ -3,9 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"log/slog"
 	"net/http"
+
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 
 	cpuModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
@@ -99,7 +100,8 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 
 		if !isSuccess {
 			slog.Error(fmt.Sprintf("No se encontre el proceso <%d>", pid))
-			panic(fmt.Sprintf("No se encontre el proceso <%d>", pid))
+			http.Error(writer, "o se encontre el proceso :(", http.StatusBadRequest)
+			return
 		}
 
 		var state models.Estado = models.EstadoReady

@@ -23,7 +23,7 @@ func FinishProcess() {
 	bodyRequest, err := json.Marshal(pcb.PID)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al pasar a formato json el pcb: %v", err))
-		panic(err)
+		return
 	}
 	url := fmt.Sprintf("http://%s:%d/memoria/liberarpcb", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
 	slog.Debug("Enviando PCB a memoria", slog.String("url", url))
@@ -62,6 +62,7 @@ func FinishProcess() {
 
 	//Liberar PCB asociado
 	slog.Debug("Liberado PCB de la cola de EXIT")
+	//Sumar chanel a mediano plazo
 
 	//Intentar inicializar un proceso de SUSP READY sino los de NEW
 	//Ya lo hace el plani de mediano plazo

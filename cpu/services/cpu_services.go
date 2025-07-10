@@ -5,16 +5,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
-	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
-	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
+	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
+	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 )
 
 func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionsResponse {
@@ -24,7 +25,7 @@ func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.C
 
 	if err != nil {
 		slog.Error(fmt.Sprintf("error: %v", err))
-		panic(err)
+		return memoriaModel.InstructionsResponse{}
 	}
 
 	responseBody, _ := io.ReadAll(response.Body)
@@ -100,17 +101,17 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 
 	// Traducción de dirección
 	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
-	if physicalAddress == -1{
+	if physicalAddress == -1 {
 		slog.Warn("Instrucción WRITE no puede continuar: diección invalida")
 		increase_PC()
 		return
 	}
 
 	// Si la cache esta activa
-	if IsEnabled(){
+	if IsEnabled() {
 		content, found := Cache.Get(request.Pid, pageNumber)
 		slog.Debug("Buscando en la cache")
-		if !found{
+		if !found {
 			content = getPageFromMemory(request.Pid, pageNumber)
 			if content == nil {
 				slog.Error("No se pudo traer la página desde memoria")
@@ -127,7 +128,7 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 		copy(entry.Content[offset:], []byte(value))
 		entry.ModifiedBit = true
 		entry.LockerBit = false
-    
+
 		slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: ESCRIBIR - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, value))
 		increase_PC()
 		return
@@ -194,10 +195,10 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 	}
 
 	// Si la cache esta activa
-	if IsEnabled(){
+	if IsEnabled() {
 		content, found := Cache.Get(request.Pid, pageNumber)
 		slog.Debug("Buscando en cache")
-		if !found{
+		if !found {
 			content = getPageFromMemory(request.Pid, pageNumber)
 			if content == nil {
 				slog.Error("No se pudo traer la página desde memoria")
@@ -209,36 +210,36 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 		}
 
 		entryKey := getEntryKey(request.Pid, pageNumber)
-        idx := Cache.PageMap[entryKey]
-        entry := &Cache.Entries[idx]
+		idx := Cache.PageMap[entryKey]
+		entry := &Cache.Entries[idx]
 
-        entry.LockerBit = true
+		entry.LockerBit = true
 
-        if content == nil {
-	        slog.Error("Contenido en caché es nil")
-	        entry.LockerBit = false
+		if content == nil {
+			slog.Error("Contenido en caché es nil")
+			entry.LockerBit = false
 			increase_PC()
-	        return
-        }
+			return
+		}
 
-        if offset+size > len(content) {
-	        slog.Error("Slice out of bounds en ExecuteRead", "offset", offset, "size", size, "len", len(content))
-	        entry.LockerBit = false
+		if offset+size > len(content) {
+			slog.Error("Slice out of bounds en ExecuteRead", "offset", offset, "size", size, "len", len(content))
+			entry.LockerBit = false
 			increase_PC()
-	        return
-        }
+			return
+		}
 
-        data := content[offset : offset+size]
-        cleanData := bytes.Trim(data, "\x00")
+		data := content[offset : offset+size]
+		cleanData := bytes.Trim(data, "\x00")
 
-        entry.UseBit = true
-        entry.LockerBit = false
+		entry.UseBit = true
+		entry.LockerBit = false
 
 		slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, string(cleanData)))
 		increase_PC()
 		return
 	}
-    
+
 	// Si la cache no esta activa: lee desde memoria
 	readRequest := models.MemoryReadRequest{
 		Pid:             request.Pid,
@@ -286,7 +287,7 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 func getPageFromMemory(pid uint, pageNumber int) []byte {
 	type PageRequest struct {
 		PID        uint `json:"pid"`
-		PageNumber int `json:"page_number"`
+		PageNumber int  `json:"page_number"`
 	}
 	type PageResponse struct {
 		Content []byte `json:"content"`
@@ -403,6 +404,7 @@ func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, i
 			slog.Error(fmt.Sprintf("acción desconocida de syscall: %v", action))
 			*isFinished = true
 		}
+		increase_PC()
 	case "EXIT":
 		syscallRequest = kernelModel.SyscallRequest{
 			Pid:  pid,
