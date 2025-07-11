@@ -106,10 +106,13 @@ func mediumScheduleFIFO() {
 		return
 	}
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
-	models.QueueSuspReady.Remove(0) // Elimina el primer proceso de la cola SUSPENDED READY
-	TransitionState(process, models.EstadoReady)
-	slog.Info(fmt.Sprintf("## PID: %d - Finalizó IO y pasa a READY", process.PID))
-	AddProcessToReady(process)
+	// Elimina el primer proceso de la cola SUSPENDED READY
+	index := findProcessIndexByPID(models.QueueSuspReady, process.PID)
+	if index != -1 {
+		models.QueueSuspReady.Remove(index)
+	}
+
+	moveSwapToPrincipalMemory(process)
 	StartLongTermScheduler()
 }
 
@@ -142,8 +145,44 @@ func mediumScheduleShortestFirst() {
 	// Eliminar solo el primer proceso (más chico) de la cola NEW
 	slog.Debug("Ahora voy a remover de SuspReady el proceso")
 	models.QueueSuspReady.Remove(indexToRemove) // Eliminar el primer proceso de la cola SUSPENDED READY
-	TransitionState(process, models.EstadoReady)
-	slog.Info(fmt.Sprintf("## PID: %d - Finalizó IO y pasa a READY", process.PID))
-	AddProcessToReady(process) // Agregarlo a la cola READY
+	moveSwapToPrincipalMemory(process)
 	StartLongTermScheduler()
+}
+
+func moveSwapToPrincipalMemory(pcb *models.PCB) {
+	slog.Debug("Iniciando solicitud para mover el proceso de swap a memoria principal", "PID", pcb.PID)
+
+	// Conectarse con memoria y enviar PCB
+	request := memoriaModel.PIDRequest{PID: pcb.PID}
+	bodyRequest, err := json.Marshal(request)
+	if err != nil {
+		slog.Error("Error al convertir el PCB a JSON", slog.Any("error", err))
+		return
+	}
+
+	url := fmt.Sprintf("http://%s:%d/memoria/swapIn", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
+	slog.Debug("Enviando PCB a memoria", slog.String("url", url))
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(bodyRequest))
+	if err != nil {
+		slog.Error("Error enviando el PCB a memoria",
+			slog.String("ip", models.KernelConfig.IpMemory),
+			slog.Int("puerto", models.KernelConfig.PortMemory),
+			slog.Any("error", err))
+		return
+	}
+	defer resp.Body.Close()
+
+	// Swap libera espacio, así que nos envía un OK
+	if resp.StatusCode == http.StatusOK {
+		slog.Debug("Memoria des-swapeó el proceso, entra a READY")
+		TransitionState(pcb, models.EstadoReady)
+		slog.Info(fmt.Sprintf("## PID: %d - Finalizó IO y pasa a READY", pcb.PID))
+		AddProcessToReady(pcb)
+	} else {
+		slog.Warn("Memoria respondió con error al des-swapear PCB", slog.Int("status", resp.StatusCode))
+		TransitionState(pcb, models.EstadoExit)
+		models.QueueExit.Add(pcb)
+		slog.Error(fmt.Sprintf("## PID: %d - No encontrado en swap, se manda a finalizar.", pcb.PID))
+	}
 }
