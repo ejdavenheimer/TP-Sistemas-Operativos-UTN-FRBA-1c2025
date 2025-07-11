@@ -66,13 +66,16 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 			slog.Debug("ExecuteProcessHandler need re-plan")
 		}
 
-		if isSyscall {
+		if isSyscall && !isFinished {
 			response.StatusCodePCB = kernelModel.NeedExecuteSyscall
 			response.SyscallRequest = syscallRequest
 			slog.Debug("ExecuteProcessHandler need execute syscall")
 		}
 
 		if isFinished && !isBlocked && !models.InterruptControl.InterruptPending {
+			if isBlocked {
+				response.SyscallRequest = syscallRequest
+			}
 			response.StatusCodePCB = kernelModel.NeedFinish
 			slog.Debug("ExecuteProcessHandler need finish")
 		}

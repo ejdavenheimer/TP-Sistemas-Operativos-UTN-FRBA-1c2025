@@ -86,7 +86,7 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 	}
 	// Remover el proceso de la cola EXEC antes de cambiar de estado
 	index := findProcessIndexByPID(models.QueueExec, pcb.PID)
-	if index != -1 && result.StatusCodePCB != models.NeedExecuteSyscall {
+	if index != -1 && result.StatusCodePCB != models.NeedExecuteSyscall && result.StatusCodePCB != models.NeedFinish {
 		models.QueueExec.Remove(index)
 	}
 
@@ -95,8 +95,9 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 	switch result.StatusCodePCB {
 	case models.NeedFinish:
 		slog.Info(fmt.Sprintf("## (%d) - Terminando ejecución, pasando a EXIT", pcb.PID))
-		TransitionState(pcb, models.EstadoExit)
-		models.QueueExit.Add(pcb)
+		EndProcess(pcb.PID, "")
+		//TransitionState(pcb, models.EstadoExit)
+		//models.QueueExit.Add(pcb)
 
 	case models.NeedReplan:
 		slog.Info(fmt.Sprintf("## (%d) - Replanificando, pasando a READY", pcb.PID))
@@ -235,14 +236,17 @@ func AddProcessToReady(pcb *models.PCB) {
 
 	case "SJF", "SRT": // Inserto ordenadamente en la cola READY, ordenada por Rafaga ascendente
 		procesoInsertado := false
+
 		for i := 0; i < models.QueueReady.Size(); i++ {
 			procesoIterado, _ := models.QueueReady.Get(i)
+
 			if pcb.RafagaEstimada < procesoIterado.RafagaEstimada {
 				models.QueueReady.Insert(i, pcb) // Inserto el proceso en la posición i
 				procesoInsertado = true
 				break
 			}
 		}
+
 		if !procesoInsertado { // Si no se insertó antes, lo agrego al final
 			models.QueueReady.Add(pcb)
 		}
@@ -250,24 +254,25 @@ func AddProcessToReady(pcb *models.PCB) {
 		if models.KernelConfig.SchedulerAlgorithm == "SRT" {
 			//Busca el proceso (PCB) que se esta ejecutando con la mayor rafaga restante estimada
 			processToInterrupt := GetPCBConMayorRafagaRestante()
+
 			if processToInterrupt == nil {
 				slog.Debug("No hay procesos ejecutándose para interrumpir")
 				return
 			}
+
 			if pcb.RafagaEstimada < processToInterrupt.RafagaEstimada {
 				//GetCPUByPid recorre las CPUs conectadas y retorna la qe esta ejecutando el PID solicitado
 				cpu := models.ConnectedCpuMap.GetCPUByPid(processToInterrupt.PID)
 				//SI ES POSITIVO, SE CONECTA AL ENDPOINT DE CPU PARA PEDIRLE QUE DESALOJE AL PROCESO TAL
 				SendInterruption(processToInterrupt.PID, cpu.Port, cpu.Ip)
 			}
-
 		}
 	}
+
 	select {
 	case models.NotifyReady <- 1:
 		// Se pudo enviar la notificación
 	default:
 		// Ya hay una notificación pendiente, no hacemos nada
 	}
-
 }
