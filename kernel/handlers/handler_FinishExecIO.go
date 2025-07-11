@@ -21,24 +21,32 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		slog.Debug("Solicitud de finalización de IO recibida", "pid", req.Pid)
+		isSuccess, pid := services.FinishDevice(req.Port)
+
+		if !isSuccess {
+			slog.Error("Qué rompimos? :(")
+			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
+			return
+		}
+
+		slog.Debug("Solicitud de finalización de IO recibida", "pid", pid)
 		slog.Debug(fmt.Sprintf("Motivo de desalojo: %s", req.Reason))
 
 		// Validar si la cola de bloqueados está vacía
 		if models.QueueBlocked.Size() == 0 {
-			slog.Warn("Cola de bloqueados vacía, no se puede procesar PID", "pid", req.Pid)
+			slog.Warn("Cola de bloqueados vacía, no se puede procesar PID", "pid", pid)
 			http.Error(writer, "No hay procesos bloqueados", http.StatusConflict)
 			return
 		}
 
 		// Buscar el proceso en la cola de bloqueados
 		pcb, index, found := models.QueueBlocked.Find(func(pcb *models.PCB) bool {
-			return pcb.PID == req.Pid
+			return pcb.PID == uint(pid)
 		})
 
 		if !found {
-			slog.Warn("Proceso no encontrado en la cola de bloqueados", "pid", req.Pid)
-			http.Error(writer, fmt.Sprintf("PID %d no está bloqueado", req.Pid), http.StatusNotFound)
+			slog.Warn("Proceso no encontrado en la cola de bloqueados", "pid", pid)
+			http.Error(writer, fmt.Sprintf("PID %d no está bloqueado", pid), http.StatusNotFound)
 			return
 		}
 
@@ -46,12 +54,12 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 
 		// Eliminar de la cola de bloqueados
 		models.QueueBlocked.Remove(index)
-		slog.Debug("Proceso eliminado de la cola de bloqueados", "pid", req.Pid)
+		slog.Debug("Proceso eliminado de la cola de bloqueados", "pid", pid)
 
 		// Cambiar estado y pasar a SUSPENDED_READY
 		pcb.EstadoActual = models.EstadoSuspendidoReady
 		models.QueueSuspReady.Add(pcb)
-		slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", req.Pid)
+		slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
 
 		services.NotifyToMediumScheduler()
 		writer.WriteHeader(http.StatusOK)
