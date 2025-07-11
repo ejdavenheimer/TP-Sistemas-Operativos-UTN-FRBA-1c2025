@@ -44,17 +44,34 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 			return pcb.PID == uint(pid)
 		})
 
-		if !found {
-			slog.Warn("Proceso no encontrado en la cola de bloqueados", "pid", pid)
-			http.Error(writer, fmt.Sprintf("PID %d no está bloqueado", pid), http.StatusNotFound)
+		if found {
+			//http.Error(writer, fmt.Sprintf("PID %d no está bloqueado", pid), http.StatusNotFound)
+			//return
+			models.QueueBlocked.Remove(index)
+			slog.Debug("Proceso eliminado de la cola de bloqueados", "pid", pid)
+			services.AddProcessToReady(pcb)
+			writer.WriteHeader(http.StatusOK)
 			return
 		}
 
-		slog.Debug("Proceso encontrado en bloqueados", "pcb", pcb)
+		slog.Warn("Proceso no encontrado en la cola de bloqueados", "pid", pid)
+
+		// Buscar el proceso en la cola de bloqueados
+		pcb, index, found = models.QueueSuspBlocked.Find(func(pcb *models.PCB) bool {
+			return pcb.PID == uint(pid)
+		})
+
+		if !found {
+			slog.Warn("Proceso no encontrado en la cola de bloqueado-suspendido", "pid", pid)
+			http.Error(writer, fmt.Sprintf("PID %d no está bloqueado-suspendido", pid), http.StatusNotFound)
+			return
+		}
+
+		slog.Debug("Proceso encontrado en bloqueado-suspendido", "pcb", pcb)
 
 		// Eliminar de la cola de bloqueados
-		models.QueueBlocked.Remove(index)
-		slog.Debug("Proceso eliminado de la cola de bloqueados", "pid", pid)
+		models.QueueSuspBlocked.Remove(index)
+		slog.Debug("Proceso eliminado de la cola de bloqueado-suspendido", "pid", pid)
 
 		// Cambiar estado y pasar a SUSPENDED_READY
 		pcb.EstadoActual = models.EstadoSuspendidoReady

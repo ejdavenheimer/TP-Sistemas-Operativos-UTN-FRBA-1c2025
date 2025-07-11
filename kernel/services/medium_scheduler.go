@@ -10,6 +10,7 @@ import (
 	"log/slog"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
+	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 )
 
 func NotifyToMediumScheduler() {
@@ -61,12 +62,13 @@ func movePrincipalMemoryToSwap() {
 	slog.Debug("Iniciando solicitud para mover el proceso de memoria principal a Disco", "PID", pcb.PID)
 
 	//Conectarse con memoria y enviar PCB
-	bodyRequest, err := json.Marshal(pcb.PID)
+	var request = memoriaModel.PIDRequest{PID: pcb.PID}
+	bodyRequest, err := json.Marshal(request)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error al pasar a formato json el pcb: %v", err))
 		return
 	}
-	url := fmt.Sprintf("http://%s:%d/memoria/swapIn", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
+	url := fmt.Sprintf("http://%s:%d/memoria/swapOut", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
 	slog.Debug("Enviando PCB a memoria", slog.String("url", url))
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(bodyRequest))
