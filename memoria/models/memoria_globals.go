@@ -75,13 +75,6 @@ type DumpMemoryResponse struct {
 var MemoryConfig *Config
 var InstructionsMap map[uint][]string
 
-type MemoryFrame struct {
-	StartAddr int  // Dirección inicial en UserMemory
-	IsFree    bool // Si el frame está disponible
-}
-
-var FrameTable []MemoryFrame
-
 type ProcessFrames struct {
 	PID    uint
 	Frames []int

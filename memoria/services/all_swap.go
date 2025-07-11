@@ -5,12 +5,14 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"time"
 	"sync"
+	"time"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 )
+
 var ProcessTableLock sync.RWMutex
+
 // En el archivo de swap, cambiar las líneas que usan ProcessFramesTable:
 
 func PutProcessInSwap(pid uint) error {
@@ -27,7 +29,7 @@ func PutProcessInSwap(pid uint) error {
 
 	// Obtener la lista de índices de frame para este PID
 	processFrames, exists := models.ProcessFramesTable[pid]
-	if !exists || processFrames == nil { // *** CAMBIO: verificar que no sea nil ***
+	if !exists || processFrames == nil {
 		slog.Error(fmt.Sprintf("No está en tabla de frames el PID %d", pid))
 		return fmt.Errorf("proceso PID %d no encontrado en tabla de frames", pid)
 	}
@@ -48,9 +50,9 @@ func PutProcessInSwap(pid uint) error {
 	frameSize := int64(models.MemoryConfig.PageSize)
 
 	// Por cada frame asignado al proceso, ponemos su contenido en SWAP y lo liberamos
-	for _, frameIndex := range processFrames.Frames { // *** CAMBIO: acceder con .Frames ***
-		frame := models.FrameTable[frameIndex]
-		start := int64(frame.StartAddr)
+	for _, frameIndex := range processFrames.Frames {
+		// Calcular la dirección de inicio del frame basándose en el índice
+		start := int64(frameIndex * models.MemoryConfig.PageSize)
 		end := start + frameSize
 
 		if end > int64(len(models.UserMemory)) {
@@ -66,8 +68,8 @@ func PutProcessInSwap(pid uint) error {
 		}
 		totalSize += int64(n)
 
-		// Marcar el frame como libre
-		models.FrameTable[frameIndex].IsFree = true
+		// Marcar el frame como libre en FreeFrames
+		models.FreeFrames[frameIndex] = true
 	}
 
 	// Registrar en la tabla de SWAP dónde quedaron los datos de este proceso
@@ -111,8 +113,8 @@ func RemoveProcessInSwap(pid uint) error {
 
 	// Verificar que haya suficientes frames libres en memoria
 	freeFrames := []int{}
-	for idx, frame := range models.FrameTable {
-		if frame.IsFree {
+	for idx, free := range models.FreeFrames {
+		if free {
 			freeFrames = append(freeFrames, idx)
 			if len(freeFrames) == framesNeeded {
 				break
@@ -152,12 +154,12 @@ func RemoveProcessInSwap(pid uint) error {
 		end := start + models.MemoryConfig.PageSize
 		copy(models.UserMemory[start:end], processData[i*models.MemoryConfig.PageSize:(i+1)*models.MemoryConfig.PageSize])
 
-		// Marcar el frame como ocupado
-		models.FrameTable[frameIdx].IsFree = false
+		// Marcar el frame como ocupado en FreeFrames
+		models.FreeFrames[frameIdx] = false
 	}
 
 	// Guardar los frames asignados al proceso
-	models.ProcessFramesTable[pid] = &models.ProcessFrames{ // *** CAMBIO: crear puntero ***
+	models.ProcessFramesTable[pid] = &models.ProcessFrames{
 		PID:    pid,
 		Frames: freeFrames,
 	}
@@ -175,8 +177,8 @@ func RemoveProcessInSwap(pid uint) error {
 
 func contarFramesLibres() int {
 	count := 0
-	for _, f := range models.FrameTable {
-		if f.IsFree {
+	for _, free := range models.FreeFrames {
+		if free {
 			count++
 		}
 	}
@@ -190,88 +192,4 @@ func obtenerTamanioSwap() int64 {
 		return -1
 	}
 	return info.Size()
-}
-
-func MockCargarProcesosEnMemoria() {
-	pageSize := models.MemoryConfig.PageSize
-	totalFrames := len(models.FreeFrames)
-
-	// Inicializar FrameTable si está vacía
-	if len(models.FrameTable) != totalFrames {
-		models.FrameTable = make([]models.MemoryFrame, totalFrames)
-		for i := 0; i < totalFrames; i++ {
-			models.FrameTable[i] = models.MemoryFrame{
-				StartAddr: i * pageSize,
-				IsFree:    models.FreeFrames[i],
-			}
-		}
-	}
-
-	// Validar que haya al menos 3 frames libres
-	freeCount := 0
-	freeIdxs := []int{}
-	for i, free := range models.FreeFrames {
-		if free {
-			freeCount++
-			freeIdxs = append(freeIdxs, i)
-		}
-	}
-	if freeCount < 3 {
-		slog.Error("No hay suficientes frames libres para el mockup (se requieren 3)")
-		return
-	}
-
-	// Proceso 1 con dos páginas (frames libres 0 y 1)
-	pid1 := uint(1)
-	frames1 := []int{freeIdxs[0], freeIdxs[1]}
-	models.ProcessFramesTable[pid1] = &models.ProcessFrames{
-		PID:    pid1,
-		Frames: frames1,
-	}
-	for i, frameIdx := range frames1 {
-		start := models.FrameTable[frameIdx].StartAddr
-		end := start + pageSize
-		copy(models.UserMemory[start:end], []byte(fmt.Sprintf("PID 1 - Frame %d", i)))
-		models.FrameTable[frameIdx].IsFree = false
-		models.FreeFrames[frameIdx] = false
-	}
-	// Inicializar ProcessTable, PageTables y Metrics para el proceso 1
-	ProcessTableLock.RUnlock()
-	models.ProcessTable[pid1] = &models.Process{
-		Pid:     pid1,
-		Size:    2 * pageSize,
-		Pages:   []models.PageEntry{{Frame: frames1[0], Presence: true}, {Frame: frames1[1], Presence: true}},
-		Metrics: &models.Metrics{},
-	}
-	ProcessTableLock.RUnlock()
-	models.PageTables[pid1] = &models.PageTableLevel{IsLeaf: true, Entry: &models.PageEntry{Frame: frames1[0], Presence: true}}
-	models.ProcessMetrics[pid1] = &models.Metrics{}
-
-	// Proceso 2 con una página (frame libre 2)
-	pid2 := uint(2)
-	frames2 := []int{freeIdxs[2]}
-	models.ProcessFramesTable[pid2] = &models.ProcessFrames{
-		PID:    pid2,
-		Frames: frames2,
-	}
-	for i, frameIdx := range frames2 {
-		start := models.FrameTable[frameIdx].StartAddr
-		end := start + pageSize
-		copy(models.UserMemory[start:end], []byte(fmt.Sprintf("PID 2 - Frame %d", i)))
-		models.FrameTable[frameIdx].IsFree = false
-		models.FreeFrames[frameIdx] = false
-	}
-	// Inicializar ProcessTable, PageTables y Metrics para el proceso 2
-	ProcessTableLock.RUnlock()
-	models.ProcessTable[pid2] = &models.Process{
-		Pid:     pid2,
-		Size:    pageSize,
-		Pages:   []models.PageEntry{{Frame: frames2[0], Presence: true}},
-		Metrics: &models.Metrics{},
-	}
-	ProcessTableLock.RUnlock()
-	models.PageTables[pid2] = &models.PageTableLevel{IsLeaf: true, Entry: &models.PageEntry{Frame: frames2[0], Presence: true}}
-	models.ProcessMetrics[pid2] = &models.Metrics{}
-
-	slog.Debug("Mock: procesos 1 y 2 cargados en memoria correctamente")
 }
