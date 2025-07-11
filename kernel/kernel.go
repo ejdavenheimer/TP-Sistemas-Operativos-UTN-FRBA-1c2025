@@ -26,12 +26,12 @@ const (
 //var pcb *models.PCB
 
 func main() {
-	if len(os.Args) < 3 {
-		slog.Error("Faltan los parametros necesarios [archivo_pseudocódigo] y [tamanio_proceso]")
+	if len(os.Args) < 4 {
+		slog.Error("Faltan los parámetros necesarios [archivo_pseudocódigo], [tamanio_proceso] y [archivo_config]")
 		return
 	}
 
-	ConfigPath := "./configs/kernel.json" //config.KernelConfigPath()//
+	ConfigPath := os.Args[3] //"./configs/kernel.json" //config.KernelConfigPath()//
 	LogPath, err := log.BuildLogPath("kernel")
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo preparar el archivo de log: %v", err))
@@ -45,7 +45,7 @@ func main() {
 		slog.Error(fmt.Sprintf("Error al convertir el tamaño del proceso: %v", err))
 		return
 	}
-	additionalArgs := os.Args[3:]
+	additionalArgs := os.Args[4:]
 
 	config.InitConfig(ConfigPath, &models.KernelConfig)
 	log.InitLogger(LogPath, models.KernelConfig.LogLevel)

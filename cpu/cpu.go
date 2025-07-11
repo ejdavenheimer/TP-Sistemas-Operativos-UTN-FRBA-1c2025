@@ -24,8 +24,8 @@ const (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		slog.Error("Faltó el identificador de la CPU. Ejemplo: ./bin/cpu [identificador]")
+	if len(os.Args) < 3 {
+		slog.Error("Faltó los parámetros necesarios [identificador], [puerto] y [archivo_config]")
 		return
 	}
 	idCpu := os.Args[1]
@@ -34,7 +34,7 @@ func main() {
 		fmt.Println("Puerto inválido:", os.Args[2])
 		os.Exit(1)
 	}
-	ConfigPath := "./configs/cpu.json"//config.CpuConfigPath()//
+	ConfigPath := os.Args[3] //"./configs/cpu.json"//config.CpuConfigPath()//
 	config.InitConfig(ConfigPath, &models.CpuConfig)
 
 	// Sobrescribimos el valor en el config

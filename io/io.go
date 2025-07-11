@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
 	ioHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/handlers"
@@ -31,7 +32,7 @@ func main() {
 		return
 	}
 
-	models.IoName = os.Args[1]
+	models.IoName = strings.ToUpper(os.Args[1])
 	ioPort := os.Args[2]
 
 	ConfigPath := "./configs/io.json"

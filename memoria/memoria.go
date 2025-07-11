@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 
 	memoryHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/helpers"
@@ -21,7 +22,12 @@ const (
 )
 
 func main() {
-	ConfigPath := "./configs/memoria.json"
+	if len(os.Args) < 2 {
+		slog.Error("Se debe indicar el archivo de configuración")
+		return
+	}
+
+	ConfigPath := os.Args[1] //"./configs/memoria.json"
 	LogPath, err := log.BuildLogPath("memoria")
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo preparar el archivo de log: %v", err))
