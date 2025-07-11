@@ -35,7 +35,7 @@ func main() {
 	models.IoName = strings.ToUpper(os.Args[1])
 	ioPort := os.Args[2]
 
-	ConfigPath := "./configs/io.json"
+	ConfigPath := config.IOConfigPath()
 	config.InitConfig(ConfigPath, &models.IoConfig)
 	models.IoConfig.PortIo, _ = strconv.Atoi(ioPort)
 

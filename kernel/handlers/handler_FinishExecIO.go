@@ -35,8 +35,8 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 		// Validar si la cola de bloqueados está vacía
 		if models.QueueBlocked.Size() == 0 {
 			slog.Warn("Cola de bloqueados vacía, no se puede procesar PID", "pid", pid)
-			http.Error(writer, "No hay procesos bloqueados", http.StatusConflict)
-			return
+			//http.Error(writer, "No hay procesos bloqueados", http.StatusConflict)
+			//return
 		}
 
 		// Buscar el proceso en la cola de bloqueados
