@@ -71,6 +71,9 @@ func main() {
 	http.HandleFunc("POST /memoria/cargarpcb", memoryHandler.ReserveMemoryHandler)
 	http.HandleFunc("POST /memoria/liberarpcb", memoryHandler.EndProcessHandler)
 
+	//Consultar si hay espacio suficiente para un proceso
+	http.HandleFunc("POST /memoria/capacidadUserMemory", memoryHandler.UserMemoryCapacityHandler)
+
 	slog.Debug("Memoria lista")
 
 	err = server.InitServer(models.MemoryConfig.PortMemory)
