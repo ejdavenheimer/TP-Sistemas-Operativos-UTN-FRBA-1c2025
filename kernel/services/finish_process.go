@@ -63,6 +63,7 @@ func FinishProcess() {
 	//Liberar PCB asociado
 	slog.Debug("Liberado PCB de la cola de EXIT")
 	//Sumar chanel a mediano plazo
+	slog.Debug(fmt.Sprintf("NEW: %d, READY: %d, BLOCKED: %d, EXEC: %d, EXIT: %d, SUSPBLOCKED: %d, SUSPREADY: %d", models.QueueNew.Size(), models.QueueReady.Size(), models.QueueBlocked.Size(), models.QueueExec.Size(), models.QueueExec.Size(), models.QueueSuspBlocked.Size(), models.QueueSuspReady.Size()))
 
 	//Intentar inicializar un proceso de SUSP READY sino los de NEW
 	//Ya lo hace el plani de mediano plazo

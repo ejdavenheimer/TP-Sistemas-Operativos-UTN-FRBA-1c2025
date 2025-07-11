@@ -27,33 +27,29 @@ func ExecuteDumpMemory(pid uint, size int) error {
 		numberPages++ // Si el tamaño no es múltiplo de PageSize, redondear hacia arriba
 	}
 
-	allFrames := make([]models.FrameInfo, 0) // Inicializa un slice vacío
+	var dumpData []byte
 
-	// Itera sobre todas las tablas de páginas de los procesos
-	for _, rootTable := range models.PageTables { // Asumo models.PageTables es accesible
-		CollectFramesFromTableV2(pid, rootTable, &allFrames) // Pasa el slice por referencia
+	for page := 0; page < numberPages; page++ {
+		frame := SearchFrame(pid, page)
+		if frame == -1 {
+			slog.Warn("Página no encontrada para dump", "pid", pid, "page", page)
+			// Podés elegir continuar o devolver error; acá continúa con páginas faltantes llenas de ceros
+			dumpData = append(dumpData, make([]byte, models.MemoryConfig.PageSize)...)
+			continue
+		}
+		data, err := readFromMemory(frame, models.MemoryConfig.PageSize)
+		if err != nil {
+			slog.Error("Error leyendo memoria en dump", "pid", pid, "page", page, "error", err)
+			return err
+		}
+		dumpData = append(dumpData, data...)
 	}
 
-	groupedOutput := GroupFramesByPID(pid, allFrames)
-
-	//buscar frame
-	frame := SearchFrame(groupedOutput.PID, groupedOutput.Frames)
-	//
-	data, err := readFromMemory(frame, size)
-	if err != nil {
-		slog.Error(fmt.Sprintf("error: %v", err))
-		return err
-	}
-
-	slog.Debug(fmt.Sprintf("PID: %d - Content: %s", pid, string(data)))
-
-	// 5. Escribir el contenido en el archivo
-	_, err = file.Write(data[:size]) // Escribir solo hasta el 'size' real
-	if err != nil {
-		slog.Error(fmt.Sprintf("Memoria: Fallo al escribir contenido en el archivo de dump '%s'", dumpFilePath))
+	// Escribir solo hasta el tamaño real
+	if _, err := file.Write(dumpData[:size]); err != nil {
+		slog.Error(fmt.Sprintf("Fallo al escribir contenido en el archivo de dump '%s'", dumpFilePath))
 		return fmt.Errorf("fallo al escribir datos al archivo de dump: %w", err)
 	}
-
 	slog.Debug(fmt.Sprintf("Memoria: Memory Dump completado para PID %d. Archivo: %s", pid, dumpFilePath))
 
 	return nil

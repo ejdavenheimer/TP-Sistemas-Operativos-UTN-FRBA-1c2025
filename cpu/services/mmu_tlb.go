@@ -65,7 +65,7 @@ func TranslateAddress(pid uint, logicalAddress int) int {
 			return -1
 		}
 		insert_tlb(pid, pageNumber, frame)
-		slog.Info(fmt.Sprintf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)) 
+		slog.Info(fmt.Sprintf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame))
 		return frame*pageSize + offset
 	}
 	// TLB desactivada
@@ -82,16 +82,8 @@ func TranslateAddress(pid uint, logicalAddress int) int {
 }
 
 func tlb_miss(pid uint, pageNumber int) int {
-	numLevels := models.MemConfig.NumberOfLevels
-	entriesPerPage := models.MemConfig.EntriesPerPage
-
-	var entries []int
-	for level := 1; level <= numLevels; level++ {
-		entry := (pageNumber / intPow(entriesPerPage, numLevels-level)) % entriesPerPage
-		entries = append(entries, entry)
-	}
-	slog.Debug("Índices de página calculados", "pageNumber", pageNumber, "entries", entries)
-	return RequestMemoryFrame(pid, entries)
+	//slog.Debug("tlb_miss: pid", string(pid), "pageNumber", pageNumber)
+	return RequestMemoryFrame(pid, pageNumber)
 }
 
 func searchTLB(pid uint, pagina int) (int, bool) {
@@ -128,9 +120,10 @@ func insert_tlb(pid uint, pagina int, frame int) {
 	}
 
 	var victimIndex int
-	if tlbAlgorithm == "FIFO" {
+	switch tlbAlgorithm {
+	case "FIFO":
 		victimIndex = 0
-	} else if tlbAlgorithm == "LRU" {
+	case "LRU":
 		minUsage := tlb[0].LastUsed
 		victimIndex = 0
 		for i, e := range tlb {
@@ -139,24 +132,27 @@ func insert_tlb(pid uint, pagina int, frame int) {
 				victimIndex = i
 			}
 		}
+	default:
+		slog.Warn("Algoritmo TLB desconocido. Se usará FIFO por defecto.")
+		victimIndex = 0
 	}
 
 	tlb[victimIndex] = entry
 	slog.Debug(fmt.Sprintf("TLB reemplazo: Reemplazando entrada PID %d - Página %d por PID %d - Página %d",
-	tlb[victimIndex].PID, tlb[victimIndex].PageNumber,
-	entry.PID, entry.PageNumber))
+		tlb[victimIndex].PID, tlb[victimIndex].PageNumber,
+		entry.PID, entry.PageNumber))
 }
 
-func RequestMemoryFrame(pid uint, entries []int) int {
+func RequestMemoryFrame(pid uint, pageNumber int) int {
 	type Request struct {
-		PID     uint   `json:"pid"`
-		Entries []int `json:"entries"`
+		PID        uint `json:"pid"`
+		PageNumber int  `json:"pageNumber"`
 	}
 	type Response struct {
 		Frame int `json:"frame"`
 	}
 
-	reqBody := Request{PID: pid, Entries: entries}
+	reqBody := Request{PID: pid, PageNumber: pageNumber}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		slog.Error("Error serializando JSON para Memoria por frame", slog.Any("error", err))
@@ -175,17 +171,8 @@ func RequestMemoryFrame(pid uint, entries []int) int {
 		slog.Error("Error decodificando respuesta de Memoria", slog.Any("error", err))
 		return -1
 	}
-
+	//slog.Debug(fmt.Sprintf("RequestMemoryFrame: PID %d Página %d - Frame devuelto %d", pid, pageNumber, decoded.Frame))
 	return decoded.Frame
-}
-
-func intPow(base, exp int) int {
-	result := 1
-	for exp > 0 {
-		result *= base
-		exp--
-	}
-	return result
 }
 
 // Elimina las TLBs de los procesos que sean finalizados.

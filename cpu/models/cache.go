@@ -3,7 +3,8 @@ package models
 // CacheEntry representa una entrada en la caché de páginas.
 type CacheEntry struct {
 	PID        uint // PID del proceso al que pertenece esta página (esencial para desalojo)
-	PageNumber int // Identificador único de la página lógica
+	PageNumber int  // Identificador único de la página lógica
+	Frame      int
 	//PhysicalAddress int       // Dirección física en memoria (para escribir de vuelta a MP)
 	Content     []byte // Contenido de la página (bytes)
 	UseBit      bool   // Bit de Uso (U): true si la página fue accedida recientemente

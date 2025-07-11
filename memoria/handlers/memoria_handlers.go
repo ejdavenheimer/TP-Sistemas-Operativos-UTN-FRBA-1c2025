@@ -1,13 +1,15 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
-	"time"
 	"sync"
+	"time"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
@@ -119,14 +121,13 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 
 func SearchFrameHandler(w http.ResponseWriter, r *http.Request) {
 	type Request struct {
-		PID     uint  `json:"pid"`
-		Entries []int `json:"entries"`
+		PID        uint `json:"pid"`
+		PageNumber int  `json:"pageNumber"`
 	}
-
 	var request Request
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
-		slog.Error("Error al decodificar")
+		slog.Error("Error al decodificar SearchFrameHandler request")
 		return
 	}
 
@@ -134,7 +135,7 @@ func SearchFrameHandler(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 
 	//buscar frame
-	frame := services.SearchFrame(request.PID, request.Entries)
+	frame := services.SearchFrame(request.PID, request.PageNumber)
 
 	type Response struct {
 		Frame int `json:"frame"`
@@ -144,7 +145,7 @@ func SearchFrameHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		slog.Error("Error codificando respuesta")
+		slog.Error("Error codificando respuesta SearchFrameHandler")
 	}
 }
 
@@ -182,11 +183,10 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var request struct {
-		Pid             uint   `json:"pid"`
-		PhysicalAddress int    `json:"physical_address"`
-		Data            string `json:"data"`
-	}
+	var request models.WriteRequest
+	body, _ := io.ReadAll(r.Body)
+	slog.Debug("Cuerpo recibido", "json", string(body))
+	r.Body = io.NopCloser(bytes.NewReader(body))
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		slog.Error("Invalid WRITE request", "error", err)
@@ -197,9 +197,21 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 	// Delay de memoria
 	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 
+	// Validar existencia del proceso
+	ProcessTableLock.RLock()
+	_, ok := models.ProcessTable[request.Pid]
+	slog.Debug(fmt.Sprintf("Busca a proceso %d en ProcessTable con dirección fisica %d", request.Pid, request.PhysicalAddress))
+	ProcessTableLock.RUnlock()
+	if !ok {
+		slog.Warn(fmt.Sprintf("PID %d no encontrado en memoria", request.Pid))
+		http.Error(w, "Process Not Found", http.StatusNotFound)
+		return
+	}
+
 	//EJECUCION ESCRITURA
 	dataBytes := []byte(request.Data)
-	if _, err := services.WriteToMemory(request.Pid, request.PhysicalAddress, dataBytes); err != nil {
+	slog.Debug("Antes de llamar WriteToMemory", "PID", request.Pid, "PhysicalAddress", request.PhysicalAddress, "DataLen", len(dataBytes))
+	if err := services.WriteToMemory(request.Pid, request.PhysicalAddress, dataBytes); err != nil {
 		slog.Error("WRITE failed", "error", err)
 		http.Error(w, "Write failed", http.StatusInternalServerError)
 		return
@@ -234,6 +246,7 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 	// Validar existencia del proceso
 	ProcessTableLock.RLock()
 	process, ok := models.ProcessTable[request.Pid]
+	//slog.Debug(fmt.Sprintf("Busca a proceso %d en ProcessTable con numero de página %d", request.Pid, request.PageNumber))
 	ProcessTableLock.RUnlock()
 	if !ok {
 		slog.Warn(fmt.Sprintf("PID %d no encontrado en memoria", request.Pid))
@@ -376,33 +389,33 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Writes: %d\n", metrics.Writes)
 }
 
-func UpdatePageHandler() func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO: revisar que datos necesito recibir
-		//var dumpRequest models.DumpMemoryRequest
-		//
-		//// Decodifica el request (codificado en formato json).
-		//err := json.NewDecoder(r.Body).Decode(&dumpRequest)
-		//if err != nil {
-		//	http.Error(w, err.Error(), http.StatusInternalServerError)
-		//	return
-		//}
+//func UpdatePageHandler() func(w http.ResponseWriter, r *http.Request) {
+//return func(w http.ResponseWriter, r *http.Request) {
+// TODO: revisar que datos necesito recibir
+//var dumpRequest models.DumpMemoryRequest
+//
+//// Decodifica el request (codificado en formato json).
+//err := json.NewDecoder(r.Body).Decode(&dumpRequest)
+//if err != nil {
+//	http.Error(w, err.Error(), http.StatusInternalServerError)
+//	return
+//}
 
-		slog.Debug(fmt.Sprintf("## PID: <%d> Actualizando página completa"))
+//	slog.Debug(fmt.Sprintf("## PID: <%d> Actualizando página completa"))
 
-		services.UpdatePage()
-		//if err != nil {
-		//	w.WriteHeader(http.StatusNotFound)
-		//	slog.Error(fmt.Sprintf("error: %s", err.Error()))
-		//	return
-		//}
+//	services.UpdatePage()
+//if err != nil {
+//	w.WriteHeader(http.StatusNotFound)
+//	slog.Error(fmt.Sprintf("error: %s", err.Error()))
+//	return
+//}
 
-		//response := models.DumpMemoryResponse{
-		//	Result: "Ok",
-		//}
-		response := map[string]interface{}{
-			"data": "Ok",
-		}
-		server.SendJsonResponse(w, response)
-	}
-}
+//response := models.DumpMemoryResponse{
+//	Result: "Ok",
+//}
+//	response := map[string]interface{}{
+//		"data": "Ok",
+//	}
+//	server.SendJsonResponse(w, response)
+//}
+//}
