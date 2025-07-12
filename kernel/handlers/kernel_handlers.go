@@ -123,7 +123,7 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
 			return
 		}
-		//
+
 		////chequeo si hay un otro proceso esperando
 		//pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(device.Name)
 		//
@@ -138,6 +138,7 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 		//	}
 		//}
 
+		services.StartLongTermScheduler()
 		server.SendJsonResponse(writer, device)
 	}
 }
