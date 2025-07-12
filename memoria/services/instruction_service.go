@@ -130,19 +130,18 @@ func GetInstructionsByName(pid uint, scriptName string, instructionsMap map[uint
 
 func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 	ProcessTableLock.RLock()
-	process, ok := models.ProcessTable[pid]
+	_, ok := models.ProcessTable[pid]
 	ProcessTableLock.RUnlock()
 	if !ok {
 		return nil, ErrProcessNotFound
 	}
 	slog.Debug(fmt.Sprintf("PID: %d - Dirección física solicitada: %d - Tamaño: %d\n", pid, physicalAddress, size))
 
-	if size <= 0 || size > models.MemoryConfig.PageSize {
+	if size <= 0 {
 		return nil, ErrInvalidRead
 	}
 
-	maxAddress := len(process.Pages) * models.MemoryConfig.PageSize
-	if physicalAddress < 0 || physicalAddress+size > maxAddress {
+	if physicalAddress < 0 || physicalAddress+size > len(models.UserMemory) {
 		return nil, ErrMemoryViolation
 	}
 
@@ -153,7 +152,6 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 
 	UpdatePageBit(pid, physicalAddress, "use")
 	IncrementMetric(pid, "reads")
-
 	return data, nil
 }
 
@@ -191,7 +189,7 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 
 	// Escribir en memoria física
 	copy(models.UserMemory[physicalAddress:physicalAddress+len(data)], data)
-
+	//copy(models.UserMemory[physicalAddress:], data)
 	UpdatePageBit(pid, physicalAddress, "use")
 	UpdatePageBit(pid, physicalAddress, "modified")
 	IncrementMetric(pid, "writes")

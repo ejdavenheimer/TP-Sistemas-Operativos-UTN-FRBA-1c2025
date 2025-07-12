@@ -44,6 +44,7 @@ func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.C
 }
 
 func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models.Config) string {
+	//slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", syscallRequest.Pid, syscallRequest.Values[0]))
 	//Crea y codifica la request de conexion a Kernel
 	body, err := json.Marshal(syscallRequest)
 
@@ -86,6 +87,7 @@ func ExecuteNoop(request models.ExecuteInstructionRequest) {
 }
 
 func ExecuteWrite(request models.ExecuteInstructionRequest) {
+	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s %s", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
 	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
 	//CONVERSION DIR LOG A FISICA
 	logicalAddress, err := strconv.Atoi(request.Values[1])
@@ -112,7 +114,7 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 		_, found := Cache.Get(request.Pid, pageNumber)
 		slog.Debug("Buscando en la cache")
 		if !found {
-			content := getPageFromMemory(request.Pid, pageNumber)
+			content := getPageFromMemory(request.Pid, pageNumber, physicalAddress, "Escritura")
 			if content == nil {
 				slog.Error("No se pudo traer la página desde memoria")
 				return
@@ -142,7 +144,7 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 	writeReq := models.WriteRequest{
 		PID:             request.Pid,
 		PhysicalAddress: physicalAddress,
-		Data:            request.Values[2],
+		Data:            []byte(request.Values[2]),
 	}
 
 	body, err := json.Marshal(writeReq)
@@ -203,7 +205,7 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 		content, found := Cache.Get(request.Pid, pageNumber)
 		slog.Debug("Buscando en cache")
 		if !found {
-			content = getPageFromMemory(request.Pid, pageNumber)
+			content = getPageFromMemory(request.Pid, pageNumber, physicalAddress, "Lectura")
 			if content == nil {
 				slog.Error("No se pudo traer la página desde memoria")
 				increase_PC()
@@ -245,7 +247,7 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 	}
 
 	// Si la cache no esta activa: lee desde memoria
-	readRequest := models.MemoryReadRequest{
+	readRequest := models.ReadRequest{
 		Pid:             request.Pid,
 		PhysicalAddress: physicalAddress,
 		Size:            size,
@@ -271,33 +273,39 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 		os.Exit(1)
 	}
 
-	var memoryValue []byte
 	defer response.Body.Close()
-	if err := json.NewDecoder(response.Body).Decode(&memoryValue); err != nil {
-		slog.Error("No se pudo leer el valor de memoria")
+
+	var memoryResponse struct {
+		Content []byte `json:"content"`
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&memoryResponse); err != nil {
+		slog.Error("No se pudo leer el valor de memoria desde la respuesta", "error", err)
 		increase_PC()
 		return
 	}
 
-	cleanData := bytes.Trim(memoryValue, "\x00")
-	dataBase64 := base64.StdEncoding.EncodeToString(memoryValue)
+	cleanData := bytes.Trim(memoryResponse.Content, "\x00")
+	dataBase64 := base64.StdEncoding.EncodeToString(memoryResponse.Content)
 
 	slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, string(cleanData)))
-	slog.Debug(fmt.Sprintf("Valor (hex): %x", memoryValue))
+	slog.Debug(fmt.Sprintf("Valor (hex): %x", memoryResponse.Content))
 	slog.Debug(fmt.Sprintf("Valor (base64): %s", dataBase64))
 	increase_PC()
 }
 
-func getPageFromMemory(pid uint, pageNumber int) []byte {
+func getPageFromMemory(pid uint, pageNumber int, physicalAddress int, operacion string) []byte {
 	type PageRequest struct {
-		PID        uint `json:"pid"`
-		PageNumber int  `json:"page_number"`
+		PID             uint   `json:"pid"`
+		PageNumber      int    `json:"page_number"`
+		PhysicalAddress int    `json:"physicalAddress"`
+		Operacion       string `json:"operacion"`
 	}
 	type PageResponse struct {
 		Content []byte `json:"content"`
 	}
 
-	req := PageRequest{PID: pid, PageNumber: pageNumber}
+	req := PageRequest{PID: pid, PhysicalAddress: physicalAddress, PageNumber: pageNumber, Operacion: operacion}
 	body, _ := json.Marshal(req)
 
 	resp, err := client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST", "memoria/leerPagina", body)
@@ -320,7 +328,7 @@ func getPageFromMemory(pid uint, pageNumber int) []byte {
 }
 
 func ExecuteGoto(request models.ExecuteInstructionRequest) {
-	slog.Debug(fmt.Sprintf("[%d] Instrucción %s %s", request.Pid, request.Values[0], request.Values[1]))
+	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s", request.Pid, request.Values[0], request.Values[1]))
 	slog.Debug(fmt.Sprintf("Valor anterior de PC: %d", models.CpuRegisters.PC))
 
 	value, _ := strconv.Atoi(request.Values[1])
@@ -341,6 +349,7 @@ func ExecuteGoto(request models.ExecuteInstructionRequest) {
 
 func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionResponse {
 	query := fmt.Sprintf("memoria/instruccion?pid=%d&pc=%d", request.Pid, request.PC)
+	slog.Info(fmt.Sprintf("## PID: %d - FETCH - %d", request.Pid, request.PC))
 	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", query, nil)
 
 	var instructionResponse memoriaModel.InstructionResponse
@@ -387,6 +396,7 @@ func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, i
 		syscallRequest.Pid = pid
 		syscallRequest.Type = value[0]
 		syscallRequest.Values = value[1:]
+		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s", pid, value[0], value[1]))
 		action := ExecuteSyscall(*syscallRequest, cpuConfig)
 		switch action {
 		case "continue":
@@ -409,6 +419,7 @@ func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, i
 		syscallRequest.Pid = pid
 		syscallRequest.Type = value[0]
 		syscallRequest.Values = value[1:]
+		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", pid, value[0]))
 		Cache.RemoveProcessFromCache(pid)
 		RemoveTLBEntriesByPID(pid)
 		*isBlocked = true
@@ -417,6 +428,7 @@ func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, i
 	case "EXIT":
 		syscallRequest.Pid = pid
 		syscallRequest.Type = value[0]
+		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", pid, value[0]))
 		*isSyscall = true
 		*isFinished = true
 	default:

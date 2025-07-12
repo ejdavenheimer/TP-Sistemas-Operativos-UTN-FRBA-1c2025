@@ -67,15 +67,21 @@ type CpuN struct {
 
 // Para la instrucción READ
 type MemoryReadRequest struct {
-	Pid             uint
-	PhysicalAddress int
-	Size            int
+	Pid             uint `json:"pid"`
+	PhysicalAddress int  `json:"physicalAddress"`
+	Size            int  `json:"size"`
 }
 
 type WriteRequest struct {
 	PID             uint
 	PhysicalAddress int
-	Data            string
+	Data            []byte
+}
+
+type ReadRequest struct {
+	Pid             uint `json:"pid"`
+	PhysicalAddress int  `json:"physicalAddress"`
+	Size            int  `json:"size"`
 }
 
 // DEFINICION DE ERRORES

@@ -173,7 +173,7 @@ func (cache *PageCache) replaceVictim(newPID uint, newPage int, newContent []byt
 		writeReq := models.WriteRequest{
 			PID:             victim.PID,
 			PhysicalAddress: physicalAddress,
-			Data:            string(victim.Content), // O base64 si hace falta
+			Data:            victim.Content,
 		}
 
 		body, err := json.Marshal(writeReq)
@@ -319,7 +319,7 @@ func (cache *PageCache) RemoveProcessFromCache(pid uint) {
 			writeReq := models.WriteRequest{
 				PID:             pid,
 				PhysicalAddress: physicalAddress,
-				Data:            string(entry.Content),
+				Data:            entry.Content,
 			}
 
 			body, err := json.Marshal(writeReq)
