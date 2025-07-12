@@ -57,11 +57,11 @@ func notifyKernel(pid uint, message string, ioConfig *models.Config) {
 }
 
 func Sleep(pid uint, suspensionTime int) {
-	slog.Debug("Inicio de operación IO", "pid", pid, "duración_ms", suspensionTime)
+	slog.Info(fmt.Sprintf("## PID: %d - Inicio de IO - Tiempo: %d", pid, suspensionTime))
 	slog.Debug(fmt.Sprintf("[%d] zzzzzzzzzz", pid))
 	time.Sleep(time.Duration(suspensionTime) * time.Millisecond)
 	slog.Debug("quién me desperto?? (mirada que juzga)")
-	slog.Debug("Fin de operación IO", "pid", pid)
+	slog.Info(fmt.Sprintf("## PID: %d - Fin de IO", pid))
 	notifyKernel(pid, "Fin de IO", models.IoConfig)
 }
 
