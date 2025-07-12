@@ -7,6 +7,50 @@
 [Documento de prueba](https://docs.google.com/document/d/13XPliZvUBtYjaRfuVUGHWbYX8LBs8s3TDdaDa9MFr_I/edit?tab=t.0) |
 [Repositorio de prueba](https://github.com/sisoputnfrba/revenge-of-the-cth-pruebas)
 
+## Deploy
+
+### Guía Rápida
+
+```
+Levantar la VM, copiar la IP en Putty. En caso que no muestra la ip ejecutar
+> ifconfig
+
+Clonar el repo, se debe usar el Personal Access Token
+> git clone https://github.com/sisoputnfrba/tp-2025-1c-Los-magiOS.git
+
+Una vez que tenemos el tp clonado, se debe modificar las ips de los archivos de configs.
+
+Para modificar los archivos configuración, posicionarse en el tp
+
+> cd tp-2025-1c-Los-magiOS
+> go build update_config.go
+> ./update_config.exe ip_memory 127.0.0.1 ip_cpu 127.0.0.1 ip_kernel 127.0.0.1 ip_io 127.0.0.1
+
+Para chequear si se modificaron los archivos (posicionarse en el módulo que corresponda)
+> cd kernel && cat ./configs/kernel.json
+
+Si no existen los scripts de pruebas, se ejecutar el siguiente comando: 
+> ./create_scripts.sh
+
+Levantar los módulos y rezar a superman o en el que crean! 
+
+> make build 
+> ./bin/memoria ./memoria/configs/memoria.json
+> ./bin/kernel PLANI_LYM_IO 256 ./kernel/configs/kernel.json
+> ./bin/cpu 1 8004 ./cpu/configs/cpu.json
+> ./bin/io disco 8005
+
+> make clean
+```
+
+### Guía Rápida de Vim
+1. vim ejemplo.txt
+2. Tocar la tecla i para poder editar el archivo.
+3. Editar el archivo, moverse con las teclas.
+4. Una vez que terminas de editar, tocar Esc
+5. Para guardar :wq
+   6. Si no funca usar :wq!
+
 ## Compilación del proyecto
 Para compilar los binarios de los módulos, utilizamos un Makefile con los siguientes comandos:
 
