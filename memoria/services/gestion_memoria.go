@@ -13,7 +13,7 @@ var memoryLock sync.Mutex
 
 func ReserveMemory(pid uint, size int, path string) error {
 	// Validar tamaño
-	if size <= 0 {
+	if size < 0 {
 		return fmt.Errorf("el tamaño del proceso debe ser mayor a 0 (PID %d)", pid)
 	}
 	// Calcula cuantas páginas necesita

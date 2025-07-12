@@ -49,6 +49,7 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 			//return
 			models.QueueBlocked.Remove(index)
 			slog.Debug("Proceso eliminado de la cola de bloqueados", "pid", pid)
+			services.TransitionState(pcb, models.EstadoReady)
 			services.AddProcessToReady(pcb)
 			writer.WriteHeader(http.StatusOK)
 			return
@@ -74,7 +75,7 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 		slog.Debug("Proceso eliminado de la cola de bloqueado-suspendido", "pid", pid)
 
 		// Cambiar estado y pasar a SUSPENDED_READY
-		pcb.EstadoActual = models.EstadoSuspendidoReady
+		services.TransitionState(pcb, models.EstadoSuspendidoReady)
 		models.QueueSuspReady.Add(pcb)
 		slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
 

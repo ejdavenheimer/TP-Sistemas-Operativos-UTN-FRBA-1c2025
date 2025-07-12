@@ -390,7 +390,6 @@ func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, i
 		action := ExecuteSyscall(*syscallRequest, cpuConfig)
 		switch action {
 		case "continue":
-			increase_PC()
 			*isFinished = false
 		case "block":
 			//Cache.RemoveProcessFromCache(pid)

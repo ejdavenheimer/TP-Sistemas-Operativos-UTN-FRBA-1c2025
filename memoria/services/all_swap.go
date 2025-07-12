@@ -13,12 +13,42 @@ import (
 
 var ProcessTableLock sync.RWMutex
 
-// En el archivo de swap, cambiar las líneas que usan ProcessFramesTable:
-
 func PutProcessInSwap(pid uint) error {
 	// Delay de swap
 	time.Sleep(time.Duration(models.MemoryConfig.SwapDelay) * time.Millisecond)
 
+	// Obtener la lista de índices de frame para este PID
+	processFrames, exists := models.ProcessFramesTable[pid]
+	if !exists {
+		slog.Error(fmt.Sprintf("No está en tabla de frames el PID %d", pid))
+		return fmt.Errorf("proceso PID %d no encontrado en tabla de frames", pid)
+	}
+
+	slog.Debug("Iniciando suspensión de proceso", "PID", pid)
+	slog.Debug("Frames libres antes de poner proceso en swap", "cantidad", contarFramesLibres())
+	slog.Debug("Tamaño actual del archivo de swap", "bytes", obtenerTamanioSwap())
+
+	// Caso especial: proceso con 0 frames
+	if processFrames == nil || len(processFrames.Frames) == 0 {
+		slog.Debug(fmt.Sprintf("Proceso PID %d tiene 0 frames, solo moviendo entre tablas", pid))
+
+		// Registrar en la tabla de SWAP con tamaño 0
+		models.ProcessSwapTable[pid] = models.SwapEntry{
+			Offset: 0,
+			Size:   0,
+		}
+
+		// Incrementar métrica de swap realizado
+		IncrementMetric(pid, "swap_out")
+
+		// Eliminar la entrada de ProcessFramesTable
+		delete(models.ProcessFramesTable, pid)
+
+		slog.Debug(fmt.Sprintf("Proceso PID %d (0 frames) movido a swap conceptualmente", pid))
+		return nil
+	}
+
+	// Caso normal: proceso con frames
 	// Abrir (o crear) el archivo swapfile.bin en modo lectura/escritura
 	file, err := os.OpenFile(models.MemoryConfig.SwapFilePath, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
@@ -26,18 +56,6 @@ func PutProcessInSwap(pid uint) error {
 		return err
 	}
 	defer file.Close()
-
-	// Obtener la lista de índices de frame para este PID
-	processFrames, exists := models.ProcessFramesTable[pid]
-	if !exists || processFrames == nil {
-		slog.Error(fmt.Sprintf("No está en tabla de frames el PID %d", pid))
-		return fmt.Errorf("proceso PID %d no encontrado en tabla de frames", pid)
-	}
-
-	slog.Debug("Iniciando suspensión de proceso", "PID", pid)
-
-	slog.Debug("Frames libres antes de poner proceso en swap", "cantidad", contarFramesLibres())
-	slog.Debug("Tamaño actual del archivo de swap", "bytes", obtenerTamanioSwap())
 
 	// Llevar el cursor al final del archivo para escribir los datos al final
 	offset, err := file.Seek(0, io.SeekEnd)
@@ -107,6 +125,24 @@ func RemoveProcessInSwap(pid uint) error {
 	slog.Debug("Tamaño actual del archivo de swap", "bytes", obtenerTamanioSwap())
 	slog.Debug("Frames libres antes de sacar proceso de swap", "cantidad", contarFramesLibres())
 
+	// Caso especial: proceso con 0 frames
+	if swapEntry.Size == 0 {
+		slog.Debug(fmt.Sprintf("Proceso PID %d tiene 0 frames, solo moviendo entre tablas", pid))
+
+		// Crear entrada en ProcessFramesTable con slice vacío
+		models.ProcessFramesTable[pid] = &models.ProcessFrames{
+			PID:    pid,
+			Frames: []int{}, // Slice vacío para proceso sin frames
+		}
+
+		// Eliminar el proceso de la tabla de procesos en swap
+		delete(models.ProcessSwapTable, pid)
+
+		slog.Debug(fmt.Sprintf("Proceso PID %d (0 frames) removido de swap conceptualmente", pid))
+		return nil
+	}
+
+	// Caso normal: proceso con frames
 	// Calcular cuántos frames necesita el proceso para volver a cargarse en memoria
 	frameSize := int64(models.MemoryConfig.PageSize)
 	framesNeeded := int(swapEntry.Size / frameSize)
