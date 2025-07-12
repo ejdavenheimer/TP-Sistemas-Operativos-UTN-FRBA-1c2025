@@ -112,11 +112,22 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//log obligatorio
-	slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d>", request.Pid, request.PhysicalAddress, request.Size))
+	slog.Info(fmt.Sprintf(
+		"## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d>",
+		request.Pid, request.PhysicalAddress, request.Size),
+	)
+	response := struct {
+		Content []byte `json:"content"`
+	}{
+		Content: value,
+	}
 
 	// Devolver el valor leído
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(value)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		slog.Error("Error al codificar respuesta de lectura", "error", err)
+		http.Error(w, "Error codificando respuesta", http.StatusInternalServerError)
+	}
 }
 
 func SearchFrameHandler(w http.ResponseWriter, r *http.Request) {
@@ -209,15 +220,19 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//EJECUCION ESCRITURA
-	dataBytes := []byte(request.Data)
-	slog.Debug("Antes de llamar WriteToMemory", "PID", request.Pid, "PhysicalAddress", request.PhysicalAddress, "DataLen", len(dataBytes))
-	if err := services.WriteToMemory(request.Pid, request.PhysicalAddress, dataBytes); err != nil {
+	//slog.Debug("Antes de llamar WriteToMemory", "PID", request.Pid, "PhysicalAddress", request.PhysicalAddress, "DataLen", len(dataBytes))
+	if err := services.WriteToMemory(request.Pid, request.PhysicalAddress, []byte(request.Data)); err != nil {
 		slog.Error("WRITE failed", "error", err)
 		http.Error(w, "Write failed", http.StatusInternalServerError)
 		return
 	}
 	services.IncrementMetric(request.Pid, "writes")
-	slog.Info(fmt.Sprintf("## PID: <%d> - <Write> - Dir. Física: <%d> - Dato: <%s>", request.Pid, request.PhysicalAddress, request.Data))
+	dataBytes := []byte(request.Data)
+	if idx := bytes.IndexByte(dataBytes, 0); idx != -1 {
+		dataBytes = dataBytes[:idx]
+	}
+
+	slog.Info(fmt.Sprintf("## PID: <%d> - <Escritura> - Dir. Física: <%d> - Dato: <%s>", request.Pid, request.PhysicalAddress, string(dataBytes)))
 	w.WriteHeader(http.StatusOK) //RESPUESTA
 }
 
@@ -228,8 +243,10 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var request struct {
-		Pid        uint `json:"pid"`
-		PageNumber int  `json:"page_number"`
+		PID             uint   `json:"pid"`
+		PageNumber      int    `json:"page_number"`
+		PhysicalAddress int    `json:"physicalAddress"`
+		Operacion       string `json:"operacion"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -245,25 +262,25 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Validar existencia del proceso
 	ProcessTableLock.RLock()
-	process, ok := models.ProcessTable[request.Pid]
+	process, ok := models.ProcessTable[request.PID]
 	//slog.Debug(fmt.Sprintf("Busca a proceso %d en ProcessTable con numero de página %d", request.Pid, request.PageNumber))
 	ProcessTableLock.RUnlock()
 	if !ok {
-		slog.Warn(fmt.Sprintf("PID %d no encontrado en memoria", request.Pid))
+		slog.Warn(fmt.Sprintf("PID %d no encontrado en memoria", request.PID))
 		http.Error(w, "Process Not Found", http.StatusNotFound)
 		return
 	}
 
 	// Validar que la página exista en el proceso
 	if request.PageNumber < 0 || request.PageNumber >= len(process.Pages) {
-		slog.Warn(fmt.Sprintf("Número de página inválido para PID %d: %d", request.Pid, request.PageNumber))
+		slog.Warn(fmt.Sprintf("Número de página inválido para PID %d: %d", request.PID, request.PageNumber))
 		http.Error(w, "Page Not Found", http.StatusNotFound)
 		return
 	}
 
-	entry, err := services.FindPageEntry(request.Pid, models.PageTables[request.Pid], request.PageNumber)
+	entry, err := services.FindPageEntry(request.PID, models.PageTables[request.PID], request.PageNumber)
 	if err != nil {
-		slog.Warn(fmt.Sprintf("Página %d no está presente en memoria para PID %d: %v", request.PageNumber, request.Pid, err))
+		slog.Warn(fmt.Sprintf("Página %d no está presente en memoria para PID %d: %v", request.PageNumber, request.PID, err))
 		http.Error(w, "Page Not Present", http.StatusConflict)
 		return
 	}
@@ -271,17 +288,20 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 	// Obtener el contenido del frame en memoria física
 	pageSize := models.MemoryConfig.PageSize
 	frameStart := entry.Frame * pageSize
-	services.UpdatePageBit(request.Pid, frameStart, "use")
-	services.IncrementMetric(request.Pid, "reads")
-	frameEnd := frameStart + pageSize
-
-	if frameEnd > len(models.UserMemory) {
-		slog.Error("Acceso fuera de límites de memoria")
-		http.Error(w, "Internal Error", http.StatusInternalServerError)
+	services.UpdatePageBit(request.PID, frameStart, "use")
+	services.IncrementMetric(request.PID, "reads")
+	// Usar la función centralizada de lectura
+	content, err := services.Read(request.PID, frameStart, pageSize)
+	if err != nil {
+		slog.Error("Error al leer desde memoria", "pid", request.PID, "frameStart", frameStart, "error", err)
+		http.Error(w, "Read Error", http.StatusInternalServerError)
 		return
 	}
-
-	content := models.UserMemory[frameStart:frameEnd]
+	if request.Operacion == "Lectura" {
+		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página> - Dir. Física: <%d> - Tamaño: <%d>", request.PID, frameStart, models.MemoryConfig.PageSize))
+		//} else {
+		//	slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura> - Dir. Física: <%d> - TAM: <%d> - VALOR:<%s>", request.PID, frameStart, pageSize, string(content)))
+	}
 	response := struct {
 		Content []byte `json:"content"`
 	}{
@@ -294,8 +314,7 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-
-	slog.Debug(fmt.Sprintf("Página %d del proceso %d leída correctamente", request.PageNumber, request.Pid))
+	slog.Debug(fmt.Sprintf("Página %d del proceso %d leída correctamente", request.PageNumber, request.PID))
 }
 
 func FramesInUseHandler(w http.ResponseWriter, r *http.Request) {
