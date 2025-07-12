@@ -11,6 +11,7 @@
 /kernel/kernel
 /bin/
 /.vscode/
+/update_config
 
 # Test binary, built with `go test -c`
 *.test
