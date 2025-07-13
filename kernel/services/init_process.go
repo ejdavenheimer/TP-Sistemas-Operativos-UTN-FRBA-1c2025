@@ -44,12 +44,12 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 		PC:             0,
 		ME:             make(map[models.Estado]int),
 		MT:             make(map[models.Estado]time.Duration),
-		EstadoActual:   models.EstadoNew,
-		UltimoCambio:   time.Now(),
 		PseudocodePath: pseudocodeName,
 		Size:           processSize,
 		RafagaEstimada: float32(models.KernelConfig.InitialEstimate),
 	}
+
+	TransitionState(pcb, models.EstadoNew)
 
 	models.QueueNew.Add(pcb)
 	StartLongTermScheduler()
