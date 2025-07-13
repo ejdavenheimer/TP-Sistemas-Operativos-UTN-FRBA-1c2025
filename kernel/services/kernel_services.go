@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
@@ -126,7 +127,6 @@ func EndProcess(pid uint, reason string) {
 
 	//pcb.EstadoActual = models.EstadoExit
 	//models.QueueExit.Add(pcb)
-	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", pid))
 }
 
 func BlockedProcess(pid uint, reason string) {
@@ -141,6 +141,13 @@ func BlockedProcess(pid uint, reason string) {
 		return
 	}
 
+	if strings.Contains(reason, "no se encuentra disponible") {
+		pcb.PC--
+		err := models.QueueExec.Set(index, pcb)
+		if err != nil {
+			slog.Error(fmt.Sprintf("error al modificar el proceso %d", pcb.PID))
+		}
+	}
 	//models.QueueExec.Remove(index)
 
 	pcb, isSuccess, err := MoveProcessToState(pcb.PID, models.EstadoBlocked, false)

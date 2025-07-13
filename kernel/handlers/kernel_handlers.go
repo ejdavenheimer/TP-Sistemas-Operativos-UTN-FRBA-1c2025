@@ -124,20 +124,6 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		////chequeo si hay un otro proceso esperando
-		//pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(device.Name)
-		//
-		//if isSuccess {
-		//	slog.Debug(fmt.Sprintf("Se encontró un proceso esperando por el dispositivo [%s]", device.Name))
-		//	_, isSuccess, err = services.MoveProcessToState(uint(pidWaiting), state, true)
-		//
-		//	if !isSuccess || err != nil {
-		//		slog.Error("Qué rompimos? :(")
-		//		http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
-		//		return
-		//	}
-		//}
-
 		services.StartLongTermScheduler()
 		server.SendJsonResponse(writer, device)
 	}

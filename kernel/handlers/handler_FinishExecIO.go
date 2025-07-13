@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"log/slog"
 	"net/http"
 
@@ -31,6 +32,9 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 
 		slog.Debug("Solicitud de finalización de IO recibida", "pid", pid)
 		slog.Debug(fmt.Sprintf("Motivo de desalojo: %s", req.Reason))
+
+		//chequeo si hay un otro proceso esperando por el dispostivo
+		go processNextWaitingDevice(req, writer)
 
 		// Validar si la cola de bloqueados está vacía
 		if models.QueueBlocked.Size() == 0 {
@@ -81,5 +85,20 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 
 		services.NotifyToMediumScheduler()
 		writer.WriteHeader(http.StatusOK)
+	}
+}
+
+func processNextWaitingDevice(request ioModels.DeviceResponse, writer http.ResponseWriter) {
+	pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(request.Name)
+
+	if isSuccess {
+		slog.Debug(fmt.Sprintf("Se encontró un proceso esperando por el dispositivo [%s]", request.Name))
+		_, isSuccess, err := services.MoveProcessToState(uint(pidWaiting), models.EstadoSuspendidoReady, false)
+
+		if !isSuccess || err != nil {
+			slog.Error("Qué rompimos? :(")
+			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
+			return
+		}
 	}
 }
