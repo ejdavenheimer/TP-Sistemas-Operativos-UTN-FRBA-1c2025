@@ -54,7 +54,7 @@ func SelectToExecute() bool {
 
 	CPUID := assignProcessToCPU(pcb, cpu)
 
-	runProcessInCPU(pcb, *cpu, CPUID)
+	go runProcessInCPU(pcb, *cpu, CPUID)
 
 	return true
 }
@@ -114,11 +114,11 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 		slog.Info(fmt.Sprintf("## %d - Solicitó syscall: %s", result.SyscallRequest.Pid, syscallName))
 
 		if syscallName == "IO" {
-			ExecuteIO(result)
+			go ExecuteIO(result)
 		}
 
 		if syscallName == "DUMP_MEMORY" {
-			ExecuteDUMP(result)
+			go ExecuteDUMP(result)
 		}
 	}
 	// Liberar CPU

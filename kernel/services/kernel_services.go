@@ -160,6 +160,13 @@ func BlockedProcess(pid uint, reason string) {
 	// LOG OBLIGATORIO DE BLOQUEO POR IO
 	slog.Info(fmt.Sprintf("## (%d) - Bloqueado por IO: %s", pid, reason))
 
+	cpu := models.ConnectedCpuMap.GetCPUByPid(pcb.PID)
+
+	if cpu != nil {
+		//	slog.Error(fmt.Sprintf("No se encontro la CPU para el proceso <%d>", pid))
+		models.ConnectedCpuMap.MarkAsFree(strconv.Itoa(cpu.Id))
+	}
+
 	StartSuspensionTimer(pcb)
 }
 

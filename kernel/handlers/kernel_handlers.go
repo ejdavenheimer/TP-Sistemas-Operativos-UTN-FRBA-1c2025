@@ -124,6 +124,10 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
+		ProcessNextWaitingDevice(device, writer)
+		//models.NotifyBlocked <- 1
+		//services.NotifyToBlocked()
+
 		services.StartLongTermScheduler()
 		server.SendJsonResponse(writer, device)
 	}
