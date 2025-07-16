@@ -199,9 +199,10 @@ func DumpServices(pid uint, size int) {
 		return
 	}
 
-	_, isSuccess, err := MoveProcessToState(pid, models.EstadoExit, false)
-	if !isSuccess || err != nil {
-		slog.Error("Qué rompimos? :(")
+	isSuccess, errorMessage := UnblockSyscallBlocked(pid)
+
+	if !isSuccess {
+		slog.Error(errorMessage)
 		return
 	}
 
@@ -239,4 +240,58 @@ func FinishDevice(port int) (bool, int) {
 	}
 
 	return true, int(deviceRequested.PID)
+}
+
+func UnblockSyscallBlocked(pid uint) (bool, string) {
+	// Validar si la cola de bloqueados está vacía
+	var errorMessage string = ""
+	//if models.QueueBlocked.Size() == 0 {
+	//	errorMessage = fmt.Sprintf("Cola de bloqueados vacía, no se puede procesar PID <%d>", pid)
+	//	//http.Error(writer, "No hay procesos bloqueados", http.StatusConflict)
+	//	return false, errorMessage
+	//}
+
+	// Buscar el proceso en la cola de bloqueados
+	pcb, index, found := models.QueueBlocked.Find(func(pcb *models.PCB) bool {
+		return pcb.PID == uint(pid)
+	})
+
+	if found {
+		//http.Error(writer, fmt.Sprintf("PID %d no está bloqueado", pid), http.StatusNotFound)
+		//return
+		models.QueueBlocked.Remove(index)
+		slog.Debug(fmt.Sprintf("Proceso eliminado de la cola de bloqueados <%d>", pid))
+		TransitionState(pcb, models.EstadoReady)
+		AddProcessToReady(pcb)
+		//writer.WriteHeader(http.StatusOK)
+		return found, errorMessage
+	}
+
+	slog.Warn("Proceso no encontrado en la cola de bloqueados", "pid", pid)
+
+	// Buscar el proceso en la cola de bloqueados
+	pcb, index, found = models.QueueSuspBlocked.Find(func(pcb *models.PCB) bool {
+		return pcb.PID == uint(pid)
+	})
+
+	if !found {
+		errorMessage = fmt.Sprintf("Proceso no encontrado en la cola de bloqueado-suspendido %d", pid)
+		//http.Error(writer, fmt.Sprintf("PID %d no está bloqueado-suspendido", pid), http.StatusNotFound)
+		return false, errorMessage
+	}
+
+	slog.Debug("Proceso encontrado en bloqueado-suspendido", "pcb", pcb)
+
+	// Eliminar de la cola de bloqueados
+	models.QueueSuspBlocked.Remove(index)
+	slog.Debug("Proceso eliminado de la cola de bloqueado-suspendido", "pid", pid)
+
+	// Cambiar estado y pasar a SUSPENDED_READY
+	TransitionState(pcb, models.EstadoSuspendidoReady)
+	models.QueueSuspReady.Add(pcb)
+	slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
+
+	NotifyToMediumScheduler()
+
+	return found, errorMessage
 }

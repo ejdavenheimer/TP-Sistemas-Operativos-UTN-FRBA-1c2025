@@ -25,8 +25,8 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 		isSuccess, pid := services.FinishDevice(req.Port)
 
 		if !isSuccess {
-			slog.Error("Qué rompimos? :(")
-			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
+			slog.Error("Error al quitar el dispositivo. Qué rompimos? :(")
+			http.Error(writer, "Error al quitar el dispositivo. Qué rompimos? :(", http.StatusBadRequest)
 			return
 		}
 
@@ -36,54 +36,14 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 		//chequeo si hay un otro proceso esperando por el dispostivo
 		go ProcessNextWaitingDevice(req, writer)
 
-		// Validar si la cola de bloqueados está vacía
-		if models.QueueBlocked.Size() == 0 {
-			slog.Warn("Cola de bloqueados vacía, no se puede procesar PID", "pid", pid)
-			//http.Error(writer, "No hay procesos bloqueados", http.StatusConflict)
-			//return
-		}
+		isSuccess, errorMessage := services.UnblockSyscallBlocked(uint(pid))
 
-		// Buscar el proceso en la cola de bloqueados
-		pcb, index, found := models.QueueBlocked.Find(func(pcb *models.PCB) bool {
-			return pcb.PID == uint(pid)
-		})
-
-		if found {
-			//http.Error(writer, fmt.Sprintf("PID %d no está bloqueado", pid), http.StatusNotFound)
-			//return
-			models.QueueBlocked.Remove(index)
-			slog.Debug("Proceso eliminado de la cola de bloqueados", "pid", pid)
-			services.TransitionState(pcb, models.EstadoReady)
-			services.AddProcessToReady(pcb)
-			writer.WriteHeader(http.StatusOK)
+		if !isSuccess {
+			slog.Error(errorMessage)
+			http.Error(writer, errorMessage, http.StatusBadRequest)
 			return
 		}
 
-		slog.Warn("Proceso no encontrado en la cola de bloqueados", "pid", pid)
-
-		// Buscar el proceso en la cola de bloqueados
-		pcb, index, found = models.QueueSuspBlocked.Find(func(pcb *models.PCB) bool {
-			return pcb.PID == uint(pid)
-		})
-
-		if !found {
-			slog.Warn("Proceso no encontrado en la cola de bloqueado-suspendido", "pid", pid)
-			http.Error(writer, fmt.Sprintf("PID %d no está bloqueado-suspendido", pid), http.StatusNotFound)
-			return
-		}
-
-		slog.Debug("Proceso encontrado en bloqueado-suspendido", "pcb", pcb)
-
-		// Eliminar de la cola de bloqueados
-		models.QueueSuspBlocked.Remove(index)
-		slog.Debug("Proceso eliminado de la cola de bloqueado-suspendido", "pid", pid)
-
-		// Cambiar estado y pasar a SUSPENDED_READY
-		services.TransitionState(pcb, models.EstadoSuspendidoReady)
-		models.QueueSuspReady.Add(pcb)
-		slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
-
-		services.NotifyToMediumScheduler()
 		writer.WriteHeader(http.StatusOK)
 	}
 }
