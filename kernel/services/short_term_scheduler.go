@@ -256,8 +256,9 @@ func AddProcessToReady(pcb *models.PCB) {
 				slog.Debug("No hay procesos ejecutándose para interrumpir")
 				return
 			}
+			rafagaRestante := processToInterrupt.RafagaEstimada - processToInterrupt.RafagaReal
 
-			if pcb.RafagaEstimada < processToInterrupt.RafagaEstimada {
+			if pcb.RafagaEstimada < rafagaRestante {
 				//GetCPUByPid recorre las CPUs conectadas y retorna la qe esta ejecutando el PID solicitado
 				cpu := models.ConnectedCpuMap.GetCPUByPid(processToInterrupt.PID)
 				//SI ES POSITIVO, SE CONECTA AL ENDPOINT DE CPU PARA PEDIRLE QUE DESALOJE AL PROCESO TAL
