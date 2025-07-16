@@ -151,16 +151,9 @@ func initializePageTables(pid uint) error {
 // Crea recursivamente una tabla de páginas multinivel.
 func createPageTableLevel(currentLevel, maxLevels int) *models.PageTableLevel {
 	level := &models.PageTableLevel{
-		IsLeaf: currentLevel == maxLevels,
-		Entry:  nil,
-	}
-
-	if level.IsLeaf {
-		// Último nivel: hoja, sin subtables
-		level.SubTables = nil
-	} else {
-		// Niveles intermedios: inicializar mapa de subtables vacío
-		level.SubTables = make(map[int]*models.PageTableLevel)
+		IsLeaf:    currentLevel == maxLevels,
+		Entry:     nil,
+		SubTables: make(map[int]*models.PageTableLevel),
 	}
 
 	return level
