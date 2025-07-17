@@ -73,9 +73,9 @@ type MemoryReadRequest struct {
 }
 
 type WriteRequest struct {
-	PID             uint
-	PhysicalAddress int
-	Data            []byte
+	PID             uint   `json:"pid"`
+	PhysicalAddress int    `json:"physical_address"`
+	Data            []byte `json:"data"`
 }
 
 type ReadRequest struct {

@@ -155,7 +155,8 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 	return data, nil
 }
 
-func readFromMemory(physicalAddress int, size int) ([]byte, error) {
+func readFromMemory(frame int, size int) ([]byte, error) {
+	physicalAddress := frame * models.MemoryConfig.PageSize
 	// Verifico que la dirección y el tamaño estén dentro del rango válido
 	if physicalAddress < 0 || physicalAddress+size > len(models.UserMemory) {
 		return nil, fmt.Errorf("dirección fuera de rango")
