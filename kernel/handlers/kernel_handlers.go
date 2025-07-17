@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"log/slog"
 	"net/http"
 
@@ -124,7 +125,18 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		ProcessNextWaitingDevice(device, writer)
+		pids, _ := helpers.GetPidsForDevice(device.Name)
+		if pids != nil && len(pids) > 0 {
+			for _, pid := range pids {
+				isSuccess, errorMessage := services.UnblockSyscallBlocked(uint(pid))
+
+				if !isSuccess {
+					slog.Error(errorMessage)
+					http.Error(writer, errorMessage, http.StatusInternalServerError)
+					return
+				}
+			}
+		}
 		//models.NotifyBlocked <- 1
 		//services.NotifyToBlocked()
 

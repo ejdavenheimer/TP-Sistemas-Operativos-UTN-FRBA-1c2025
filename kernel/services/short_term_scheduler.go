@@ -111,7 +111,7 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 
 	case models.NeedExecuteSyscall:
 		syscallName := result.SyscallRequest.Type
-		slog.Info(fmt.Sprintf("## %d - Solicitó syscall: %s", result.SyscallRequest.Pid, syscallName))
+		slog.Info(fmt.Sprintf("## (%d) - Solicitó syscall: %s", result.SyscallRequest.Pid, syscallName))
 
 		if syscallName == "IO" {
 			go ExecuteIO(result)
@@ -124,13 +124,13 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 	// Liberar CPU
 	models.ConnectedCpuMap.MarkAsFree(CPUID)
 
-	select {
-	case models.NotifyReady <- 1:
-		// Se pudo enviar la notificación
-	default:
-		// Ya hay una notificación pendiente, no hacemos nada
-	}
-
+	//select {
+	//case models.NotifyReady <- 1:
+	//	// Se pudo enviar la notificación
+	//default:
+	//	// Ya hay una notificación pendiente, no hacemos nada
+	//}
+	NotifyToReady()
 }
 
 func ExecuteProcess(pcb *models.PCB, cpu cpuModels.CpuN) models.PCBExecuteRequest {
@@ -267,10 +267,12 @@ func AddProcessToReady(pcb *models.PCB) {
 		}
 	}
 
+	NotifyToReady()
+}
+
+func NotifyToReady() {
 	select {
 	case models.NotifyReady <- 1:
-		// Se pudo enviar la notificación
 	default:
-		// Ya hay una notificación pendiente, no hacemos nada
 	}
 }

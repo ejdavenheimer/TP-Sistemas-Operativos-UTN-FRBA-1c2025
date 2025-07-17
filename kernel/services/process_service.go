@@ -247,16 +247,16 @@ func MoveProcessToState(pid uint, nuevoEstado models.Estado, needIncrementPC boo
 
 	if targetQueueName == "QueueReady" {
 		AddProcessToReady(removedPCB)
-		if needIncrementPC {
-			removedPCB.PC++
-			index = findProcessIndexByPID(targetQueue, removedPCB.PID)
-			err := targetQueue.Set(index, removedPCB)
-
-			if err != nil {
-				slog.Error("error: %v", err)
-				panic(err)
-			}
-		}
+		//if needIncrementPC {
+		//	removedPCB.PC++
+		//	index = findProcessIndexByPID(targetQueue, removedPCB.PID)
+		//	err := targetQueue.Set(index, removedPCB)
+		//
+		//	if err != nil {
+		//		slog.Error("error: %v", err)
+		//		panic(err)
+		//	}
+		//}
 	} else {
 		targetQueue.Add(removedPCB)
 	}

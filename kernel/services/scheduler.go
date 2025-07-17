@@ -76,10 +76,11 @@ func admitProcess(process *models.PCB, fromQueue *list.ArrayList[*models.PCB]) {
 	AddProcessToReady(process)
 
 	// Le mandamos una señal al PCP que notifica que hay un proceso en ready, si ya tiene la señal en 1 no hacemos nada.
-	select {
-	case models.NotifyReady <- 1:
-	default:
-	}
+	//select {
+	//case models.NotifyReady <- 1:
+	//default:
+	//}
+	NotifyToReady()
 }
 
 func findProcessIndexByPID(queue *list.ArrayList[*models.PCB], pid uint) int {

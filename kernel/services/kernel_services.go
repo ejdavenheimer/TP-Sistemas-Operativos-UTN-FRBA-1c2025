@@ -4,17 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
-	"net/http"
-	"strconv"
-	"strings"
-
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
+	"io"
+	"log/slog"
+	"net/http"
+	"strconv"
 )
 
 // este servicio le solicita al dispositivo que duerme por el tiempo que le pasemos.
@@ -141,13 +139,13 @@ func BlockedProcess(pid uint, reason string) {
 		return
 	}
 
-	if strings.Contains(reason, "no se encuentra disponible") {
-		pcb.PC--
-		err := models.QueueExec.Set(index, pcb)
-		if err != nil {
-			slog.Error(fmt.Sprintf("error al modificar el proceso %d", pcb.PID))
-		}
-	}
+	//if strings.Contains(reason, "no se encuentra disponible") {
+	//	pcb.PC--
+	//	err := models.QueueExec.Set(index, pcb)
+	//	if err != nil {
+	//		slog.Error(fmt.Sprintf("error al modificar el proceso %d", pcb.PID))
+	//	}
+	//}
 	//models.QueueExec.Remove(index)
 
 	pcb, isSuccess, err := MoveProcessToState(pcb.PID, models.EstadoBlocked, false)
