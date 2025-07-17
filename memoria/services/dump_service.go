@@ -37,7 +37,7 @@ func ExecuteDumpMemory(pid uint, size int) error {
 			dumpData = append(dumpData, make([]byte, models.MemoryConfig.PageSize)...)
 			continue
 		}
-		data, err := readFromMemory(frame, models.MemoryConfig.PageSize)
+		data, err := readFromMemory(frame*models.MemoryConfig.PageSize, models.MemoryConfig.PageSize)
 		if err != nil {
 			slog.Error("Error leyendo memoria en dump", "pid", pid, "page", page, "error", err)
 			return err
