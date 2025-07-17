@@ -210,29 +210,29 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Validar existencia del proceso
 	ProcessTableLock.RLock()
-	_, ok := models.ProcessTable[request.PID]
-	slog.Debug(fmt.Sprintf("Busca a proceso %d en ProcessTable con dirección fisica %d", request.PID, request.PhysicalAddress))
+	_, ok := models.ProcessTable[request.Pid]
+	slog.Debug(fmt.Sprintf("Busca a proceso %d en ProcessTable con dirección fisica %d", request.Pid, request.PhysicalAddress))
 	ProcessTableLock.RUnlock()
 	if !ok {
-		slog.Warn(fmt.Sprintf("PID %d no encontrado en memoria", request.PID))
+		slog.Warn(fmt.Sprintf("PID %d no encontrado en memoria", request.Pid))
 		http.Error(w, "Process Not Found", http.StatusNotFound)
 		return
 	}
 
 	//EJECUCION ESCRITURA
 	//slog.Debug("Antes de llamar WriteToMemory", "PID", request.Pid, "PhysicalAddress", request.PhysicalAddress, "DataLen", len(dataBytes))
-	if err := services.WriteToMemory(request.PID, request.PhysicalAddress, []byte(request.Data)); err != nil {
+	if err := services.WriteToMemory(request.Pid, request.PhysicalAddress, []byte(request.Data)); err != nil {
 		slog.Error("WRITE failed", "error", err)
 		http.Error(w, "Write failed", http.StatusInternalServerError)
 		return
 	}
-	services.IncrementMetric(request.PID, "writes")
+	services.IncrementMetric(request.Pid, "writes")
 	dataBytes := []byte(request.Data)
 	if idx := bytes.IndexByte(dataBytes, 0); idx != -1 {
 		dataBytes = dataBytes[:idx]
 	}
 
-	slog.Info(fmt.Sprintf("## PID: <%d> - <Escritura> - Dir. Física: <%d> - Dato: <%s>", request.PID, request.PhysicalAddress, string(dataBytes)))
+	slog.Info(fmt.Sprintf("## PID: <%d> - <Escritura> - Dir. Física: <%d> - Dato: <%s>", request.Pid, request.PhysicalAddress, string(dataBytes)))
 	w.WriteHeader(http.StatusOK) //RESPUESTA
 }
 
@@ -297,8 +297,12 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Read Error", http.StatusInternalServerError)
 		return
 	}
+	dataBytes := []byte(content)
+	if idx := bytes.IndexByte(dataBytes, 0); idx != -1 {
+		dataBytes = dataBytes[:idx]
+	}
 	if request.Operacion == "Lectura" {
-		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página> - Dir. Física: <%d> - Tamaño: <%d>", request.PID, frameStart, models.MemoryConfig.PageSize))
+		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página> - Dir. Física: <%d> - Tamaño: <%d> - Dato: <%s>", request.PID, frameStart, models.MemoryConfig.PageSize, string(dataBytes)))
 		//} else {
 		//	slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura> - Dir. Física: <%d> - TAM: <%d> - VALOR:<%s>", request.PID, frameStart, pageSize, string(content)))
 	}

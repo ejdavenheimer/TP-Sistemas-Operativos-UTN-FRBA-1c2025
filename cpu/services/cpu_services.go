@@ -142,7 +142,7 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 
 	// Caché deshabilitada: escritura directa a memoria
 	writeReq := models.WriteRequest{
-		PID:             request.Pid,
+		Pid:             request.Pid,
 		PhysicalAddress: physicalAddress,
 		Data:            []byte(request.Values[2]),
 	}
