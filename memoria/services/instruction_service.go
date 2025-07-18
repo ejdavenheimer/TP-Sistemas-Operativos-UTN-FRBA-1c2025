@@ -141,14 +141,7 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 		return nil, ErrInvalidRead
 	}
 
-	if physicalAddress < 0 || physicalAddress+size > len(models.UserMemory) {
-		return nil, ErrMemoryViolation
-	}
-
-	data, err := readFromMemory(physicalAddress, size)
-	if err != nil {
-		return nil, err
-	}
+	data, _ := readFromMemory(physicalAddress, size)
 
 	UpdatePageBit(pid, physicalAddress, "use")
 	IncrementMetric(pid, "reads")
@@ -156,11 +149,9 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 }
 
 func readFromMemory(physicalAddress int, size int) ([]byte, error) {
-	// Verifico que la dirección y el tamaño estén dentro del rango válido
 	if physicalAddress < 0 || physicalAddress+size > len(models.UserMemory) {
-		return nil, fmt.Errorf("dirección fuera de rango")
+		return nil, ErrMemoryViolation
 	}
-
 	// Copio la porción de memoria solicitada
 	data := make([]byte, size)
 	copy(data, models.UserMemory[physicalAddress:physicalAddress+size])

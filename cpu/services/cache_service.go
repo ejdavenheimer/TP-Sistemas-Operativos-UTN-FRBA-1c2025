@@ -92,7 +92,7 @@ func (cache *PageCache) Get(pid uint, page int) ([]byte, bool) {
 	index, found := cache.PageMap[key]
 	if !found {
 		//Cache MISS
-		slog.Debug(fmt.Sprintf("Cache MISS: PID %d, Page %d", pid, page))
+		slog.Info(fmt.Sprintf("PID: <%d> - Cache Miss - Pagina: <%d>", pid, page))
 		return nil, false
 	}
 

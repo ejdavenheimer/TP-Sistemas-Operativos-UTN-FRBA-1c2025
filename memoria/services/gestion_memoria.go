@@ -85,7 +85,6 @@ func MapPageToFrame(pid uint, pageNumber int, frame int) error {
 	entriesPerLevel := models.MemoryConfig.EntriesPerPage
 	// Obtener los índices que se usan para navegar por cada nivel de la tabla
 	indices := getPageIndices(pageNumber, numLevels, entriesPerLevel)
-
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
 
@@ -128,7 +127,7 @@ func MapPageToFrame(pid uint, pageNumber int, frame int) error {
 		},
 	}
 	//slog.Debug(fmt.Sprintf("Tabla de páginas %v",current))
-
+	slog.Debug("MapPageToFrame", "pid", pid, "page", pageNumber, "frame", frame, "direccion_base", frame*models.MemoryConfig.PageSize)
 	return nil
 }
 
@@ -280,10 +279,15 @@ func AllocateFrame() int {
 	memoryLock.Lock()
 	defer memoryLock.Unlock()
 
+	pageSize := models.MemoryConfig.PageSize
 	for i, free := range models.FreeFrames {
 		if free {
+			if i*pageSize >= len(models.UserMemory) {
+				// Este frame está marcado como libre pero no cabe en la memoria real
+				slog.Warn("Frame libre fuera de rango físico", "frame", i, "direccion_base", i*pageSize)
+				continue
+			}
 			models.FreeFrames[i] = false
-			//slog.Debug("Frame asignado", slog.Int("frame", i))
 			return i
 		}
 	}

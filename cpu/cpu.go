@@ -66,6 +66,7 @@ func main() {
 	//Inicializar
 	services.InitTLB()
 	services.InitCache()
+	slog.Debug(fmt.Sprintf("Configuración cargada - CacheEntries: %d - Algoritmo: %s", models.CpuConfig.CacheEntries, models.CpuConfig.CacheReplacement))
 
 	http.HandleFunc("GET /", handlers.HandshakeHandler(fmt.Sprintf("Bienvenido al módulo de CPU%s", idCpu)))
 	http.HandleFunc("GET /cpu", handlers.HandshakeHandler("Cpu en funcionamiento 🚀"))

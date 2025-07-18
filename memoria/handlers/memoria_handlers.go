@@ -113,8 +113,8 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 
 	//log obligatorio
 	slog.Info(fmt.Sprintf(
-		"## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d>",
-		request.Pid, request.PhysicalAddress, request.Size),
+		"## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d> - LEIDO <%s>",
+		request.Pid, request.PhysicalAddress, request.Size, value),
 	)
 	response := struct {
 		Content []byte `json:"content"`
@@ -297,27 +297,25 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Read Error", http.StatusInternalServerError)
 		return
 	}
-	dataBytes := []byte(content)
-	if idx := bytes.IndexByte(dataBytes, 0); idx != -1 {
-		dataBytes = dataBytes[:idx]
+	switch request.Operacion {
+	case "Lectura":
+		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página por LECTURA> - Dir. Física: <%d> - Tamaño: <%d> - VALOR:<%s>", request.PID, frameStart, pageSize, string(content)))
+	case "Escritura":
+		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página por ESCRITURA> - Dir. Física: <%d> - Tamaño: <%d> - VALOR:<%s>", request.PID, frameStart, pageSize, string(content)))
+	default:
+		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página por OPERACIÓN DESCONOCIDA> - Dir. Física: <%d> - Tamaño: <%d> - VALOR:<%s>", request.PID, frameStart, pageSize, string(content)))
 	}
-	if request.Operacion == "Lectura" {
-		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página> - Dir. Física: <%d> - Tamaño: <%d> - Dato: <%s>", request.PID, frameStart, models.MemoryConfig.PageSize, string(dataBytes)))
-		//} else {
-		//	slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura> - Dir. Física: <%d> - TAM: <%d> - VALOR:<%s>", request.PID, frameStart, pageSize, string(content)))
-	}
-	response := struct {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(struct {
 		Content []byte `json:"content"`
 	}{
 		Content: content,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
+	}); err != nil {
 		slog.Error("Error al codificar la respuesta", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+
 	slog.Debug(fmt.Sprintf("Página %d del proceso %d leída correctamente", request.PageNumber, request.PID))
 }
 
