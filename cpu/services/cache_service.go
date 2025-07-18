@@ -18,7 +18,6 @@ type PageCache struct {
 	Algorithm    string              // Algoritmo de reemplazo (CLOCK o CLOCK-M)
 	ClockPointer int                 // Puntero para el algoritmo CLOCK/CLOCK-M
 	Mutex        sync.Mutex          // Mutex para control de concurrencia
-	//PageSize     int          // Tamaño de cada página (para leer de memoria)
 	// Mapa para búsqueda rápida: {PID + PageNumber} -> Índice en Entries
 	PageMap map[struct {
 		PID        uint
@@ -62,7 +61,7 @@ func SetupCache() *PageCache {
 
 // IsEnabled verifica si la caché de páginas está habilitada.
 func IsEnabled() bool {
-	return Cache.MaxEntries > 0 //&& Cache != nil
+	return Cache.MaxEntries > 0
 }
 
 // getEntryKey genera una clave única para el mapa interno.
@@ -92,9 +91,8 @@ func (cache *PageCache) Get(pid uint, page int) ([]byte, bool) {
 	key := getEntryKey(pid, page)
 	index, found := cache.PageMap[key]
 	if !found {
-		//TODO: revisar que pasa en este caso, entiendo que tendría que revisar si se encuentra en la TLB.
 		//Cache MISS
-		slog.Debug(fmt.Sprintf("Cache MISS: PID %d, Page %d", pid, page))
+		slog.Info(fmt.Sprintf("PID: <%d> - Cache Miss - Pagina: <%d>", pid, page))
 		return nil, false
 	}
 
@@ -130,7 +128,9 @@ func (cache *PageCache) Put(pid uint, pageNumber int, frameAsignado int, content
 
 	//Si no hay espacio, se debe aplicar el algoritmo de sustitución
 	if len(cache.Entries) >= cache.MaxEntries {
-		cache.replaceVictim(pid, pageNumber, content)
+		// --- CORRECCIÓN CLAVE ---
+		// Se pasa el frameAsignado a la función de reemplazo.
+		cache.replaceVictim(pid, pageNumber, frameAsignado, content)
 		return
 	}
 
@@ -150,7 +150,9 @@ func (cache *PageCache) Put(pid uint, pageNumber int, frameAsignado int, content
 	slog.Debug(fmt.Sprintf("Cache Add: PID %d, Page %d en nuevo slot %d. Total: %d/%d", pid, pageNumber, len(cache.Entries)-1, len(cache.Entries), cache.MaxEntries))
 }
 
-func (cache *PageCache) replaceVictim(newPID uint, newPage int, newContent []byte) {
+// --- CORRECCIÓN CLAVE ---
+// La firma de la función ahora acepta el nuevo frame.
+func (cache *PageCache) replaceVictim(newPID uint, newPage int, newFrame int, newContent []byte) {
 	slog.Debug(fmt.Sprintf("Caché llena. Aplicando algoritmo de reemplazo: %s", cache.Algorithm))
 	var victimIndex int
 	switch cache.Algorithm {
@@ -159,19 +161,18 @@ func (cache *PageCache) replaceVictim(newPID uint, newPage int, newContent []byt
 	case "CLOCK-M":
 		victimIndex = cache.findVictimIndexClockM()
 	default:
-		//TODO: preguntar si puede suceder este caso
-		victimIndex = cache.ClockPointer //asigno por default
+		victimIndex = cache.ClockPointer
 	}
 
 	victim := cache.Entries[victimIndex]
 	slog.Debug(fmt.Sprintf("Víctima seleccionada (slot %d): PID %d, Page %d (U=%t, M=%t)", victimIndex, victim.PID, victim.PageNumber, victim.UseBit, victim.ModifiedBit))
 
-	if victim.ModifiedBit { //&& cache.Algorithm == "CLOCK"
+	if victim.ModifiedBit {
 		slog.Debug(fmt.Sprintf("Víctima (PID %d, Page %d) modificada. Escribiendo a Memoria Principal.", victim.PID, victim.PageNumber))
 		physicalAddress := victim.Frame * models.MemConfig.PageSize
 
 		writeReq := models.WriteRequest{
-			PID:             victim.PID,
+			Pid:             victim.PID,
 			PhysicalAddress: physicalAddress,
 			Data:            victim.Content,
 		}
@@ -193,23 +194,25 @@ func (cache *PageCache) replaceVictim(newPID uint, newPage int, newContent []byt
 	// Eliminar de pageMap antes de reemplazar en Entries
 	delete(cache.PageMap, getEntryKey(victim.PID, victim.PageNumber))
 
+	// --- CORRECCIÓN CLAVE ---
+	// Se usa el 'newFrame' correcto para la nueva entrada.
 	cache.Entries[victimIndex] = models.CacheEntry{
 		PID:         newPID,
 		PageNumber:  newPage,
 		Content:     newContent,
-		Frame:       victim.Frame,
+		Frame:       newFrame,
 		ModifiedBit: true,
 		UseBit:      true,
 		LockerBit:   false,
 	}
 
-	cache.PageMap[getEntryKey(newPID, newPage)] = victimIndex //victim.PageNumber
+	cache.PageMap[getEntryKey(newPID, newPage)] = victimIndex
 
 	slog.Debug(fmt.Sprintf("Nueva página (PID %d, Page %d) cargada en slot %d de caché.", newPID, newPage, victimIndex))
 	cache.advancePointer()
 }
 
-// findVictimIndexCLOCK implementa el algoritmo CLOCK.
+// findVictimIndexClock implementa el algoritmo CLOCK.
 func (cache *PageCache) findVictimIndexClock() int {
 	for {
 		entry := &cache.Entries[cache.ClockPointer]
@@ -232,7 +235,7 @@ func (cache *PageCache) findVictimIndexClock() int {
 	}
 }
 
-// findVictimIndexCLOCK_M implementa el algoritmo CLOCK-M.
+// findVictimIndexClockM implementa el algoritmo CLOCK-M.
 func (cache *PageCache) findVictimIndexClockM() int {
 	for {
 		startIndex := cache.ClockPointer
@@ -279,7 +282,7 @@ func (cache *PageCache) findVictimIndexClockM() int {
 	}
 }
 
-// advanceHand mueve el puntero del reloj circularmente.
+// advancePointer mueve el puntero del reloj circularmente.
 func (cache *PageCache) advancePointer() {
 	cache.ClockPointer = (cache.ClockPointer + 1) % cache.MaxEntries
 }
@@ -317,7 +320,7 @@ func (cache *PageCache) RemoveProcessFromCache(pid uint) {
 			physicalAddress := entry.Frame * models.MemConfig.PageSize
 
 			writeReq := models.WriteRequest{
-				PID:             pid,
+				Pid:             pid,
 				PhysicalAddress: physicalAddress,
 				Data:            entry.Content,
 			}
@@ -342,9 +345,9 @@ func (cache *PageCache) RemoveProcessFromCache(pid uint) {
 	cache.PageMap = newMap
 
 	// Reajustar ClockHand: Si el tamaño de Entries cambió, el ClockHand podría estar fuera de rango
-	if cache.MaxEntries > 0 && len(cache.Entries) > 0 {
-		cache.ClockPointer = cache.ClockPointer % len(cache.Entries) // Asegura que esté dentro de los límites del nuevo tamaño
-	} else { // Si la caché está vacía o deshabilitada
+	if len(cache.Entries) > 0 {
+		cache.ClockPointer = cache.ClockPointer % len(cache.Entries)
+	} else {
 		cache.ClockPointer = 0
 	}
 

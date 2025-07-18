@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
@@ -126,7 +127,6 @@ func EndProcess(pid uint, reason string) {
 
 	//pcb.EstadoActual = models.EstadoExit
 	//models.QueueExit.Add(pcb)
-	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", pid))
 }
 
 func BlockedProcess(pid uint, reason string) {
@@ -141,6 +141,13 @@ func BlockedProcess(pid uint, reason string) {
 		return
 	}
 
+	if strings.Contains(reason, "no se encuentra disponible") {
+		pcb.PC--
+		err := models.QueueExec.Set(index, pcb)
+		if err != nil {
+			slog.Error(fmt.Sprintf("error al modificar el proceso %d", pcb.PID))
+		}
+	}
 	//models.QueueExec.Remove(index)
 
 	pcb, isSuccess, err := MoveProcessToState(pcb.PID, models.EstadoBlocked, false)
@@ -152,6 +159,13 @@ func BlockedProcess(pid uint, reason string) {
 
 	// LOG OBLIGATORIO DE BLOQUEO POR IO
 	slog.Info(fmt.Sprintf("## (%d) - Bloqueado por IO: %s", pid, reason))
+
+	cpu := models.ConnectedCpuMap.GetCPUByPid(pcb.PID)
+
+	if cpu != nil {
+		//	slog.Error(fmt.Sprintf("No se encontro la CPU para el proceso <%d>", pid))
+		models.ConnectedCpuMap.MarkAsFree(strconv.Itoa(cpu.Id))
+	}
 
 	StartSuspensionTimer(pcb)
 }
@@ -185,9 +199,10 @@ func DumpServices(pid uint, size int) {
 		return
 	}
 
-	_, isSuccess, err := MoveProcessToState(pid, models.EstadoExit, false)
-	if !isSuccess || err != nil {
-		slog.Error("Qué rompimos? :(")
+	isSuccess, errorMessage := UnblockSyscallBlocked(pid)
+
+	if !isSuccess {
+		slog.Error(errorMessage)
 		return
 	}
 
@@ -225,4 +240,58 @@ func FinishDevice(port int) (bool, int) {
 	}
 
 	return true, int(deviceRequested.PID)
+}
+
+func UnblockSyscallBlocked(pid uint) (bool, string) {
+	// Validar si la cola de bloqueados está vacía
+	var errorMessage string = ""
+	//if models.QueueBlocked.Size() == 0 {
+	//	errorMessage = fmt.Sprintf("Cola de bloqueados vacía, no se puede procesar PID <%d>", pid)
+	//	//http.Error(writer, "No hay procesos bloqueados", http.StatusConflict)
+	//	return false, errorMessage
+	//}
+
+	// Buscar el proceso en la cola de bloqueados
+	pcb, index, found := models.QueueBlocked.Find(func(pcb *models.PCB) bool {
+		return pcb.PID == uint(pid)
+	})
+
+	if found {
+		//http.Error(writer, fmt.Sprintf("PID %d no está bloqueado", pid), http.StatusNotFound)
+		//return
+		models.QueueBlocked.Remove(index)
+		slog.Debug(fmt.Sprintf("Proceso eliminado de la cola de bloqueados <%d>", pid))
+		TransitionState(pcb, models.EstadoReady)
+		AddProcessToReady(pcb)
+		//writer.WriteHeader(http.StatusOK)
+		return found, errorMessage
+	}
+
+	slog.Warn("Proceso no encontrado en la cola de bloqueados", "pid", pid)
+
+	// Buscar el proceso en la cola de bloqueados
+	pcb, index, found = models.QueueSuspBlocked.Find(func(pcb *models.PCB) bool {
+		return pcb.PID == uint(pid)
+	})
+
+	if !found {
+		errorMessage = fmt.Sprintf("Proceso no encontrado en la cola de bloqueado-suspendido %d", pid)
+		//http.Error(writer, fmt.Sprintf("PID %d no está bloqueado-suspendido", pid), http.StatusNotFound)
+		return false, errorMessage
+	}
+
+	slog.Debug("Proceso encontrado en bloqueado-suspendido", "pcb", pcb)
+
+	// Eliminar de la cola de bloqueados
+	models.QueueSuspBlocked.Remove(index)
+	slog.Debug("Proceso eliminado de la cola de bloqueado-suspendido", "pid", pid)
+
+	// Cambiar estado y pasar a SUSPENDED_READY
+	TransitionState(pcb, models.EstadoSuspendidoReady)
+	models.QueueSuspReady.Add(pcb)
+	slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
+
+	NotifyToMediumScheduler()
+
+	return found, errorMessage
 }

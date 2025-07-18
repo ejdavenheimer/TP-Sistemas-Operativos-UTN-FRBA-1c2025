@@ -67,7 +67,7 @@ func Sleep(pid uint, suspensionTime int) {
 
 func NotifyDisconnection() {
 	const InvalidPid uint = 10000000
-	var request = models.DeviceResponse{Pid: InvalidPid, Reason: "KILL", Port: models.IoConfig.PortIo}
+	var request = models.DeviceResponse{Pid: InvalidPid, Reason: "KILL", Port: models.IoConfig.PortIo, Name: models.IoName}
 
 	body, err := json.Marshal(request)
 

@@ -54,7 +54,7 @@ func SelectToExecute() bool {
 
 	CPUID := assignProcessToCPU(pcb, cpu)
 
-	runProcessInCPU(pcb, *cpu, CPUID)
+	go runProcessInCPU(pcb, *cpu, CPUID)
 
 	return true
 }
@@ -108,16 +108,17 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 		slog.Info(fmt.Sprintf("## (%d) - Desalojado por algoritmo SJF/SRT, pasando a READY", pcb.PID))
 		TransitionState(pcb, models.EstadoReady)
 		AddProcessToReady(pcb)
+
 	case models.NeedExecuteSyscall:
 		syscallName := result.SyscallRequest.Type
 		slog.Info(fmt.Sprintf("## %d - Solicitó syscall: %s", result.SyscallRequest.Pid, syscallName))
 
 		if syscallName == "IO" {
-			ExecuteIO(result)
+			go ExecuteIO(result)
 		}
 
 		if syscallName == "DUMP_MEMORY" {
-			ExecuteDUMP(result)
+			go ExecuteDUMP(result)
 		}
 	}
 	// Liberar CPU
@@ -172,6 +173,7 @@ func ExecuteProcess(pcb *models.PCB, cpu cpuModels.CpuN) models.PCBExecuteReques
 // Actualiza el estado de un proceso, su LOG y sus metricas.
 func TransitionState(pcb *models.PCB, newState models.Estado) {
 	oldState := pcb.EstadoActual
+
 	if oldState == newState && pcb.EstadoActual != models.EstadoExit {
 		slog.Warn(fmt.Sprintf("## (%d) El proceso ya está en el estado %s, no se realiza la transición.", pcb.PID, newState))
 		return
@@ -180,18 +182,13 @@ func TransitionState(pcb *models.PCB, newState models.Estado) {
 	pcb.Mutex.Lock()
 	defer pcb.Mutex.Unlock()
 
-	if pcb.ME == nil {
-		pcb.ME = make(map[models.Estado]int)
+	// Actualiza tiempo sólo si UltimoCambio fue inicializado (no es cero)
+	if !pcb.UltimoCambio.IsZero() {
+		duration := time.Since(pcb.UltimoCambio)
+		pcb.MT[oldState] += duration
 	}
-	if pcb.MT == nil {
-		pcb.MT = make(map[models.Estado]time.Duration)
-	}
-
-	//Calculas el tiempo que estuvo en el estado anterior
-	duration := time.Since(pcb.UltimoCambio)
-	pcb.MT[oldState] += duration
 	// Incrementa en 1 la cantidad de veces que el proceso estuvo en el estado anterior
-	pcb.ME[oldState]++
+	pcb.ME[newState]++
 
 	//Log de cambio de estado
 	slog.Info(fmt.Sprintf("## (%d) Pasa del estado %s al estado %s", pcb.PID, oldState, newState))
@@ -259,8 +256,9 @@ func AddProcessToReady(pcb *models.PCB) {
 				slog.Debug("No hay procesos ejecutándose para interrumpir")
 				return
 			}
+			rafagaRestante := processToInterrupt.RafagaEstimada - processToInterrupt.RafagaReal
 
-			if pcb.RafagaEstimada < processToInterrupt.RafagaEstimada {
+			if pcb.RafagaEstimada < rafagaRestante {
 				//GetCPUByPid recorre las CPUs conectadas y retorna la qe esta ejecutando el PID solicitado
 				cpu := models.ConnectedCpuMap.GetCPUByPid(processToInterrupt.PID)
 				//SI ES POSITIVO, SE CONECTA AL ENDPOINT DE CPU PARA PEDIRLE QUE DESALOJE AL PROCESO TAL

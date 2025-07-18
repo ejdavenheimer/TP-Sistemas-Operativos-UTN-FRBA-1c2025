@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"log/slog"
 	"net/http"
 
@@ -24,62 +25,63 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 		isSuccess, pid := services.FinishDevice(req.Port)
 
 		if !isSuccess {
-			slog.Error("Qué rompimos? :(")
-			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
+			slog.Error("Error al quitar el dispositivo. Qué rompimos? :(")
+			http.Error(writer, "Error al quitar el dispositivo. Qué rompimos? :(", http.StatusBadRequest)
 			return
 		}
 
 		slog.Debug("Solicitud de finalización de IO recibida", "pid", pid)
 		slog.Debug(fmt.Sprintf("Motivo de desalojo: %s", req.Reason))
 
-		// Validar si la cola de bloqueados está vacía
-		if models.QueueBlocked.Size() == 0 {
-			slog.Warn("Cola de bloqueados vacía, no se puede procesar PID", "pid", pid)
-			//http.Error(writer, "No hay procesos bloqueados", http.StatusConflict)
-			//return
-		}
+		//chequeo si hay un otro proceso esperando por el dispostivo
+		go ProcessNextWaitingDevice(req, writer)
 
-		// Buscar el proceso en la cola de bloqueados
-		pcb, index, found := models.QueueBlocked.Find(func(pcb *models.PCB) bool {
-			return pcb.PID == uint(pid)
-		})
+		isSuccess, errorMessage := services.UnblockSyscallBlocked(uint(pid))
 
-		if found {
-			//http.Error(writer, fmt.Sprintf("PID %d no está bloqueado", pid), http.StatusNotFound)
-			//return
-			models.QueueBlocked.Remove(index)
-			slog.Debug("Proceso eliminado de la cola de bloqueados", "pid", pid)
-			services.TransitionState(pcb, models.EstadoReady)
-			services.AddProcessToReady(pcb)
-			writer.WriteHeader(http.StatusOK)
+		if !isSuccess {
+			slog.Error(errorMessage)
+			http.Error(writer, errorMessage, http.StatusBadRequest)
 			return
 		}
 
-		slog.Warn("Proceso no encontrado en la cola de bloqueados", "pid", pid)
-
-		// Buscar el proceso en la cola de bloqueados
-		pcb, index, found = models.QueueSuspBlocked.Find(func(pcb *models.PCB) bool {
-			return pcb.PID == uint(pid)
-		})
-
-		if !found {
-			slog.Warn("Proceso no encontrado en la cola de bloqueado-suspendido", "pid", pid)
-			http.Error(writer, fmt.Sprintf("PID %d no está bloqueado-suspendido", pid), http.StatusNotFound)
-			return
-		}
-
-		slog.Debug("Proceso encontrado en bloqueado-suspendido", "pcb", pcb)
-
-		// Eliminar de la cola de bloqueados
-		models.QueueSuspBlocked.Remove(index)
-		slog.Debug("Proceso eliminado de la cola de bloqueado-suspendido", "pid", pid)
-
-		// Cambiar estado y pasar a SUSPENDED_READY
-		services.TransitionState(pcb, models.EstadoSuspendidoReady)
-		models.QueueSuspReady.Add(pcb)
-		slog.Debug("Proceso agregado a la cola SUSPENDED_READY", "pid", pid)
-
-		services.NotifyToMediumScheduler()
 		writer.WriteHeader(http.StatusOK)
+	}
+}
+
+func ProcessNextWaitingDevice(request ioModels.DeviceResponse, writer http.ResponseWriter) {
+	pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(request.Name)
+
+	if isSuccess {
+		processNextWaiting(uint(pidWaiting), request, writer)
+	}
+}
+
+func processNextWaiting(pidWaiting uint, request ioModels.DeviceResponse, writer http.ResponseWriter) {
+	slog.Debug(fmt.Sprintf("Se encontró un proceso esperando por el dispositivo [%s]", request.Name))
+
+	pcb, _, isSuccess := services.FindPCBInAnyQueue(uint(pidWaiting))
+
+	if !isSuccess {
+		slog.Error(fmt.Sprintf("No se encontró el proceso <%d>. Qué rompimos? :(", pidWaiting))
+		http.Error(writer, fmt.Sprintf("No se encontró el proceso <%d>. Qué rompimos? :(", pidWaiting), http.StatusBadRequest)
+		return
+	}
+
+	var state models.Estado = models.EstadoExit
+
+	if pcb.EstadoActual == models.EstadoBlocked {
+		state = models.EstadoReady
+	}
+
+	if pcb.EstadoActual == models.EstadoReady {
+		state = models.EstadoSuspendidoReady
+	}
+
+	_, isSuccess, err := services.MoveProcessToState(pcb.PID, state, false)
+
+	if !isSuccess || err != nil {
+		slog.Error(fmt.Sprintf("Se produjo un error al mover el proceso <%d> a la cola <%s>. Qué rompimos? :(", pcb.PID, state))
+		http.Error(writer, fmt.Sprintf("Se produjo un error al mover el proceso <%d> a la cola <%s>. Qué rompimos? :(", pcb.PID, state), http.StatusBadRequest)
+		return
 	}
 }

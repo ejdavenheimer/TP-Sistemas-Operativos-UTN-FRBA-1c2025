@@ -202,7 +202,7 @@ func RemoveProcessInSwap(pid uint) error {
 
 	// Eliminar el proceso de la tabla de procesos en swap
 	delete(models.ProcessSwapTable, pid)
-
+	IncrementMetric(pid, "swap_in")
 	slog.Debug(fmt.Sprintf("Proceso PID %d removido de swap y cargado en UserMemory", pid))
 	slog.Debug(fmt.Sprintf("Frames asignados al proceso PID %d: %v", pid, freeFrames))
 	slog.Debug("Frames libres después de swap-in", "cantidad", contarFramesLibres())

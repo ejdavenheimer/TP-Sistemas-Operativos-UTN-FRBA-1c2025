@@ -252,7 +252,7 @@ func MoveProcessToState(pid uint, nuevoEstado models.Estado, needIncrementPC boo
 			index = findProcessIndexByPID(targetQueue, removedPCB.PID)
 			err := targetQueue.Set(index, removedPCB)
 
-			if err == nil {
+			if err != nil {
 				slog.Error("error: %v", err)
 				panic(err)
 			}

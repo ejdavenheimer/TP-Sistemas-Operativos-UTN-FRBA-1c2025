@@ -35,7 +35,7 @@ type MemoryConfig struct {
 var MemConfig *MemoryConfig
 
 type ExecuteInstructionRequest struct {
-	Pid    uint
+	Pid    uint `json:"pid"`
 	Values []string
 }
 
@@ -73,9 +73,9 @@ type MemoryReadRequest struct {
 }
 
 type WriteRequest struct {
-	PID             uint
-	PhysicalAddress int
-	Data            []byte
+	Pid             uint   `json:"pid"`
+	PhysicalAddress int    `json:"physical_address"`
+	Data            []byte `json:"data"`
 }
 
 type ReadRequest struct {

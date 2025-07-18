@@ -142,7 +142,7 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 
 	// Caché deshabilitada: escritura directa a memoria
 	writeReq := models.WriteRequest{
-		PID:             request.Pid,
+		Pid:             request.Pid,
 		PhysicalAddress: physicalAddress,
 		Data:            []byte(request.Values[2]),
 	}
@@ -306,7 +306,11 @@ func getPageFromMemory(pid uint, pageNumber int, physicalAddress int, operacion 
 	}
 
 	req := PageRequest{PID: pid, PhysicalAddress: physicalAddress, PageNumber: pageNumber, Operacion: operacion}
-	body, _ := json.Marshal(req)
+	body, err := json.Marshal(req)
+	if err != nil {
+		slog.Error("Error serializando request JSON", "error", err)
+		return nil
+	}
 
 	resp, err := client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST", "memoria/leerPagina", body)
 	if err != nil {
