@@ -5,6 +5,7 @@ import (
 	"fmt"
 	ioModels "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/services"
 	"log/slog"
 	"net/http"
@@ -54,15 +55,17 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 }
 
 func ProcessNextWaitingDevice(request ioModels.DeviceResponse, writer http.ResponseWriter) bool {
-	pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(request.Name)
+	for i := 0; i < models.ConnectedDeviceList.Size(); i++ {
+		pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(request.Name)
 
-	if isSuccess {
-		isSuccess, errorMessage := services.UnblockSyscallBlocked(uint(pidWaiting))
+		if isSuccess {
+			isSuccess, errorMessage := services.UnblockSyscallBlocked(uint(pidWaiting))
 
-		if !isSuccess {
-			slog.Error(errorMessage)
-			http.Error(writer, errorMessage, http.StatusInternalServerError)
-			return true
+			if !isSuccess {
+				slog.Error(errorMessage)
+				http.Error(writer, errorMessage, http.StatusInternalServerError)
+				return true
+			}
 		}
 	}
 	return false
