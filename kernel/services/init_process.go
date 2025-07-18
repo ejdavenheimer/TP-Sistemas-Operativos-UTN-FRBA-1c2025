@@ -70,12 +70,12 @@ func requestMemorySpace(pid uint, processSize int, pseudocodePath string) error 
 
 	body, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("Error al serializar MemoryRequest: %v", err)
+		return fmt.Errorf("error al serializar MemoryRequest: %v", err)
 	}
 
 	_, err = client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/cargarpcb", body)
 	if err != nil {
-		return fmt.Errorf("Error enviando request a Memoria: %v", err)
+		return fmt.Errorf("error enviando request a Memoria: %v", err)
 	}
 
 	return nil

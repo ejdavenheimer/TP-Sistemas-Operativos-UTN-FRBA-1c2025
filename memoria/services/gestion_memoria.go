@@ -72,10 +72,21 @@ func ReserveMemory(pid uint, size int, path string) error {
 	NewProcess(pid, size, pageCount, assignedFrames)
 
 	slog.Debug("PCB registrado", slog.Int("pid", int(pid)), slog.Int("pages", pageCount), slog.Int("size", size))
+	slog.Debug("FRAMES DISPONIBLES: %d", slog.Int("cantidad", CountFreeFrames()))
 	if _, exists := models.ProcessTable[pid]; !exists {
 		slog.Warn("Proceso no registrado en ProcessTable al finalizar ReserveMemory", "pid", pid)
 	}
 	return nil
+}
+
+func CountFreeFrames() int {
+	count := 0
+	for _, isFree := range models.FreeFrames {
+		if isFree {
+			count++
+		}
+	}
+	return count
 }
 
 // Crea los niveles necesarios en la estructura multinivel hasta insertar una entrada en el último nivel.

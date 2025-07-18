@@ -3,12 +3,13 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"net/http"
+
 	ioModels "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/services"
-	"log/slog"
-	"net/http"
 )
 
 func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
@@ -51,6 +52,7 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 		}
 
 		writer.WriteHeader(http.StatusOK)
+		services.NotifyToReady()
 	}
 }
 

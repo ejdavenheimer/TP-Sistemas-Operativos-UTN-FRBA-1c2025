@@ -2,17 +2,17 @@ package services
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"strconv"
+
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
-	"io"
-	"log/slog"
-	"net/http"
-	"strconv"
 )
 
 // este servicio le solicita al dispositivo que duerme por el tiempo que le pasemos.
@@ -31,12 +31,18 @@ func SleepDevice(pid uint, timeSleep int, device ioModel.Device) error {
 		device.Name, device.Ip, device.Port, pid, timeSleep))
 
 	response, err := client.DoRequest(device.Port, device.Ip, "POST", "io", body)
+	if err != nil {
+		return fmt.Errorf("error al enviar request: %w", err)
+	}
 	var deviceResponse ioModel.DeviceResponse
 
-	if response.StatusCode != 200 {
-		slog.Error(fmt.Sprintf("status code: %d", response.StatusCode))
-		panic(response.Status)
-		return errors.New("respuesta inválida")
+	//if response.StatusCode != 200 {
+	//	slog.Error(fmt.Sprintf("status code: %d", response.StatusCode))
+	//	panic(response.Status)
+	//	return errors.New("respuesta inválida")
+	//}
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("respuesta no OK: %s", response.Status)
 	}
 
 	responseBody, _ := io.ReadAll(response.Body)
@@ -265,7 +271,7 @@ func UnblockSyscallBlocked(pid uint) (bool, string) {
 		return found, errorMessage
 	}
 
-	slog.Warn("Proceso no encontrado en la cola de bloqueados", "pid", pid)
+	slog.Debug("Proceso no encontrado en la cola de bloqueados", "pid", pid)
 
 	// Buscar el proceso en la cola de bloqueados
 	pcb, index, found = models.QueueSuspBlocked.Find(func(pcb *models.PCB) bool {

@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 
 	cpuModels "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
@@ -269,6 +270,12 @@ func AddProcessToReady(pcb *models.PCB) {
 
 			if processToInterrupt == nil {
 				slog.Debug("No hay procesos ejecutándose para interrumpir")
+				return
+			}
+
+			// Validar que no sea el mismo proceso que acaba de llegar a READY
+			if processToInterrupt.PID == pcb.PID {
+				slog.Debug("El proceso a interrumpir es el mismo que se intenta encolar, no se interrumpe")
 				return
 			}
 			rafagaRestante := processToInterrupt.RafagaEstimada - processToInterrupt.RafagaReal
