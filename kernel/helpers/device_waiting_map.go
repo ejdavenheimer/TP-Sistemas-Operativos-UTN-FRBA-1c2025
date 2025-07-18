@@ -106,3 +106,50 @@ func GetAndRemoveOnePidForDevice(deviceName string) (int, bool) {
 
 	return pid, true
 }
+
+// HasMoreThanOnePidWaiting verifica si la cantidad total de PIDs esperando en todos los dispositivos
+// es mayor que uno.
+func HasMoreThanOnePidWaiting() bool {
+	pidMutex.RLock() // Bloquear para lectura concurrente
+	defer pidMutex.RUnlock()
+
+	totalPids := 0
+	for _, pids := range PidWaitingForDevice {
+		totalPids += len(pids)
+		// Optimización: si ya encontramos más de un PID, podemos salir temprano
+		if totalPids >= 1 {
+			return true
+		}
+	}
+
+	return false
+}
+
+// GetAndRemoveAnyWaitingPid obtiene el primer PID de CUALQUIER dispositivo que tenga PIDs esperando
+// y lo elimina de su respectiva lista. Devuelve el PID encontrado, el nombre del dispositivo al que pertenecía, y un booleano indicando si un PID fue encontrado y devuelto.
+func GetAndRemoveAnyWaitingPid() (int, string, bool) {
+	pidMutex.Lock() // Bloqueamos el mapa completo para esta operación de escritura/lectura
+	defer pidMutex.Unlock()
+
+	// Iteramos sobre el mapa de dispositivos esperando PIDs
+	for deviceName, pids := range PidWaitingForDevice {
+		if len(pids) > 0 {
+			// Hemos encontrado un dispositivo que tiene PIDs esperando.
+			// Procedemos a tomar el primer PID de este slice.
+			pid := pids[0]
+
+			// Ahora, eliminamos este PID del slice
+			if len(pids) == 1 {
+				// Si este era el último PID para este dispositivo, eliminamos la entrada del mapa
+				delete(PidWaitingForDevice, deviceName)
+			} else {
+				// Si quedan más PIDs, actualizamos el slice para excluir el primero
+				PidWaitingForDevice[deviceName] = pids[1:]
+			}
+			// Devolvemos el PID, el nombre del dispositivo y true
+			return pid, deviceName, true
+		}
+	}
+	// Si el bucle termina, significa que ningún dispositivo tiene PIDs esperando
+	return 0, "", false
+}

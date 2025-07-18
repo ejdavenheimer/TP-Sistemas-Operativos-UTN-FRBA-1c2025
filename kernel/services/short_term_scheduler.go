@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -96,6 +97,19 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 	case models.NeedFinish:
 		slog.Info(fmt.Sprintf("## (%d) - Terminando ejecución, pasando a EXIT", pcb.PID))
 		EndProcess(pcb.PID, "")
+		if size := helpers.HasMoreThanOnePidWaiting(); size {
+			pidWaiting, _, isSuccess := helpers.GetAndRemoveAnyWaitingPid()
+
+			if isSuccess {
+				isSuccess, errorMessage := UnblockSyscallBlocked(uint(pidWaiting))
+
+				if !isSuccess {
+					slog.Error(errorMessage)
+					panic(errorMessage)
+				}
+			}
+		}
+
 		//TransitionState(pcb, models.EstadoExit)
 		//models.QueueExit.Add(pcb)
 
@@ -111,7 +125,6 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 
 	case models.NeedExecuteSyscall:
 		syscallName := result.SyscallRequest.Type
-		slog.Info(fmt.Sprintf("## (%d) - Solicitó syscall: %s", result.SyscallRequest.Pid, syscallName))
 
 		if syscallName == "IO" {
 			go ExecuteIO(result)
@@ -120,6 +133,8 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 		if syscallName == "DUMP_MEMORY" {
 			go ExecuteDUMP(result)
 		}
+
+		slog.Info(fmt.Sprintf("## (%d) - Solicitó syscall: %s", result.SyscallRequest.Pid, syscallName))
 	}
 	// Liberar CPU
 	models.ConnectedCpuMap.MarkAsFree(CPUID)

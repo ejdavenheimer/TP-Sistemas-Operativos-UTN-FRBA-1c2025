@@ -79,6 +79,7 @@ func GetCpuMapHandlers() func(http.ResponseWriter, *http.Request) {
 
 func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
+		const InvalidPid uint = 10000000
 		var device ioModel.DeviceResponse
 		err := json.NewDecoder(request.Body).Decode(&device)
 
@@ -87,21 +88,26 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		isSuccess, pid := services.FinishDevice(device.Port)
+		//isSuccess, pid := services.FinishDevice(device.Port)
 
-		if !isSuccess {
-			slog.Error("Qué rompimos? :(")
-			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
+		//if !isSuccess {
+		//	slog.Error("Error al finalizar un dispositivo. Qué rompimos? :(")
+		//	http.Error(writer, "Error al finalizar un dispositivo. Qué rompimos? :(", http.StatusBadRequest)
+		//	return
+		//}
+
+		if device.Pid != InvalidPid {
+			http.Error(writer, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		pcb, _, isSuccess := services.FindPCBInAnyQueue(uint(pid))
+		//pcb, _, isSuccess := services.FindPCBInAnyQueue(uint(device.Pid))
 
-		if !isSuccess {
-			slog.Error(fmt.Sprintf("No se encontre el proceso <%d>", pid))
-			http.Error(writer, "o se encontre el proceso :(", http.StatusBadRequest)
-			return
-		}
+		//if !isSuccess {
+		//	slog.Error(fmt.Sprintf("No se encontre el proceso <%d>", device.Pid))
+		//	http.Error(writer, "No se encontre el proceso :(", http.StatusBadRequest)
+		//	return
+		//}
 
 		//var state models.Estado = models.EstadoReady
 		//
@@ -117,13 +123,13 @@ func FinishDeviceHandler() func(http.ResponseWriter, *http.Request) {
 			})
 		}
 
-		_, isSuccess, err = services.MoveProcessToState(pcb.PID, models.EstadoExit, pcb.EstadoActual == models.EstadoReady)
-
-		if !isSuccess || err != nil {
-			slog.Error("Qué rompimos? :(")
-			http.Error(writer, "Qué rompimos? :(", http.StatusBadRequest)
-			return
-		}
+		//_, isSuccess, err = services.MoveProcessToState(pcb.PID, models.EstadoExit, pcb.EstadoActual == models.EstadoReady)
+		//
+		//if !isSuccess || err != nil {
+		//	slog.Error("No se pudo mover el proceso a EXIT. Qué rompimos? :(")
+		//	http.Error(writer, "No se pudo mover el proceso a EXIT. Qué rompimos? :(", http.StatusBadRequest)
+		//	return
+		//}
 
 		pids, _ := helpers.GetPidsForDevice(device.Name)
 		if pids != nil && len(pids) > 0 {

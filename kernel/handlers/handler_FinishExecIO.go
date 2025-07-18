@@ -32,13 +32,14 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 		slog.Debug(fmt.Sprintf("Motivo de desalojo: %s", req.Reason))
 
 		//chequeo si hay un otro proceso esperando por el dispostivo
-		isSuccess, errorMessage := services.UnblockSyscallBlocked(uint(pid))
-
-		if !isSuccess {
-			slog.Error(errorMessage)
-			http.Error(writer, errorMessage, http.StatusBadRequest)
-			return
-		}
+		//isSuccess, errorMessage := services.UnblockSyscallBlocked(uint(pid))
+		//
+		//if !isSuccess {
+		//	slog.Error(errorMessage)
+		//	http.Error(writer, errorMessage, http.StatusBadRequest)
+		//	return
+		//}
+		//helpers.AddPidForDevice(req.Name, pid)
 
 		pids, _ := helpers.GetPidsForDevice(req.Name)
 		if pids != nil && len(pids) > 0 {
@@ -52,7 +53,7 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func ProcessNextWaitingDevice(request ioModels.DeviceResponse, writer http.ResponseWriter) bool { // <-- Cambiado a retornar bool
+func ProcessNextWaitingDevice(request ioModels.DeviceResponse, writer http.ResponseWriter) bool {
 	pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(request.Name)
 
 	if isSuccess {
