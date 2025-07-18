@@ -39,7 +39,7 @@ func main() {
 	config.InitConfig(ConfigPath, &models.IoConfig)
 	models.IoConfig.PortIo, _ = strconv.Atoi(ioPort)
 
-	logPath, err := log.BuildLogPath("io_%s", models.IoName)
+	logPath, err := log.BuildLogPath("io_%s_%s", models.IoName, ioPort)
 	if err != nil {
 		slog.Error("No se pudo construir el log path", "err", err)
 		return
