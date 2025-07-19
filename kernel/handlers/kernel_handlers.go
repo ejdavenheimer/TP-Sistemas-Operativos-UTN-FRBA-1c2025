@@ -25,7 +25,7 @@ func ConnectIoHandler() func(http.ResponseWriter, *http.Request) {
 
 		device.IsFree = true
 
-		slog.Debug(fmt.Sprintf("Dispositivo conectado: %v", device))
+		slog.Info(fmt.Sprintf("Dispositivo conectado: %v", device))
 
 		//Guarda el dispositivo en el map de dispositivos conectados
 		models.ConnectedDeviceList.Add(device)

@@ -50,7 +50,7 @@ func main() {
 	config.InitConfig(ConfigPath, &models.KernelConfig)
 	log.InitLogger(LogPath, models.KernelConfig.LogLevel)
 
-	slog.Debug(fmt.Sprintf("Port Kernel: %d", models.KernelConfig.PortKernel))
+	slog.Info(fmt.Sprintf("Port Kernel: %d", models.KernelConfig.PortKernel))
 
 	go services.MediumTermScheduler()
 	go services.StartShortTermScheduler()
