@@ -33,34 +33,37 @@ func longTermScheduler() {
 	for {
 		<-models.NotifyLongScheduler
 		slog.Debug("Planificador de Largo Plazo activo")
-		for {
-			//1. Finalizar procesos pendientes en EXIT
-			if models.QueueExit.Size() > 0 {
-				FinishProcess()
-				continue
-			}
 
-			// 2. Procesos suspendidos listos tienen prioridad
-			if models.QueueSuspReady.Size() > 0 {
-				NotifyToMediumScheduler()
-				continue
-			}
-
-			//3. Caso especial: si hay un proceso en NEW se lo admite directamente
-			if models.QueueNew.Size() == 1 {
-				pcb, _ := models.QueueNew.Get(0)
-				process := pcb
-				admitProcess(process, models.QueueNew)
-				continue
-			}
-
-			// 4. Planificación normal (algoritmo configurado)
-			if models.QueueNew.Size() > 1 {
-				runScheduler()
-				continue
-			}
-			break
+		//1. Finalizar procesos pendientes en EXIT
+		if models.QueueExit.Size() > 0 {
+			FinishProcess()
+			continue
 		}
+
+		// 2. Procesos suspendidos listos tienen prioridad
+		if models.QueueSuspReady.Size() > 0 {
+			NotifyToMediumScheduler()
+			continue
+		}
+
+		// 3. Caso especial: uno solo en NEW
+		if models.QueueNew.Size() == 1 {
+			pcb, _ := models.QueueNew.Get(0)
+			process := pcb
+			beforeSize := models.QueueNew.Size()
+			admitProcess(process, models.QueueNew)
+
+			// Si no se pudo admitir (sigue en NEW), salimos
+			if models.QueueNew.Size() == beforeSize {
+				continue
+			}
+		}
+
+		// 4. Planificación normal (algoritmo configurado)
+		if models.QueueNew.Size() > 1 {
+			runScheduler()
+		}
+
 	}
 }
 

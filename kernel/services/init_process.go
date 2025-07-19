@@ -53,9 +53,9 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 	TransitionState(pcb, models.EstadoNew)
 
 	models.QueueNew.Add(pcb)
-	StartLongTermScheduler()
-	slog.Info(fmt.Sprintf("## PID %d Se crea el proceso - Estado : NEW", pid))
 
+	slog.Info(fmt.Sprintf("## PID %d Se crea el proceso - Estado : NEW", pid))
+	StartLongTermScheduler()
 	return pcb, nil
 }
 
@@ -77,12 +77,12 @@ func requestMemorySpace(pid uint, processSize int) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("error enviando request a Memoria: %v", err)
 	}
-
+	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
 		return true, nil
 	}
 
-	if resp.StatusCode == http.StatusInsufficientStorage {
+	if resp.StatusCode == http.StatusNoContent {
 		return false, nil
 	}
 

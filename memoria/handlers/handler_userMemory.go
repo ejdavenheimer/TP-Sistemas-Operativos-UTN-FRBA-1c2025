@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"math"
 	"net/http"
@@ -55,10 +54,8 @@ func UserMemoryCapacityHandler(w http.ResponseWriter, r *http.Request) {
 	uMemoryLock.Unlock()
 
 	if freeFramesCount < pageCount {
-		err := fmt.Errorf("no hay suficientes frames libres para el proceso PID %d (necesita %d, disponibles %d)",
-			pid, pageCount, freeFramesCount)
-		slog.Error(err.Error())
-		http.Error(w, err.Error(), http.StatusInsufficientStorage)
+		slog.Debug("Memoria insuficiente", "PID", pid, "necesita", pageCount, "libres", freeFramesCount)
+		w.WriteHeader(http.StatusNoContent) // o 204: no hay contenido, pero no es error
 		return
 	}
 
