@@ -47,7 +47,7 @@ func main() {
 
 	log.InitLogger(logPath, models.IoConfig.LogLevel)
 
-	slog.Debug(fmt.Sprintf("Port IO: %d - IO: %s", models.IoConfig.PortIo, models.IoName))
+	slog.Info(fmt.Sprintf("Port IO: %d - IO: %s", models.IoConfig.PortIo, models.IoName))
 
 	services.ConnectToKernel(models.IoName, models.IoConfig)
 
