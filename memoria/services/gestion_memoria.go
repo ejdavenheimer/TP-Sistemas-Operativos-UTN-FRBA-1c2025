@@ -22,14 +22,9 @@ func ReserveMemory(pid uint, size int, path string) error {
 	//slog.Debug("Page count calculado", "pid", pid, "size", size, "pageCount", pageCount)
 
 	// Verifico que haya frames libres suficientes
-	memoryLock.Lock()
-	freeFramesCount := 0
-	for _, free := range models.FreeFrames {
-		if free {
-			freeFramesCount++
-		}
-	}
-	memoryLock.Unlock()
+	models.UMemoryLock.Lock()
+	freeFramesCount := CountFreeFrames()
+	models.UMemoryLock.Unlock()
 	if freeFramesCount < pageCount {
 		err := fmt.Errorf("no hay suficientes frames libres para el proceso PID %d", pid)
 		slog.Error(err.Error())
@@ -198,13 +193,12 @@ func NewProcess(pid uint, size int, pageCount int, assignedFrames []int) {
 }
 
 func releaseFrames(pid uint, frames []int) {
-	memoryLock.Lock()
-	defer memoryLock.Unlock()
+	models.UMemoryLock.Lock()
+	defer models.UMemoryLock.Unlock()
 
 	for _, f := range frames {
 		models.FreeFrames[f] = true
 	}
-
 	delete(models.PageTables, pid)
 	delete(models.InstructionsMap, pid)
 	delete(models.ProcessFramesTable, pid)
@@ -287,8 +281,8 @@ func getPageIndices(pageNumber int, levels int, entriesPerLevel int) []int {
 }
 
 func AllocateFrame() int {
-	memoryLock.Lock()
-	defer memoryLock.Unlock()
+	models.UMemoryLock.Lock()
+	defer models.UMemoryLock.Unlock()
 
 	pageSize := models.MemoryConfig.PageSize
 	for i, free := range models.FreeFrames {
