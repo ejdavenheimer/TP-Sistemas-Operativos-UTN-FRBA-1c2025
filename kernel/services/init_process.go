@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -59,26 +60,33 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 }
 
 // Envía una solicitud a Memoria para asignar espacio y cargar instrucciones
-func requestMemorySpace(pid uint, processSize int, pseudocodePath string) error {
+func requestMemorySpace(pid uint, processSize int) (bool, error) {
 	// Extraigo solo el nombre del archivo, por si viene una ruta
-	pseudocodeName := filepath.Base(pseudocodePath)
+	//pseudocodeName := filepath.Base(pseudocodePath)
 	request := models.MemoryRequest{
 		PID:  pid,
 		Size: processSize,
-		Path: pseudocodeName,
 	}
 
 	body, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("error al serializar MemoryRequest: %v", err)
+		return false, fmt.Errorf("error al serializar MemoryRequest: %v", err)
 	}
 
-	_, err = client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/cargarpcb", body)
+	resp, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/capacidadUserMemory", body)
 	if err != nil {
-		return fmt.Errorf("error enviando request a Memoria: %v", err)
+		return false, fmt.Errorf("error enviando request a Memoria: %v", err)
 	}
 
-	return nil
+	if resp.StatusCode == http.StatusOK {
+		return true, nil
+	}
+
+	if resp.StatusCode == http.StatusInsufficientStorage {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("respuesta inesperada de Memoria: código %d", resp.StatusCode)
 }
 
 func generatePID() uint {

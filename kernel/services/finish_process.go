@@ -66,5 +66,6 @@ func FinishProcess() {
 
 	//Intentar inicializar un proceso de SUSP READY sino los de NEW
 	//Ya lo hace el plani de mediano plazo
+	StartLongTermScheduler()
 
 }

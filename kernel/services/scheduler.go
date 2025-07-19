@@ -1,11 +1,13 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 )
 
 // Estado del planificador
@@ -63,11 +65,35 @@ func longTermScheduler() {
 }
 
 func admitProcess(process *models.PCB, fromQueue *list.ArrayList[*models.PCB]) {
-	err := requestMemorySpace(process.PID, process.Size, process.PseudocodePath)
+	success, err := requestMemorySpace(process.PID, process.Size)
 	if err != nil {
-		slog.Warn("Memoria insuficiente para proceso", "PID", process.PID)
+		slog.Error("Error al contactar Memoria", "PID", process.PID, "error", err)
 		return
 	}
+	if !success {
+		slog.Debug("Memoria insuficiente para proceso, se mantiene en NEW", "PID", process.PID)
+		// No se remueve de la cola, se mantiene en NEW para reintentar luego
+		return
+	}
+	// Hay espacio → se carga efectivamente el PCB en Memoria
+	request := models.MemoryRequest{
+		PID:  process.PID,
+		Size: process.Size,
+		Path: process.PseudocodePath,
+	}
+
+	body, err := json.Marshal(request)
+	if err != nil {
+		slog.Error("Error al serializar MemoryRequest", "error", err)
+		return
+	}
+
+	_, err = client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/cargarpcb", body)
+	if err != nil {
+		slog.Error("Error enviando request a Memoria", "error", err)
+		return
+	}
+
 	index := findProcessIndexByPID(fromQueue, process.PID)
 	if index != -1 {
 		fromQueue.Remove(index)
