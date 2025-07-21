@@ -87,7 +87,9 @@ func PutProcessInSwap(pid uint) error {
 		totalSize += int64(n)
 
 		// Marcar el frame como libre en FreeFrames
+		models.UMemoryLock.Lock()
 		models.FreeFrames[frameIndex] = true
+		models.UMemoryLock.Unlock()
 	}
 
 	// Registrar en la tabla de SWAP dónde quedaron los datos de este proceso
@@ -98,7 +100,10 @@ func PutProcessInSwap(pid uint) error {
 	//Incremento la métrica de swap realizado
 	IncrementMetric(pid, "swap_out")
 
-	// Eliminar la entrada de ProcessFramesTable, ya que no ocupa frames en memoria
+	// liberar frames en FreeFrames
+	releaseProcessFrames(models.PageTables[pid], pid)
+	// eliminar la tabla de páginas para que se pueda recrear en swap-in
+	delete(models.PageTables, pid)
 	delete(models.ProcessFramesTable, pid)
 
 	slog.Debug(fmt.Sprintf("Proceso PID %d movido a swap. Offset: %d, Tamaño: %d", pid, offset, totalSize))
@@ -146,7 +151,7 @@ func RemoveProcessInSwap(pid uint) error {
 	// Calcular cuántos frames necesita el proceso para volver a cargarse en memoria
 	frameSize := int64(models.MemoryConfig.PageSize)
 	framesNeeded := int(swapEntry.Size / frameSize)
-
+	models.UMemoryLock.Lock()
 	// Verificar que haya suficientes frames libres en memoria
 	freeFrames := []int{}
 	for idx, free := range models.FreeFrames {
@@ -157,6 +162,7 @@ func RemoveProcessInSwap(pid uint) error {
 			}
 		}
 	}
+	models.UMemoryLock.Unlock()
 	if len(freeFrames) < framesNeeded {
 		return fmt.Errorf("no hay suficientes frames libres para des-suspender el proceso PID %d", pid)
 	}
@@ -185,6 +191,8 @@ func RemoveProcessInSwap(pid uint) error {
 	}
 
 	// Escribir el contenido del proceso en UserMemory utilizando los frames libres encontrados
+	models.UMemoryLock.Lock()
+
 	for i, frameIdx := range freeFrames {
 		start := frameIdx * models.MemoryConfig.PageSize
 		end := start + models.MemoryConfig.PageSize
@@ -193,11 +201,24 @@ func RemoveProcessInSwap(pid uint) error {
 		// Marcar el frame como ocupado en FreeFrames
 		models.FreeFrames[frameIdx] = false
 	}
-
+	models.UMemoryLock.Unlock()
 	// Guardar los frames asignados al proceso
 	models.ProcessFramesTable[pid] = &models.ProcessFrames{
 		PID:    pid,
 		Frames: freeFrames,
+	}
+	err = initializePageTables(pid)
+	if err != nil {
+		slog.Error("Fallo la creación de la tabla de páginas tras swap-in", "pid", pid, "error", err)
+		return err
+	}
+
+	// Mapear páginas a los frames asignados
+	for pageNumber, frame := range freeFrames {
+		err := MapPageToFrame(pid, pageNumber, frame)
+		if err != nil {
+			slog.Error("Error al mapear página tras swap-in", "pid", pid, "page", pageNumber, "frame", frame, "err", err)
+		}
 	}
 
 	// Eliminar el proceso de la tabla de procesos en swap
@@ -205,6 +226,7 @@ func RemoveProcessInSwap(pid uint) error {
 	IncrementMetric(pid, "swap_in")
 	slog.Debug(fmt.Sprintf("Proceso PID %d removido de swap y cargado en UserMemory", pid))
 	slog.Debug(fmt.Sprintf("Frames asignados al proceso PID %d: %v", pid, freeFrames))
+	slog.Debug(fmt.Sprintf("Frames ProcessFramesTable: %v", models.ProcessFramesTable[pid]))
 	slog.Debug("Frames libres después de swap-in", "cantidad", contarFramesLibres())
 	slog.Debug("Tamaño del archivo de swap luego del swap-in", "bytes", obtenerTamanioSwap())
 

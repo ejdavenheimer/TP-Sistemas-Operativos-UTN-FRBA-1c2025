@@ -1,5 +1,9 @@
 package models
 
+import (
+	"sync"
+)
+
 type Config struct {
 	PortMemory     int    `json:"port_memory"`
 	IpMemory       string `json:"ip_memory"`
@@ -142,3 +146,5 @@ type WriteRequest struct {
 	PhysicalAddress int    `json:"physical_address"`
 	Data            []byte `json:"data"`
 }
+
+var UMemoryLock sync.Mutex
