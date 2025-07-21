@@ -23,7 +23,7 @@ func ConnectCpuHandler() func(http.ResponseWriter, *http.Request) {
 
 		cpuConnected.IsFree = true
 
-		slog.Debug(fmt.Sprintf("CPU conectada: %v", cpuConnected))
+		slog.Info(fmt.Sprintf("CPU conectada: %v", cpuConnected))
 
 		//Guarda el dispositivo en el map de dispositivos conectados
 		key := strconv.Itoa(cpuConnected.Id)
