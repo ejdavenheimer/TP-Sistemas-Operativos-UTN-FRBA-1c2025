@@ -33,11 +33,11 @@ func ExecuteIO(result models.PCBExecuteRequest) {
 	deviceRequestedAux, indexAux, exists := connectedDeviceListAux.Find(func(d ioModel.Device) bool {
 		return d.IsFree
 	})
+	helpers.AddPidForDevice(deviceRequested.Name, int(result.SyscallRequest.Pid))
 
 	// En caso de que no encuentre ningún dispositivo libre, se bloquea el proceso
 	if index < 0 || !exists {
 		slog.Debug("El dispositivo se encuentra ocupado...")
-		helpers.AddPidForDevice(deviceRequested.Name, int(result.SyscallRequest.Pid))
 		BlockedProcess(result.SyscallRequest.Pid, fmt.Sprintf("El dispositivo %s no se encuentra disponible", result.SyscallRequest.Values[0]))
 		//server.SendJsonResponse(writer, map[string]interface{}{
 		//	"action": "block",

@@ -18,7 +18,11 @@ Levantar la VM, copiar la IP en Putty. En caso que no muestra la ip ejecutar
 Clonar el repo, se debe usar el Personal Access Token
 > git clone https://github.com/sisoputnfrba/tp-2025-1c-Los-magiOS.git
 
-Una vez que tenemos el tp clonado, se debe modificar las ips de los archivos de configs.
+Una vez que tenemos el tp clonado, hacer un ls y chequear si existe la carpeta de scripts. 
+Si no existen los scripts de pruebas, se ejecutar el siguiente comando: 
+> ./create_scripts.sh
+
+Luego se debe modificar las ips de los archivos de configs.
 
 Para modificar los archivos configuración, posicionarse en el tp
 
@@ -29,18 +33,18 @@ Para modificar los archivos configuración, posicionarse en el tp
 Para chequear si se modificaron los archivos (posicionarse en el módulo que corresponda)
 > cd kernel && cat ./configs/kernel.json
 
-Si no existen los scripts de pruebas, se ejecutar el siguiente comando: 
-> ./create_scripts.sh
-
 Levantar los módulos y rezar a superman o en el que crean! 
 
 > make build 
+
+Si falta alguno de los módulos hacer:
+> make clean
+> make build
+
 > ./bin/memoria ./memoria/configs/memoria.json
 > ./bin/kernel PLANI_LYM_IO 256 ./kernel/configs/kernel.json
 > ./bin/cpu 1 8004 ./cpu/configs/cpu.json
 > ./bin/io disco 8005
-
-> make clean
 ```
 
 ### Guía Rápida de Vim

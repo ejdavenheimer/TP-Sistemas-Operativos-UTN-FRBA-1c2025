@@ -29,6 +29,7 @@ type DeviceResponse struct {
 	Name   string
 	Reason string
 	Port   int
+	Ip     string
 }
 
 var IoName string

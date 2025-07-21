@@ -57,10 +57,13 @@ func InitMemory(configPath string, logPath string) {
 
 	// Inicializar lista de frames libres
 	totalFrames := models.MemoryConfig.MemorySize / models.MemoryConfig.PageSize
+	models.UMemoryLock.Lock()
 	models.FreeFrames = make([]bool, totalFrames)
 	for i := 0; i < totalFrames; i++ {
 		models.FreeFrames[i] = true // Todos libres al principio
 	}
+	models.UMemoryLock.Unlock()
+	slog.Debug(fmt.Sprintf("FRAMES DISPONIBLES INICIO: %v", models.FreeFrames))
 
 	CreateDirectory(models.MemoryConfig.DumpPath)
 	slog.Debug(fmt.Sprintf("Swap: %s", models.MemoryConfig.SwapFilePath))

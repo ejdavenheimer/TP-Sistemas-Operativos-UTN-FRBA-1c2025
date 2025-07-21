@@ -77,12 +77,15 @@ func releaseProcessFrames(pageTableLevel *models.PageTableLevel, pid uint) int {
 
 	// Si es una hoja (último nivel), liberar el frame
 	if pageTableLevel.IsLeaf && pageTableLevel.Entry != nil {
+		models.UMemoryLock.Lock()
+		defer models.UMemoryLock.Unlock()
 		frame := pageTableLevel.Entry.Frame
 		if frame >= 0 && frame < len(models.FreeFrames) {
 			models.FreeFrames[frame] = true
 			framesLiberados++
 			slog.Debug("Frame liberado", "pid", pid, "frame", frame)
 		}
+		slog.Debug(fmt.Sprintf("FRAMES DISPONIBLES FIN PROCESO: %v", models.FreeFrames))
 		return framesLiberados
 	}
 
@@ -92,6 +95,5 @@ func releaseProcessFrames(pageTableLevel *models.PageTableLevel, pid uint) int {
 			framesLiberados += releaseProcessFrames(subTable, pid)
 		}
 	}
-
 	return framesLiberados
 }

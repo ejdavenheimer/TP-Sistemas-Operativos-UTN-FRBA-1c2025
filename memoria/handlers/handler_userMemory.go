@@ -2,16 +2,15 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"math"
 	"net/http"
-	"sync"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/services"
 )
 
-var uMemoryLock sync.Mutex
+//var uMemoryLock sync.Mutex
 
 // Estructura para recibir la request del kernel
 type UserMemoryRequest struct {
@@ -45,20 +44,13 @@ func UserMemoryCapacityHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Debug("Page count calculado", "pid", pid, "size", size, "pageCount", pageCount)
 
 	// Verifico que haya frames libres suficientes
-	uMemoryLock.Lock()
-	freeFramesCount := 0
-	for _, free := range models.FreeFrames {
-		if free {
-			freeFramesCount++
-		}
-	}
-	uMemoryLock.Unlock()
+	models.UMemoryLock.Lock()
+	freeFramesCount := services.CountFreeFrames()
+	models.UMemoryLock.Unlock()
 
 	if freeFramesCount < pageCount {
-		err := fmt.Errorf("no hay suficientes frames libres para el proceso PID %d (necesita %d, disponibles %d)",
-			pid, pageCount, freeFramesCount)
-		slog.Error(err.Error())
-		http.Error(w, err.Error(), http.StatusInsufficientStorage)
+		slog.Debug("Memoria insuficiente", "PID", pid, "necesita", pageCount, "libres", freeFramesCount)
+		w.WriteHeader(http.StatusNoContent) // o 204: no hay contenido, pero no es error
 		return
 	}
 

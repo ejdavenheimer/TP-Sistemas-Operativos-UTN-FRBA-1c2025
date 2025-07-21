@@ -48,7 +48,7 @@ func main() {
 
 	log.InitLogger(logPath, models.CpuConfig.LogLevel)
 
-	slog.Debug(fmt.Sprintf("Port cpu: %d", models.CpuConfig.PortCpu))
+	slog.Info(fmt.Sprintf("Port cpu: %d", models.CpuConfig.PortCpu))
 
 	//CPU debe avisar que está disponible al Kernel, así se arma una lista para ver cuál usará
 	cpuId, err := strconv.Atoi(idCpu) //Pasa a entero

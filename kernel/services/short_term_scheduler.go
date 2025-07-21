@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
+
 	cpuModels "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 )
@@ -96,6 +98,19 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 	case models.NeedFinish:
 		slog.Info(fmt.Sprintf("## (%d) - Terminando ejecución, pasando a EXIT", pcb.PID))
 		EndProcess(pcb.PID, "")
+		if size := helpers.HasMoreThanOnePidWaiting(); size {
+			pidWaiting, _, isSuccess := helpers.GetAndRemoveAnyWaitingPid()
+
+			if isSuccess {
+				isSuccess, errorMessage := UnblockSyscallBlocked(uint(pidWaiting))
+
+				if !isSuccess {
+					slog.Error(errorMessage)
+					panic(errorMessage)
+				}
+			}
+		}
+
 		//TransitionState(pcb, models.EstadoExit)
 		//models.QueueExit.Add(pcb)
 
@@ -111,7 +126,6 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 
 	case models.NeedExecuteSyscall:
 		syscallName := result.SyscallRequest.Type
-		slog.Info(fmt.Sprintf("## %d - Solicitó syscall: %s", result.SyscallRequest.Pid, syscallName))
 
 		if syscallName == "IO" {
 			go ExecuteIO(result)
@@ -120,17 +134,19 @@ func runProcessInCPU(pcb *models.PCB, cpu cpuModels.CpuN, CPUID string) {
 		if syscallName == "DUMP_MEMORY" {
 			go ExecuteDUMP(result)
 		}
+
+		slog.Info(fmt.Sprintf("## (%d) - Solicitó syscall: %s", result.SyscallRequest.Pid, syscallName))
 	}
 	// Liberar CPU
 	models.ConnectedCpuMap.MarkAsFree(CPUID)
 
-	select {
-	case models.NotifyReady <- 1:
-		// Se pudo enviar la notificación
-	default:
-		// Ya hay una notificación pendiente, no hacemos nada
-	}
-
+	//select {
+	//case models.NotifyReady <- 1:
+	//	// Se pudo enviar la notificación
+	//default:
+	//	// Ya hay una notificación pendiente, no hacemos nada
+	//}
+	NotifyToReady()
 }
 
 func ExecuteProcess(pcb *models.PCB, cpu cpuModels.CpuN) models.PCBExecuteRequest {
@@ -256,6 +272,12 @@ func AddProcessToReady(pcb *models.PCB) {
 				slog.Debug("No hay procesos ejecutándose para interrumpir")
 				return
 			}
+
+			// Validar que no sea el mismo proceso que acaba de llegar a READY
+			if processToInterrupt.PID == pcb.PID {
+				slog.Debug("El proceso a interrumpir es el mismo que se intenta encolar, no se interrumpe")
+				return
+			}
 			rafagaRestante := processToInterrupt.RafagaEstimada - processToInterrupt.RafagaReal
 
 			if pcb.RafagaEstimada < rafagaRestante {
@@ -267,10 +289,12 @@ func AddProcessToReady(pcb *models.PCB) {
 		}
 	}
 
+	NotifyToReady()
+}
+
+func NotifyToReady() {
 	select {
 	case models.NotifyReady <- 1:
-		// Se pudo enviar la notificación
 	default:
-		// Ya hay una notificación pendiente, no hacemos nada
 	}
 }

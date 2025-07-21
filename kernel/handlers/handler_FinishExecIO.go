@@ -3,11 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"log/slog"
 	"net/http"
 
 	ioModels "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/services"
 )
@@ -34,54 +34,41 @@ func FinishExecIOHandler() func(http.ResponseWriter, *http.Request) {
 		slog.Debug(fmt.Sprintf("Motivo de desalojo: %s", req.Reason))
 
 		//chequeo si hay un otro proceso esperando por el dispostivo
-		go ProcessNextWaitingDevice(req, writer)
+		//isSuccess, errorMessage := services.UnblockSyscallBlocked(uint(pid))
+		//
+		//if !isSuccess {
+		//	slog.Error(errorMessage)
+		//	http.Error(writer, errorMessage, http.StatusBadRequest)
+		//	return
+		//}
+		//helpers.AddPidForDevice(req.Name, pid)
 
-		isSuccess, errorMessage := services.UnblockSyscallBlocked(uint(pid))
-
-		if !isSuccess {
-			slog.Error(errorMessage)
-			http.Error(writer, errorMessage, http.StatusBadRequest)
-			return
+		pids, _ := helpers.GetPidsForDevice(req.Name)
+		if pids != nil && len(pids) > 0 {
+			responseSent := ProcessNextWaitingDevice(req, writer)
+			if responseSent { // Si ProcessNextWaitingDevice ya envió una respuesta, salimos
+				return
+			}
 		}
 
 		writer.WriteHeader(http.StatusOK)
+		services.NotifyToReady()
 	}
 }
 
-func ProcessNextWaitingDevice(request ioModels.DeviceResponse, writer http.ResponseWriter) {
-	pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(request.Name)
+func ProcessNextWaitingDevice(request ioModels.DeviceResponse, writer http.ResponseWriter) bool {
+	for i := 0; i < models.ConnectedDeviceList.Size(); i++ {
+		pidWaiting, isSuccess := helpers.GetAndRemoveOnePidForDevice(request.Name)
 
-	if isSuccess {
-		processNextWaiting(uint(pidWaiting), request, writer)
+		if isSuccess {
+			isSuccess, errorMessage := services.UnblockSyscallBlocked(uint(pidWaiting))
+
+			if !isSuccess {
+				slog.Error(errorMessage)
+				http.Error(writer, errorMessage, http.StatusInternalServerError)
+				return true
+			}
+		}
 	}
-}
-
-func processNextWaiting(pidWaiting uint, request ioModels.DeviceResponse, writer http.ResponseWriter) {
-	slog.Debug(fmt.Sprintf("Se encontró un proceso esperando por el dispositivo [%s]", request.Name))
-
-	pcb, _, isSuccess := services.FindPCBInAnyQueue(uint(pidWaiting))
-
-	if !isSuccess {
-		slog.Error(fmt.Sprintf("No se encontró el proceso <%d>. Qué rompimos? :(", pidWaiting))
-		http.Error(writer, fmt.Sprintf("No se encontró el proceso <%d>. Qué rompimos? :(", pidWaiting), http.StatusBadRequest)
-		return
-	}
-
-	var state models.Estado = models.EstadoExit
-
-	if pcb.EstadoActual == models.EstadoBlocked {
-		state = models.EstadoReady
-	}
-
-	if pcb.EstadoActual == models.EstadoReady {
-		state = models.EstadoSuspendidoReady
-	}
-
-	_, isSuccess, err := services.MoveProcessToState(pcb.PID, state, false)
-
-	if !isSuccess || err != nil {
-		slog.Error(fmt.Sprintf("Se produjo un error al mover el proceso <%d> a la cola <%s>. Qué rompimos? :(", pcb.PID, state))
-		http.Error(writer, fmt.Sprintf("Se produjo un error al mover el proceso <%d> a la cola <%s>. Qué rompimos? :(", pcb.PID, state), http.StatusBadRequest)
-		return
-	}
+	return false
 }
