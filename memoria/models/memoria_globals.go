@@ -4,6 +4,16 @@ import (
 	"sync"
 )
 
+// --- Locks Centralizados ---
+// ProcessDataLock protege todas las estructuras de metadatos de los procesos.
+// Usamos un RWMutex para permitir múltiples lectores concurrentes, mejorando el rendimiento.
+var ProcessDataLock sync.RWMutex
+
+// UMemoryLock protege el acceso directo al slice de UserMemory y al slice de FreeFrames.
+var UMemoryLock sync.RWMutex
+
+// --- Fin de Locks ---
+
 type Config struct {
 	PortMemory     int    `json:"port_memory"`
 	IpMemory       string `json:"ip_memory"`
@@ -107,7 +117,7 @@ type FramesInUseResponse struct {
 	Frames []FrameUsage `json:"frames"`
 }
 
-// Espacio contiguo en memoria principal (usuario)
+// Espacio contiguo de memoria principal (usuario)
 var UserMemory []byte
 
 // Tabla jerarquica multinivel
@@ -119,8 +129,6 @@ type PageEntry struct {
 }
 
 // PageTableLevel representa un nodo de la tabla de páginas multinivel.
-// Puede ser un nodo interno con referecia a niveles inferiores o el nodo
-// que contiene una entrada (Entry) con la información del marco físico.
 type PageTableLevel struct {
 	IsLeaf    bool                    // cuando es true es el nodo que contiene la entrada
 	SubTables map[int]*PageTableLevel // Si no es el último nodo va a apuntar a un nodo inferior
@@ -136,9 +144,9 @@ type FrameInfo struct {
 	Frame int  `json:"frame"`
 }
 
-type GroupedFrameInfo struct { // Renombrada para evitar conflicto con models.FrameInfo original
+type GroupedFrameInfo struct {
 	PID    uint  `json:"pid"`
-	Frames []int `json:"frames"` // Un slice de frames
+	Frames []int `json:"frames"`
 }
 
 type WriteRequest struct {
@@ -146,5 +154,3 @@ type WriteRequest struct {
 	PhysicalAddress int    `json:"physical_address"`
 	Data            []byte `json:"data"`
 }
-
-var UMemoryLock sync.Mutex
