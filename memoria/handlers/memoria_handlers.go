@@ -232,7 +232,7 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 		dataBytes = dataBytes[:idx]
 	}
 
-	slog.Info(fmt.Sprintf("## PID: <%d> - <Escritura> - Dir. Física: <%d> - Dato: <%s>", request.Pid, request.PhysicalAddress, string(dataBytes)))
+	slog.Info(fmt.Sprintf("## PID: <%d> - <Escritura> - Dir. Física: <%d> - Tamaño: <%d> - Dato: <%s>", request.Pid, request.PhysicalAddress, len(dataBytes), string(dataBytes)))
 	w.WriteHeader(http.StatusOK) //RESPUESTA
 }
 

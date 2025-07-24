@@ -26,6 +26,10 @@ func GeInstruction(pid uint, pc uint) (string, bool, error) {
 	}
 	instruction := instructions[pc]
 	isLast := pc == uint(len(instructions))-1
+
+	// Incrementar métrica de instrucciones solicitadas
+	IncrementMetric(pid, "fetch")
+
 	return instruction, isLast, nil
 }
 
