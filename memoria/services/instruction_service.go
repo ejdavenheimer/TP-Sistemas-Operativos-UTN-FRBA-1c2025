@@ -143,8 +143,15 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 
 	data, _ := readFromMemory(physicalAddress, size)
 
-	UpdatePageBit(pid, physicalAddress, "use")
-	IncrementMetric(pid, "reads")
+	// Calcular páginas accedidas
+	pageSize := models.MemoryConfig.PageSize
+	startPage := physicalAddress / pageSize
+	endPage := (physicalAddress + size - 1) / pageSize
+	for page := startPage; page <= endPage; page++ {
+		IncrementMetric(pid, "reads")
+		UpdatePageBit(pid, page*pageSize, "use")
+	}
+
 	return data, nil
 }
 
@@ -181,9 +188,16 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 	// Escribir en memoria física
 	copy(models.UserMemory[physicalAddress:physicalAddress+len(data)], data)
 	//copy(models.UserMemory[physicalAddress:], data)
-	UpdatePageBit(pid, physicalAddress, "use")
-	UpdatePageBit(pid, physicalAddress, "modified")
-	IncrementMetric(pid, "writes")
+
+	// Calcular páginas accedidas
+	pageSize := models.MemoryConfig.PageSize
+	startPage := physicalAddress / pageSize
+	endPage := (physicalAddress + len(data) - 1) / pageSize
+	for page := startPage; page <= endPage; page++ {
+		IncrementMetric(pid, "writes")
+		UpdatePageBit(pid, page*pageSize, "use")
+		UpdatePageBit(pid, page*pageSize, "modified")
+	}
 
 	slog.Debug(fmt.Sprintf("WriteToMemory - PID: %d - Dir: %d - Bytes: %d", pid, physicalAddress, len(data)))
 	return nil
