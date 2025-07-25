@@ -23,7 +23,8 @@ func ConnectIoHandler() func(http.ResponseWriter, *http.Request) {
 		models.ConnectedDeviceManager.Add(&device)
 		slog.Info("Dispositivo de I/O conectado", "nombre", device.Name, "puerto", device.Port)
 
-		// Damos una pequeña pausa para que el servidor del I/O termine de levantarse.
+		// CORRECCIÓN: Damos una pequeña pausa para que el servidor del I/O termine de levantarse.
+		// Esto previene la condición de carrera al conectar un nuevo dispositivo.
 		time.Sleep(100 * time.Millisecond)
 
 		// Ahora sí, intentamos despachar un proceso que pudiera estar esperando.
@@ -49,7 +50,7 @@ func FinishIoHandler() func(http.ResponseWriter, *http.Request) {
 			slog.Warn("Se recibió fin de I/O de un dispositivo no registrado.", "puerto", response.Port)
 		}
 
-		// Usamos la función de desbloqueo inteligente.
+		// CORRECCIÓN: Usamos la nueva función de desbloqueo inteligente UnblockProcessAfterIO.
 		services.UnblockProcessAfterIO(response.Pid)
 
 		// Intentamos despachar al siguiente proceso en la cola de espera.
