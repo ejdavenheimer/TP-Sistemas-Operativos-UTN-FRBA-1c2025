@@ -104,6 +104,41 @@ func (dm *DeviceManager) MarkAsFreeByPort(port int) (*ioModels.Device, bool) {
 	return nil, false
 }
 
+// **NUEVA FUNCIÓN**
+// GetPidByPort devuelve el PID del proceso que se está ejecutando en un dispositivo específico.
+func (dm *DeviceManager) GetPidByPort(port int) uint {
+	dm.mx.Lock()
+	defer dm.mx.Unlock()
+	for _, deviceList := range dm.devices {
+		for _, device := range deviceList {
+			if device.Port == port {
+				return device.PID
+			}
+		}
+	}
+	return 0 // Retorna 0 si no se encuentra o no hay proceso asignado
+}
+
+// **NUEVA FUNCIÓN**
+// RemoveByPort elimina un dispositivo de la lista de conectados, identificado por su puerto.
+func (dm *DeviceManager) RemoveByPort(port int) {
+	dm.mx.Lock()
+	defer dm.mx.Unlock()
+	for name, deviceList := range dm.devices {
+		newList := []*ioModels.Device{}
+		for _, device := range deviceList {
+			if device.Port != port {
+				newList = append(newList, device)
+			}
+		}
+		if len(newList) == 0 {
+			delete(dm.devices, name)
+		} else {
+			dm.devices[name] = newList
+		}
+	}
+}
+
 // --- Gestor de Procesos en Espera de I/O ---
 
 type WaitingProcessManager struct {
