@@ -2,13 +2,11 @@ package services
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
@@ -18,280 +16,221 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 )
 
-func GetInstruction(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionsResponse {
-	//Envia la request de conexion a Kernel
-	query := fmt.Sprintf("memoria/instrucciones?pid=%d&pathName=%s", request.Pid, request.PathName)
+// --- Funciones de Ciclo de Instrucción ---
+
+func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionResponse {
+	query := fmt.Sprintf("memoria/instruccion?pid=%d&pc=%d", request.Pid, request.PC)
+	slog.Info(fmt.Sprintf("## PID: %d - FETCH - %d", request.Pid, request.PC))
 	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", query, nil)
 
-	if err != nil {
-		slog.Error(fmt.Sprintf("error: %v", err))
-		return memoriaModel.InstructionsResponse{}
+	var instructionResponse memoriaModel.InstructionResponse
+	if err != nil || response.StatusCode != http.StatusOK {
+		slog.Error("Error en Fetch al comunicarse con Memoria", "error", err)
+		return instructionResponse
 	}
-
-	responseBody, _ := io.ReadAll(response.Body)
-	slog.Debug(fmt.Sprintf("Response: %s", string(responseBody)))
-
-	var instruction memoriaModel.InstructionsResponse
-	err = json.Unmarshal(responseBody, &instruction)
-	if err != nil {
-		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
-		return memoriaModel.InstructionsResponse{}
-	}
-
-	slog.Debug(fmt.Sprintf("Instrucción recibida: %v", instruction.Instruction))
-
-	return instruction
-}
-
-func ExecuteSyscall(syscallRequest kernelModel.SyscallRequest, cpuConfig *models.Config) string {
-	//slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", syscallRequest.Pid, syscallRequest.Values[0]))
-	//Crea y codifica la request de conexion a Kernel
-	body, err := json.Marshal(syscallRequest)
-
-	if err != nil {
-		slog.Error(fmt.Sprintf("error: %v", err))
-		return "error"
-	}
-
-	//Envia la request de conexion a Kernel
-	response, err := client.DoRequest(cpuConfig.PortKernel, cpuConfig.IpKernel, "POST", "kernel/syscall", body)
-
-	if err != nil {
-		slog.Error(fmt.Sprintf("error: %v", err))
-		return "error"
-	}
-
 	defer response.Body.Close()
+
 	responseBody, _ := io.ReadAll(response.Body)
-
-	var kernelResp struct {
-		Action string `json:"action"` // e.g., "continue", "block", "exit"
-	}
-
-	err = json.Unmarshal(responseBody, &kernelResp)
-	if err != nil {
-		slog.Error(fmt.Sprintf("error parseando respuesta del kernel: %v", err))
-		return "error"
-	}
-
-	return kernelResp.Action
+	json.Unmarshal(responseBody, &instructionResponse)
+	slog.Debug(fmt.Sprintf("Instrucción recibida: %s", instructionResponse.Instruction))
+	return instructionResponse
 }
+
+func DecodeAndExecute(pid uint, instruction string, cpuConfig *models.Config, isFinished *bool, isBlocked *bool, isSyscall *bool, syscallRequest *kernelModel.SyscallRequest) {
+	parts := strings.Split(instruction, " ")
+	instructionType := parts[0]
+
+	executeReq := models.ExecuteInstructionRequest{
+		Pid:    pid,
+		Values: parts,
+	}
+
+	switch instructionType {
+	case "NOOP":
+		ExecuteNoop(executeReq)
+	case "WRITE":
+		ExecuteWrite(executeReq)
+	case "READ":
+		ExecuteRead(executeReq)
+	case "GOTO":
+		ExecuteGoto(executeReq)
+	case "INIT_PROC":
+		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s %s %s", pid, parts[0], parts[1], parts[2]))
+		syncSyscallReq := kernelModel.SyscallRequest{
+			Pid:    pid,
+			Type:   "INIT_PROC",
+			Values: parts[1:],
+		}
+		body, _ := json.Marshal(syncSyscallReq)
+		_, err := client.DoRequest(cpuConfig.PortKernel, cpuConfig.IpKernel, "POST", "kernel/syscall/init_proc", body)
+		if err != nil {
+			slog.Error("Fallo al ejecutar syscall INIT_PROC", "error", err)
+		}
+		increase_PC()
+
+	case "IO", "DUMP_MEMORY":
+		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", pid, instruction))
+		syscallRequest.Pid = pid
+		syscallRequest.Type = instructionType
+		syscallRequest.Values = parts[1:]
+		*isBlocked = true
+		*isSyscall = true
+		increase_PC()
+
+	case "EXIT":
+		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", pid, instruction))
+		*isFinished = true
+
+	default:
+		slog.Error(fmt.Sprintf("Instrucción desconocida: %s", instructionType))
+		increase_PC()
+	}
+}
+
+// --- Implementación de Instrucciones ---
 
 func ExecuteNoop(request models.ExecuteInstructionRequest) {
-	//log obligatorio
 	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", request.Pid, request.Values[0]))
-	slog.Debug(fmt.Sprintf("[%d] Instrucción %s", request.Pid, request.Values[0]))
-	slog.Debug(fmt.Sprintf("Valor inicial de PC: %d", models.CpuRegisters.PC))
-
 	increase_PC()
 }
 
 func ExecuteWrite(request models.ExecuteInstructionRequest) {
 	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s %s", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
-	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
-	//CONVERSION DIR LOG A FISICA
 	logicalAddress, err := strconv.Atoi(request.Values[1])
 	if err != nil {
-		slog.Error(fmt.Sprintf("Dirección lógica inválida, error: %v", err))
+		slog.Error("Dirección lógica inválida en WRITE", "error", err)
+		increase_PC()
 		return
 	}
-
 	value := request.Values[2]
-	pageSize := models.MemConfig.PageSize
-	pageNumber := logicalAddress / pageSize
-	offset := logicalAddress % pageSize
-
-	// Traducción de dirección
 	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
 	if physicalAddress == -1 {
-		slog.Warn("Instrucción WRITE no puede continuar: diección invalida")
+		slog.Warn("Instrucción WRITE no puede continuar: dirección inválida.")
 		increase_PC()
 		return
 	}
 
-	// Si la cache esta activa
 	if IsEnabled() {
+		pageNumber := logicalAddress / models.MemConfig.PageSize
+		offset := logicalAddress % models.MemConfig.PageSize
 		_, found := Cache.Get(request.Pid, pageNumber)
-		slog.Debug("Buscando en la cache")
 		if !found {
 			content := getPageFromMemory(request.Pid, pageNumber, physicalAddress, "Escritura")
 			if content == nil {
-				slog.Error("No se pudo traer la página desde memoria")
-				return
-			}
-			frame := physicalAddress / models.MemConfig.PageSize
-			Cache.Put(request.Pid, pageNumber, frame, content)
-		}
-		entryKey := getEntryKey(request.Pid, pageNumber)
-		idx := Cache.PageMap[entryKey]
-		entry := &Cache.Entries[idx]
-
-		entry.LockerBit = true
-		copy(entry.Content[offset:], []byte(value))
-		if offset+len(value) > len(entry.Content) {
-			slog.Error("WRITE fuera de los límites de la página en caché")
-			return
-		}
-		entry.ModifiedBit = true
-		entry.LockerBit = false
-
-		slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: ESCRIBIR - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, value))
-		increase_PC()
-		return
-	}
-
-	// Caché deshabilitada: escritura directa a memoria
-	writeReq := models.WriteRequest{
-		Pid:             request.Pid,
-		PhysicalAddress: physicalAddress,
-		Data:            []byte(request.Values[2]),
-	}
-
-	body, err := json.Marshal(writeReq)
-	if err != nil {
-		slog.Error("Error al serializar WriteRequest", "error", err)
-		return
-	}
-
-	//PETICION HTTP A MEMORIA
-	_, err = client.DoRequest(
-		models.CpuConfig.PortMemory,
-		models.CpuConfig.IpMemory,
-		"POST",
-		"memoria/write",
-		body,
-	)
-	if err != nil {
-		slog.Error("Fallo la escritura en Memoria", "error", err)
-		return
-	}
-
-	slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: ESCRIBIR - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, writeReq.Data))
-
-	increase_PC()
-}
-
-func ExecuteRead(request models.ExecuteInstructionRequest) {
-	//log obligatorio
-	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s %s", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
-	slog.Debug(fmt.Sprintf("[%d] Instrucción %s(%s, %s)", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
-
-	logicalAddress, err := strconv.Atoi(request.Values[1])
-	if err != nil {
-		slog.Error("Dirección lógica inválida")
-		increase_PC()
-		return
-	}
-
-	size, err := strconv.Atoi(request.Values[2])
-	if err != nil {
-		slog.Error("Tamaño inválido")
-		increase_PC()
-		return
-	}
-
-	pageSize := models.MemConfig.PageSize
-	pageNumber := logicalAddress / pageSize
-	offset := logicalAddress % pageSize
-	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
-	if physicalAddress == -1 {
-		slog.Warn("Instrucción READ no puede continuar: diección invalida")
-		increase_PC()
-		return
-	}
-
-	// Si la cache esta activa
-	if IsEnabled() {
-		content, found := Cache.Get(request.Pid, pageNumber)
-		slog.Debug("Buscando en cache")
-		if !found {
-			content = getPageFromMemory(request.Pid, pageNumber, physicalAddress, "Lectura")
-			if content == nil {
-				slog.Error("No se pudo traer la página desde memoria")
 				increase_PC()
 				return
 			}
 			frame := physicalAddress / models.MemConfig.PageSize
 			Cache.Put(request.Pid, pageNumber, frame, content)
 		}
-
 		entryKey := getEntryKey(request.Pid, pageNumber)
 		idx := Cache.PageMap[entryKey]
 		entry := &Cache.Entries[idx]
+		copy(entry.Content[offset:], []byte(value))
+		entry.ModifiedBit = true
+		slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: ESCRIBIR - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, value))
+		increase_PC()
+		return
+	}
 
-		entry.LockerBit = true
+	writeReq := memoriaModel.WriteRequest{
+		Pid:             request.Pid,
+		PhysicalAddress: physicalAddress,
+		Data:            []byte(value),
+	}
+	body, _ := json.Marshal(writeReq)
+	_, err = client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST", "memoria/write", body)
+	if err != nil {
+		slog.Error("Fallo la escritura en Memoria", "error", err)
+	}
+	increase_PC()
+}
 
-		if content == nil {
-			slog.Error("Contenido en caché es nil")
-			entry.LockerBit = false
-			increase_PC()
-			return
+func ExecuteRead(request models.ExecuteInstructionRequest) {
+	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s %s", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
+	logicalAddress, err := strconv.Atoi(request.Values[1])
+	if err != nil {
+		slog.Error("Dirección lógica inválida en READ", "error", err)
+		increase_PC()
+		return
+	}
+	size, err := strconv.Atoi(request.Values[2])
+	if err != nil {
+		slog.Error("Tamaño inválido en READ", "error", err)
+		increase_PC()
+		return
+	}
+
+	physicalAddress := TranslateAddress(request.Pid, logicalAddress)
+	if physicalAddress == -1 {
+		slog.Warn("Instrucción READ no puede continuar: dirección inválida.")
+		increase_PC()
+		return
+	}
+
+	if IsEnabled() {
+		pageNumber := logicalAddress / models.MemConfig.PageSize
+		offset := logicalAddress % models.MemConfig.PageSize
+		content, found := Cache.Get(request.Pid, pageNumber)
+		if !found {
+			content = getPageFromMemory(request.Pid, pageNumber, physicalAddress, "Lectura")
+			if content == nil {
+				increase_PC()
+				return
+			}
+			frame := physicalAddress / models.MemConfig.PageSize
+			Cache.Put(request.Pid, pageNumber, frame, content)
 		}
-
-		if offset+size > len(content) {
-			slog.Error("Slice out of bounds en ExecuteRead", "offset", offset, "size", size, "len", len(content))
-			entry.LockerBit = false
-			increase_PC()
-			return
-		}
-
 		data := content[offset : offset+size]
 		cleanData := bytes.Trim(data, "\x00")
-
-		entry.UseBit = true
-		entry.LockerBit = false
-
 		slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, string(cleanData)))
 		increase_PC()
 		return
 	}
 
-	// Si la cache no esta activa: lee desde memoria
-	readRequest := models.ReadRequest{
+	readRequest := memoriaModel.ReadRequest{
 		Pid:             request.Pid,
 		PhysicalAddress: physicalAddress,
 		Size:            size,
 	}
-
-	jsonBody, err := json.Marshal(readRequest)
-	if err != nil {
-		slog.Error("No se pudo serializar la request a Memoria")
-		increase_PC()
-		return
-	}
-
+	jsonBody, _ := json.Marshal(readRequest)
 	response, err := client.DoRequest(models.CpuConfig.PortMemory, models.CpuConfig.IpMemory, "POST", "memoria/leerMemoria", jsonBody)
 	if err != nil {
-		slog.Error("Error al comunicarse con Memoria")
 		increase_PC()
 		return
 	}
-
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(response.Body)
-		slog.Error("Error al leer desde Memoria", "direccion", physicalAddress, "status", response.StatusCode, "body", string(body))
-		os.Exit(1)
+		slog.Error("Error al leer desde Memoria", "status", response.StatusCode, "body", string(body))
+		increase_PC()
+		return
 	}
-
-	defer response.Body.Close()
 
 	var memoryResponse struct {
 		Content []byte `json:"content"`
 	}
-
-	if err := json.NewDecoder(response.Body).Decode(&memoryResponse); err != nil {
-		slog.Error("No se pudo leer el valor de memoria desde la respuesta", "error", err)
-		increase_PC()
-		return
-	}
-
+	json.NewDecoder(response.Body).Decode(&memoryResponse)
 	cleanData := bytes.Trim(memoryResponse.Content, "\x00")
-	dataBase64 := base64.StdEncoding.EncodeToString(memoryResponse.Content)
-
 	slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, string(cleanData)))
-	slog.Debug(fmt.Sprintf("Valor (hex): %x", memoryResponse.Content))
-	slog.Debug(fmt.Sprintf("Valor (base64): %s", dataBase64))
 	increase_PC()
+}
+
+func ExecuteGoto(request models.ExecuteInstructionRequest) {
+	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s", request.Pid, request.Values[0], request.Values[1]))
+	value, _ := strconv.Atoi(request.Values[1])
+	if value > 0 {
+		models.CpuRegisters.PC = uint(value - 1)
+	} else {
+		models.CpuRegisters.PC = 0
+	}
+}
+
+// --- Funciones Auxiliares ---
+
+func increase_PC() {
+	models.CpuRegisters.PC++
+	slog.Debug(fmt.Sprintf("Valor actual de PC: %d", models.CpuRegisters.PC))
 }
 
 func getPageFromMemory(pid uint, pageNumber int, physicalAddress int, operacion string) []byte {
@@ -325,128 +264,5 @@ func getPageFromMemory(pid uint, pageNumber int, physicalAddress int, operacion 
 		return nil
 	}
 
-	if len(res.Content) < models.MemConfig.PageSize {
-		slog.Warn("Página leída con tamaño menor al esperado", "len", len(res.Content), "esperado", models.MemConfig.PageSize)
-	}
 	return res.Content
-}
-
-func ExecuteGoto(request models.ExecuteInstructionRequest) {
-	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s", request.Pid, request.Values[0], request.Values[1]))
-	slog.Debug(fmt.Sprintf("Valor anterior de PC: %d", models.CpuRegisters.PC))
-
-	value, _ := strconv.Atoi(request.Values[1])
-	result := value - 1
-
-	if value < 0 {
-		slog.Error("El valor de parámetros de GOTO no puede ser negativo")
-		return
-	}
-
-	if value == 0 {
-		result = 0
-	}
-
-	models.CpuRegisters.PC = uint(result)
-	slog.Debug(fmt.Sprintf("Valor actual de PC: %d", models.CpuRegisters.PC))
-}
-
-func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionResponse {
-	query := fmt.Sprintf("memoria/instruccion?pid=%d&pc=%d", request.Pid, request.PC)
-	slog.Info(fmt.Sprintf("## PID: %d - FETCH - %d", request.Pid, request.PC))
-	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", query, nil)
-
-	var instructionResponse memoriaModel.InstructionResponse
-	if err != nil || response.StatusCode != http.StatusOK {
-		slog.Error(fmt.Sprintf("error: %v", err))
-		return instructionResponse
-	}
-
-	if response.StatusCode != http.StatusOK {
-		slog.Error(fmt.Sprintf("error: %d", response.StatusCode))
-		return instructionResponse
-	}
-
-	responseBody, _ := io.ReadAll(response.Body)
-	slog.Debug(fmt.Sprintf("Response: %s", string(responseBody)))
-
-	err = json.Unmarshal(responseBody, &instructionResponse)
-	if err != nil {
-		slog.Error(fmt.Sprintf("error parseando el JSON: %v", err))
-	}
-
-	slog.Debug(fmt.Sprintf("Instrucción recibida: %s", instructionResponse.Instruction))
-	return instructionResponse
-}
-
-func DecodeAndExecute(pid uint, instructions string, cpuConfig *models.Config, isFinished *bool, isBlocked *bool, isSyscall *bool, syscallRequest *kernelModel.SyscallRequest) {
-	value := strings.Split(instructions, " ")
-
-	executeInstructionRequest := models.ExecuteInstructionRequest{
-		Pid:    pid,
-		Values: value[0:],
-	}
-
-	switch value[0] {
-	case "NOOP":
-		ExecuteNoop(executeInstructionRequest)
-	case "WRITE":
-		ExecuteWrite(executeInstructionRequest)
-	case "READ":
-		ExecuteRead(executeInstructionRequest)
-	case "GOTO":
-		ExecuteGoto(executeInstructionRequest)
-	case "INIT_PROC":
-		syscallRequest.Pid = pid
-		syscallRequest.Type = value[0]
-		syscallRequest.Values = value[1:]
-		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s", pid, value[0], value[1]))
-		action := ExecuteSyscall(*syscallRequest, cpuConfig)
-		switch action {
-		case "continue":
-			*isFinished = false
-		case "block":
-			//Cache.RemoveProcessFromCache(pid)
-			//RemoveTLBEntriesByPID(pid)
-			*isBlocked = true
-			*isFinished = true
-		case "exit":
-			//Cache.RemoveProcessFromCache(pid)
-			//RemoveTLBEntriesByPID(pid)
-			*isFinished = true
-		default:
-			slog.Error(fmt.Sprintf("acción desconocida de syscall: %v", action))
-			*isFinished = true
-		}
-		increase_PC()
-	case "DUMP_MEMORY", "IO":
-		syscallRequest.Pid = pid
-		syscallRequest.Type = value[0]
-		syscallRequest.Values = value[1:]
-		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", pid, value[0]))
-		Cache.RemoveProcessFromCache(pid)
-		RemoveTLBEntriesByPID(pid)
-		*isBlocked = true
-		*isSyscall = true
-		increase_PC()
-	case "EXIT":
-		syscallRequest.Pid = pid
-		syscallRequest.Type = value[0]
-		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", pid, value[0]))
-		*isSyscall = true
-		*isFinished = true
-	default:
-		slog.Error(fmt.Sprintf("Unknown instruction type %s", value[0]))
-	}
-
-	//if value[0] != "GOTO" {
-	//	models.CpuRegisters.PC++
-	//}
-
-	//slog.Debug(fmt.Sprintf("Valor del PC: %d", models.CpuRegisters.PC))
-}
-
-func increase_PC() {
-	models.CpuRegisters.PC += 1
-	slog.Debug(fmt.Sprintf("Valor actual de PC: %d", models.CpuRegisters.PC))
 }
