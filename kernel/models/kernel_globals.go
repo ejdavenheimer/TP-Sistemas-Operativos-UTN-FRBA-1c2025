@@ -50,18 +50,19 @@ var SchedulerState EstadoPlanificador = EstadoPlanificadorDetenido
 // --- Estructura Principal del Proceso (PCB) ---
 
 type PCB struct {
-	PID            uint
-	ParentPID      int
-	PC             int
-	ME             map[Estado]int
-	MT             map[Estado]time.Duration
-	EstadoActual   Estado
-	UltimoCambio   time.Time
-	PseudocodePath string
-	RafagaReal     float32
-	Size           int
-	RafagaEstimada float32
-	Mutex          sync.Mutex
+	PID              uint
+	ParentPID        int
+	PC               int
+	ME               map[Estado]int
+	MT               map[Estado]time.Duration
+	EstadoActual     Estado
+	UltimoCambio     time.Time
+	PseudocodePath   string
+	RafagaReal       float32
+	Size             int
+	RafagaEstimada   float32
+	PendingIoRequest *SyscallRequest
+	Mutex            sync.Mutex
 }
 
 // --- Estructuras de Comunicación y Syscalls ---

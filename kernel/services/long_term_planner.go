@@ -1,14 +1,13 @@
 package services
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"sort"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
+	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 )
 
 // StartScheduler es la función de arranque que maneja el inicio manual del planificador.
@@ -19,7 +18,6 @@ func StartScheduler() {
 	models.SchedulerState = models.EstadoPlanificadorActivo
 	slog.Info("Iniciando Planificador de Largo Plazo...")
 
-	// Llamamos a la función con el nuevo nombre.
 	go longTermScheduler()
 	StartLongTermScheduler()
 }
@@ -35,85 +33,93 @@ func StartLongTermScheduler() {
 	}
 }
 
-// longTermScheduler es el ciclo principal del planificador (nombre actualizado).
+// longTermScheduler es el ciclo principal del planificador.
 func longTermScheduler() {
 	for {
 		<-models.NotifyLongScheduler
 		slog.Debug("Planificador de Largo Plazo activado...")
 
-		// Prioridad 1: Procesar la cola de EXIT para liberar recursos.
-		if models.QueueExit.Size() > 0 {
-			FinishProcess()
-			continue
-		}
+		// Bucle principal del PLP: mientras haya algo que hacer, sigue trabajando.
+		for {
+			// Prioridad 1: Procesar la cola de EXIT.
+			if models.QueueExit.Size() > 0 {
+				FinishProcess()
+				continue
+			}
 
-		// Prioridad 2: La cola SUSP_READY debe estar vacía para admitir de NEW.
-		if models.QueueSuspReady.Size() > 0 {
-			slog.Debug("Hay procesos en SUSP_READY. El PLP cede la prioridad.")
-			continue
-		}
+			// Prioridad 2: La cola SUSP_READY tiene prioridad sobre NEW.
+			if models.QueueSuspReady.Size() > 0 {
+				slog.Debug("Hay procesos en SUSP_READY. El PLP cede la prioridad y notifica al PMP.")
+				// CORREGIDO: Notificamos al PMP para que actúe.
+				StartMediumTermScheduler()
+				break // Salimos del ciclo para que el PMP pueda trabajar.
+			}
 
-		// Prioridad 3: Procesar la cola de NEW.
-		if models.QueueNew.Size() > 0 {
-			runNewToReadyScheduler()
+			// Prioridad 3: Procesar la cola de NEW.
+			if models.QueueNew.Size() > 0 {
+				admittedProcess := runNewToReadyScheduler()
+				if !admittedProcess {
+					break
+				}
+			} else {
+				break
+			}
 		}
 	}
 }
 
-// runNewToReadyScheduler elige el algoritmo de admisión según la configuración.
-func runNewToReadyScheduler() {
+// runNewToReadyScheduler elige el algoritmo y devuelve true si al menos un proceso fue admitido.
+func runNewToReadyScheduler() bool {
 	switch models.KernelConfig.NewAlgorithm {
 	case "FIFO":
-		scheduleNewToReadyFIFO()
+		return scheduleNewToReadyFIFO()
 	case "PMCP":
-		scheduleNewToReadyPMCP()
+		return scheduleNewToReadyPMCP()
 	default:
 		slog.Warn("Algoritmo de admisión no reconocido. Usando FIFO por defecto.")
-		scheduleNewToReadyFIFO()
+		return scheduleNewToReadyFIFO()
 	}
 }
 
-// scheduleNewToReadyFIFO implementa la lógica FIFO.
-func scheduleNewToReadyFIFO() {
+// scheduleNewToReadyFIFO implementa la lógica FIFO. Devuelve true si admitió un proceso.
+func scheduleNewToReadyFIFO() bool {
 	if models.QueueNew.Size() == 0 {
-		return
+		return false
 	}
-	pcb, err := models.QueueNew.Get(0)
-	if err != nil {
-		slog.Error("PLP (FIFO): No se pudo obtener el proceso de la cola NEW.")
-		return
-	}
-	slog.Debug("PLP (FIFO): Evaluando proceso", "PID", pcb.PID)
-	admitProcess(pcb)
+	pcb, _ := models.QueueNew.Get(0)
+	return admitProcess(pcb)
 }
 
-// scheduleNewToReadyPMCP implementa "Proceso más chico primero".
-func scheduleNewToReadyPMCP() {
+// scheduleNewToReadyPMCP implementa "Proceso más chico primero". Devuelve true si admitió al menos uno.
+func scheduleNewToReadyPMCP() bool {
 	if models.QueueNew.Size() == 0 {
-		return
+		return false
 	}
 	allNewProcesses := models.QueueNew.GetAll()
 	sort.Slice(allNewProcesses, func(i, j int) bool {
 		return allNewProcesses[i].Size < allNewProcesses[j].Size
 	})
 
-	slog.Debug("PLP (PMCP): Evaluando procesos en orden de tamaño.")
+	anyAdmitted := false
 	for _, pcb := range allNewProcesses {
-		admitProcess(pcb)
+		if admitProcess(pcb) {
+			anyAdmitted = true
+		}
 	}
+	return anyAdmitted
 }
 
-// admitProcess contiene la lógica central para mover un proceso de NEW a READY.
-func admitProcess(pcb *models.PCB) {
+// admitProcess contiene la lógica central. Devuelve true si el proceso fue admitido.
+func admitProcess(pcb *models.PCB) bool {
 	_, _, found := models.QueueNew.Find(func(p *models.PCB) bool { return p.PID == pcb.PID })
 	if !found {
-		return
+		return false
 	}
 
 	err := CheckUserMemoryCapacity(pcb.PID, pcb.Size)
 	if err != nil {
 		slog.Info(fmt.Sprintf("Memoria no tiene espacio para PID %d (tamaño %d). Permanece en NEW.", pcb.PID, pcb.Size))
-		return
+		return false
 	}
 
 	memRequest := models.MemoryRequest{
@@ -121,25 +127,15 @@ func admitProcess(pcb *models.PCB) {
 		Size: pcb.Size,
 		Path: pcb.PseudocodePath,
 	}
-	body, err := json.Marshal(memRequest)
-	if err != nil {
-		slog.Error("Error al serializar la solicitud para cargar PCB en memoria", "PID", pcb.PID, "error", err)
-		return
-	}
+	body, _ := json.Marshal(memRequest)
 
-	url := fmt.Sprintf("http://%s:%d/memoria/cargarpcb", models.KernelConfig.IpMemory, models.KernelConfig.PortMemory)
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
-	if err != nil || resp.StatusCode != http.StatusOK {
-		slog.Error("Fallo la solicitud a Memoria para cargar el PCB. El proceso se queda en NEW.", "PID", pcb.PID)
-		if err != nil {
-			slog.Error("Detalle del error", "error", err)
-		}
-		return
+	_, err = client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/cargarpcb", body)
+	if err != nil {
+		slog.Error("Fallo la solicitud a Memoria para cargar el PCB.", "PID", pcb.PID, "error", err)
+		return false
 	}
-	defer resp.Body.Close()
 
 	TransitionProcessState(pcb, models.EstadoReady)
-
-	//Notificamos al Planificador de Corto Plazo que tiene un nuevo proceso para planificar.
 	StartShortTermScheduler()
+	return true
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	ioModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
@@ -22,7 +23,10 @@ func ConnectIoHandler() func(http.ResponseWriter, *http.Request) {
 		models.ConnectedDeviceManager.Add(&device)
 		slog.Info("Dispositivo de I/O conectado", "nombre", device.Name, "puerto", device.Port)
 
-		// Al conectarse un nuevo dispositivo, intentamos despachar un proceso que pudiera estar esperando.
+		// Damos una pequeña pausa para que el servidor del I/O termine de levantarse.
+		time.Sleep(100 * time.Millisecond)
+
+		// Ahora sí, intentamos despachar un proceso que pudiera estar esperando.
 		services.TryToDispatchNextIO(device.Name)
 
 		w.WriteHeader(http.StatusOK)
@@ -40,16 +44,15 @@ func FinishIoHandler() func(http.ResponseWriter, *http.Request) {
 
 		slog.Info("## (%d) - Fin de IO", response.Pid)
 
-		// Liberamos el dispositivo.
 		device, found := models.ConnectedDeviceManager.MarkAsFreeByPort(response.Port)
 		if !found {
 			slog.Warn("Se recibió fin de I/O de un dispositivo no registrado.", "puerto", response.Port)
 		}
 
-		// Desbloqueamos el proceso.
-		services.UnblockProcess(response.Pid)
+		// Usamos la función de desbloqueo inteligente.
+		services.UnblockProcessAfterIO(response.Pid)
 
-		// Intentamos despachar al siguiente proceso en la cola de espera para este tipo de dispositivo.
+		// Intentamos despachar al siguiente proceso en la cola de espera.
 		if found {
 			services.TryToDispatchNextIO(device.Name)
 		}
