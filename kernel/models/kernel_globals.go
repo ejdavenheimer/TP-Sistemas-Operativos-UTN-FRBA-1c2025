@@ -57,6 +57,7 @@ type PCB struct {
 	MT               map[Estado]time.Duration
 	EstadoActual     Estado
 	UltimoCambio     time.Time
+	BurstStartTime   time.Time
 	PseudocodePath   string
 	RafagaReal       float32
 	Size             int
@@ -88,6 +89,7 @@ type PCBExecuteRequest struct {
 	PC             int
 	StatusCodePCB  StatusCodePCB
 	SyscallRequest SyscallRequest
+	ExecutionTime  float32 `json:"execution_time"`
 }
 
 type MemoryRequest struct {

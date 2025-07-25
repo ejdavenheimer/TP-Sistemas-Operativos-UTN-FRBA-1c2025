@@ -2,20 +2,21 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
+	"net/http"
+	"time"
+
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/services"
 	kernelModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 	memoriaModel "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
-	"log/slog"
-	"net/http"
 )
 
 func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var instructionRequest memoriaModel.InstructionRequest
 
-		// Decodifica el request (codificado en formato json).
 		err := json.NewDecoder(r.Body).Decode(&instructionRequest)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -29,6 +30,8 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 		}
 
 		models.CpuRegisters.PC = uint(request.PC)
+
+		executionStartTime := time.Now()
 
 		var isFinished, isBlocked, isSyscall bool = false, false, false
 		var syscallRequest kernelModel.SyscallRequest
@@ -51,9 +54,12 @@ func ExecuteProcessHandler(cpuConfig *models.Config) func(http.ResponseWriter, *
 			request.PC = int(models.CpuRegisters.PC)
 		}
 
+		executionTime := float32(time.Since(executionStartTime).Milliseconds())
+
 		response := kernelModel.PCBExecuteRequest{
-			PID: request.Pid,
-			PC:  request.PC,
+			PID:           request.Pid,
+			PC:            request.PC,
+			ExecutionTime: executionTime,
 		}
 
 		if models.InterruptControl.InterruptPending {

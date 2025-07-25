@@ -28,12 +28,20 @@ func StartSuspensionTimer(pcb *models.PCB) {
 	slog.Info(fmt.Sprintf("## (%d) - Proceso supera tiempo máximo en BLOCKED. Pasa a SUSPEND_BLOCKED.", pcb.PID))
 
 	// Como estamos dentro de un Lock del PCB, hacemos la transición manualmente para evitar deadlocks.
-	// 1. Cambiamos los atributos del PCB.
+
+	// 1. Calculamos el tiempo que estuvo en BLOCKED y actualizamos la métrica.
+	oldState := pcb.EstadoActual
+	if !pcb.UltimoCambio.IsZero() {
+		duration := time.Since(pcb.UltimoCambio)
+		pcb.MT[oldState] += duration
+	}
+
+	// 2. Cambiamos los atributos del PCB al nuevo estado.
 	pcb.EstadoActual = models.EstadoSuspendidoBlocked
 	pcb.UltimoCambio = time.Now()
 	pcb.ME[models.EstadoSuspendidoBlocked]++
 
-	// 2. Lo sacamos de la cola BLOCKED y lo agregamos a la nueva cola.
+	// 3. Lo sacamos de la cola BLOCKED y lo agregamos a la nueva cola.
 	models.QueueBlocked.RemoveWhere(func(p *models.PCB) bool { return p.PID == pcb.PID })
 	models.QueueSuspBlocked.Add(pcb)
 

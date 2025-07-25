@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
 	kernelModels "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
@@ -16,6 +17,7 @@ func checkForPreemption(newPcb *kernelModels.PCB) {
 
 	executingProcesses := kernelModels.QueueExec.GetAll()
 	if len(executingProcesses) == 0 {
+		slog.Debug("SRT: No hay procesos en ejecución, no se desaloja.")
 		return // No hay nadie ejecutando, no hay a quién desalojar.
 	}
 
@@ -24,7 +26,9 @@ func checkForPreemption(newPcb *kernelModels.PCB) {
 
 	// 1. Encontrar al proceso en ejecución con el MAYOR tiempo restante.
 	for _, runningPcb := range executingProcesses {
-		remainingTime := runningPcb.RafagaEstimada - runningPcb.RafagaReal
+		elapsedTime := float32(time.Since(runningPcb.BurstStartTime).Milliseconds())
+		remainingTime := runningPcb.RafagaEstimada - elapsedTime
+
 		if remainingTime > maxRemainingTime {
 			maxRemainingTime = remainingTime
 			victimPcb = runningPcb
@@ -32,8 +36,11 @@ func checkForPreemption(newPcb *kernelModels.PCB) {
 	}
 
 	if victimPcb == nil {
+		slog.Warn("SRT: No se pudo determinar una víctima para desalojo.")
 		return // No se encontró una víctima válida.
 	}
+
+	slog.Debug("SRT: Comparando procesos.", "Nuevo PID", newPcb.PID, "Estimación Nuevo", newPcb.RafagaEstimada, "Víctima PID", victimPcb.PID, "Tiempo Restante Víctima", maxRemainingTime)
 
 	// 2. Comparar la ráfaga del nuevo proceso con el tiempo restante de la víctima.
 	if newPcb.RafagaEstimada < maxRemainingTime {
@@ -45,6 +52,8 @@ func checkForPreemption(newPcb *kernelModels.PCB) {
 		} else {
 			slog.Warn("SRT: No se encontró la CPU para el proceso a desalojar.", "PID", victimPcb.PID)
 		}
+	} else {
+		slog.Debug("SRT: No es necesario desalojar. El nuevo proceso no es más corto.")
 	}
 }
 

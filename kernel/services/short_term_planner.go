@@ -116,15 +116,31 @@ func handleCpuExecution(pcb *kernelModels.PCB, cpu *models.CpuN) {
 	cpu.PIDExecuting = pcb.PID
 	kernelModels.ConnectedCpuMap.Set(strconv.Itoa(cpu.Id), cpu)
 
-	rafagaStartTime := time.Now()
+	pcb.BurstStartTime = time.Now()
+
 	TransitionProcessState(pcb, kernelModels.EstadoExecuting)
 	result := sendProcessToExecute(pcb, cpu)
 
-	rafagaRealDuration := time.Since(rafagaStartTime)
-	pcb.RafagaReal = float32(rafagaRealDuration.Milliseconds())
+	// La lógica para actualizar la ráfaga estimada ahora depende de si el proceso fue interrumpido o no.
+	if result.StatusCodePCB == kernelModels.NeedInterrupt {
+		// El proceso fue desalojado. No se usa la fórmula de estimación.
+		// Se actualiza la estimación restando el tiempo que ya se ejecutó.
+		elapsedTime := result.ExecutionTime
+		pcb.RafagaEstimada = pcb.RafagaEstimada - elapsedTime
+		if pcb.RafagaEstimada < 0 { // Medida de seguridad para evitar estimaciones negativas.
+			pcb.RafagaEstimada = 0
+		}
+		// La ráfaga "real" no se actualiza porque no se completó.
+		pcb.RafagaReal = 0
+		slog.Debug("SRT: Proceso desalojado. Nueva estimación restante calculada.", "PID", pcb.PID, "Nueva Estimación", pcb.RafagaEstimada)
 
-	alpha := kernelModels.KernelConfig.Alpha
-	pcb.RafagaEstimada = (alpha * pcb.RafagaReal) + ((1 - alpha) * pcb.RafagaEstimada)
+	} else {
+		// El proceso terminó su ráfaga de forma natural (por I/O, EXIT, etc.).
+		// Aquí sí se aplica la fórmula de estimación estándar.
+		pcb.RafagaReal = result.ExecutionTime
+		alpha := kernelModels.KernelConfig.Alpha
+		pcb.RafagaEstimada = (alpha * pcb.RafagaReal) + ((1 - alpha) * pcb.RafagaEstimada)
+	}
 
 	pcb.PC = result.PC
 
