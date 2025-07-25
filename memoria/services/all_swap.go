@@ -16,8 +16,17 @@ func PutProcessInSwap(pid uint) error {
 	models.ProcessDataLock.Lock()
 	defer models.ProcessDataLock.Unlock()
 
+	// **INICIO DE LA CORRECCIÓN**
+	// Verificar si el proceso ya fue swapeado. Si es así, la operación es exitosa.
+	if _, inSwap := models.ProcessSwapTable[pid]; inSwap {
+		slog.Debug("Proceso ya se encuentra en SWAP, omitiendo SWAP OUT.", "PID", pid)
+		return nil
+	}
+	// **FIN DE LA CORRECCIÓN**
+
 	processFrames, exists := models.ProcessFramesTable[pid]
 	if !exists {
+		// Ahora este error solo ocurrirá si el proceso realmente no existe o nunca tuvo frames.
 		err := fmt.Errorf("proceso PID %d no encontrado en tabla de frames para swapear", pid)
 		slog.Error(err.Error())
 		return err

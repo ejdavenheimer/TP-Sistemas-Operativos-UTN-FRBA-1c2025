@@ -22,7 +22,7 @@ import (
 //
 //	func main() {
 //		query := fmt.Sprintf("example?name=%s", message)
-//		response, err := client.DoRequest(8080, 127.0.0.1, "GET", query, nil)
+//		response, err := client.DoRequest(8080, "127.0.0.1", "GET", query, nil)
 //
 //		if err != nil {
 //			slog.Error(fmt.Sprintf("Ocurrió un error: %v", err))
@@ -63,12 +63,18 @@ func DoRequest(port int, ip string, metodo string, query string, bodies ...[]byt
 		return nil, err
 	}
 
+	// **INICIO DE LA CORRECCIÓN**
 	// Verificar el código de estado de la respuesta del servidor a nuestra request (de no ser OK)
 	if respuesta.StatusCode != http.StatusOK {
-		slog.Error(fmt.Sprintf("Status Error: %d", respuesta.StatusCode))
-		return respuesta, err
+		// Creamos un error explícito para que el código que llama a esta función sepa que algo falló.
+		errorMsg := fmt.Errorf("Status Error: %d %s", respuesta.StatusCode, http.StatusText(respuesta.StatusCode))
+		slog.Error(errorMsg.Error())
+		// Devolvemos la respuesta (puede contener un cuerpo con más detalles del error) y el nuevo error.
+		return respuesta, errorMsg
 	}
-	return respuesta, err
+	// **FIN DE LA CORRECCIÓN**
+
+	return respuesta, nil // Devolvemos nil como error solo si todo fue exitoso.
 }
 
 func ifBody(bodies ...[]byte) io.Reader {

@@ -23,6 +23,12 @@ func UnblockProcessAfterIO(pid uint) {
 	pcb, _, foundInSuspBlocked := models.QueueSuspBlocked.Find(func(p *models.PCB) bool { return p.PID == pid })
 	if foundInSuspBlocked {
 		slog.Debug("Proceso fin de I/O en SWAP. Moviendo de SUSPENDED_BLOCKED a SUSPENDED_READY.", "PID", pid)
+
+		// CORRECCIÓN: Reiniciamos el flag para que pueda ser swapeado de nuevo si es necesario en el futuro.
+		pcb.Mutex.Lock()
+		pcb.SwapRequested = false
+		pcb.Mutex.Unlock()
+
 		TransitionProcessState(pcb, models.EstadoSuspendidoReady)
 		StartMediumTermScheduler() // Notificamos al PMP que tiene un proceso para evaluar SWAP-IN.
 		return

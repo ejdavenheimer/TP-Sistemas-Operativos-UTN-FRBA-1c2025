@@ -29,7 +29,6 @@ func MediumTermScheduler() {
 			handleSuspendedReady()
 		}
 
-		// Solo procesamos un proceso de SUSP_BLOCKED por vez para evitar saturar memoria con pedidos.
 		if models.QueueSuspBlocked.Size() > 0 {
 			handleSuspendedBlocked()
 		}
@@ -39,35 +38,47 @@ func MediumTermScheduler() {
 // --- Lógica de Suspensión (SWAP-OUT) ---
 
 func handleSuspendedBlocked() {
-	// 1. Tomamos el primer proceso de la cola para procesarlo, pero lo quitamos
-	// para evitar que otra notificación del PMP intente swapearlo de nuevo
-	// mientras la operación está en curso.
-	pcb, err := models.QueueSuspBlocked.Dequeue()
-	if err != nil {
-		slog.Warn("PMP: Se intentó procesar SUSP_BLOCKED pero la cola estaba vacía.")
+	var pcbToSwap *models.PCB = nil
+
+	// Buscamos un proceso que necesite ser swapeado sin quitarlo de la cola.
+	allSuspended := models.QueueSuspBlocked.GetAll()
+
+	for _, pcb := range allSuspended {
+		pcb.Mutex.Lock()
+		if !pcb.SwapRequested {
+			pcb.SwapRequested = true // Lo marcamos para que no se vuelva a procesar
+			pcbToSwap = pcb
+			pcb.Mutex.Unlock()
+			break
+		}
+		pcb.Mutex.Unlock()
+	}
+
+	if pcbToSwap == nil {
+		slog.Debug("PMP: No hay nuevos procesos en SUSPEND_BLOCKED para solicitar swap.")
 		return
 	}
 
-	slog.Debug("PMP: Solicitando a Memoria mover proceso a SWAP.", "PID", pcb.PID)
-	req := struct {
-		PID uint `json:"pid"`
-	}{PID: pcb.PID}
-	body, _ := json.Marshal(req)
+	// Enviamos la solicitud de swap en una gorutina para no bloquear el PMP
+	go func(p *models.PCB) {
+		slog.Debug("PMP: Solicitando a Memoria mover proceso a SWAP.", "PID", p.PID)
+		req := struct {
+			PID uint `json:"pid"`
+		}{PID: p.PID}
+		body, _ := json.Marshal(req)
 
-	// 2. Realizamos la solicitud de SWAP-OUT a Memoria.
-	_, err = client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/swapOut", body)
+		_, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/swapOut", body)
 
-	// 3. **Punto clave**: Devolvemos el proceso a la cola. Ahora está swapeado
-	// pero sigue bloqueado, esperando que su I/O termine.
-	models.QueueSuspBlocked.Add(pcb)
-
-	if err != nil {
-		slog.Error("PMP: Error al solicitar SWAP OUT a Memoria. El proceso permanece en la cola para un nuevo intento.", "PID", pcb.PID, "error", err)
-	} else {
-		slog.Debug("PMP: Memoria confirmó SWAP OUT. El proceso espera en SUSP_BLOCKED a que finalice su I/O. Notificando al PLP.", "PID", pcb.PID)
-		// Notificamos al PLP porque podría haberse liberado memoria.
-		StartLongTermScheduler()
-	}
+		if err != nil {
+			slog.Error("PMP: Error al solicitar SWAP OUT a Memoria. Se reintentará.", "PID", p.PID, "error", err)
+			p.Mutex.Lock()
+			p.SwapRequested = false
+			p.Mutex.Unlock()
+		} else {
+			slog.Debug("PMP: Memoria confirmó SWAP OUT. El proceso espera en SUSP_BLOCKED.", "PID", p.PID)
+			StartLongTermScheduler()
+		}
+	}(pcbToSwap)
 }
 
 // --- Lógica de Desuspensión (SWAP-IN) ---
@@ -116,7 +127,6 @@ func requestSwapIn(pcb *models.PCB) {
 	}{PID: pcb.PID}
 	body, _ := json.Marshal(req)
 
-	// Usando DoRequest
 	_, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/swapIn", body)
 
 	if err != nil {
@@ -125,6 +135,11 @@ func requestSwapIn(pcb *models.PCB) {
 		StartLongTermScheduler()
 		return
 	}
+
+	// Reiniciamos el flag para que pueda volver a ser suspendido en el futuro.
+	pcb.Mutex.Lock()
+	pcb.SwapRequested = false
+	pcb.Mutex.Unlock()
 
 	slog.Info(fmt.Sprintf("## (%d) - Pasa de SUSPENDED_READY a READY", pcb.PID))
 	TransitionProcessState(pcb, models.EstadoReady)

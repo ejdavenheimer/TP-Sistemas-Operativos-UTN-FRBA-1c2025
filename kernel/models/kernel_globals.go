@@ -62,6 +62,7 @@ type PCB struct {
 	Size             int
 	RafagaEstimada   float32
 	PendingIoRequest *SyscallRequest
+	SwapRequested    bool // Flag para controlar las solicitudes de SWAP
 	Mutex            sync.Mutex
 }
 

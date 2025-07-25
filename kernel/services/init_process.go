@@ -49,6 +49,7 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 		PseudocodePath: pseudocodeName,
 		Size:           processSize,
 		RafagaEstimada: float32(models.KernelConfig.InitialEstimate),
+		SwapRequested:  false, // Inicializamos el flag
 	}
 
 	// Usamos la nueva función para mover el proceso al estado NEW y a su cola.
