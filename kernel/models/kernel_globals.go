@@ -5,10 +5,9 @@ import (
 	"time"
 
 	cpuModels "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/cpu/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/helpers"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/list"
 )
+
+// --- Estructura de Configuración ---
 
 type Config struct {
 	IpMemory           string  `json:"ip_memory"`
@@ -25,21 +24,7 @@ type Config struct {
 
 var KernelConfig *Config
 
-type DeviceRequest struct {
-	Pid            uint
-	SuspensionTime int
-}
-
-type SyscallRequest struct {
-	Pid    uint
-	Type   string
-	Values []string
-}
-
-var ConnectedDevicesMap = helpers.DeviceMap{M: make(map[string]models.Device)} //TODO: borrar despues
-var ConnectedDeviceList list.ArrayList[models.Device]
-
-var ConnectedCpuMap = helpers.CpuMap{M: make(map[string]*cpuModels.CpuN)}
+// --- Estados del Sistema ---
 
 type Estado string
 
@@ -53,27 +38,6 @@ const (
 	EstadoSuspendidoBlocked Estado = "SUSPEND_BLOCKED"
 )
 
-type PCB struct {
-	PID            uint                     // Identificador único del proceso
-	ParentPID      int                      // Identificador del proceso padre
-	PC             int                      // Program Counter
-	ME             map[Estado]int           // Métricas de Estado: cuántas veces pasó por cada estado
-	MT             map[Estado]time.Duration // Métricas de Tiempo por Estado
-	EstadoActual   Estado                   // Para saber en qué estado está actualmente
-	UltimoCambio   time.Time                // Para medir el tiempo que pasa en cada estado
-	PseudocodePath string
-	RafagaReal     float32    // Duración real de la rafaga actual
-	Size           int        // Tamaño del proceso en memoria
-	RafagaEstimada float32    // Estimación de la próxima rafaga
-	Mutex          sync.Mutex // Mutex para proteger concurrencia
-}
-
-type MemoryRequest struct {
-	PID  uint   `json:"pid"`
-	Size int    `json:"size"`
-	Path string `json:"path"`
-}
-
 type EstadoPlanificador string
 
 const (
@@ -81,12 +45,26 @@ const (
 	EstadoPlanificadorActivo   EstadoPlanificador = "START"
 )
 
-type PCBExecuteRequest struct {
+var SchedulerState EstadoPlanificador = EstadoPlanificadorDetenido
+
+// --- Estructura Principal del Proceso (PCB) ---
+
+type PCB struct {
 	PID            uint
+	ParentPID      int
 	PC             int
-	StatusCodePCB  StatusCodePCB
-	SyscallRequest SyscallRequest
+	ME             map[Estado]int
+	MT             map[Estado]time.Duration
+	EstadoActual   Estado
+	UltimoCambio   time.Time
+	PseudocodePath string
+	RafagaReal     float32
+	Size           int
+	RafagaEstimada float32
+	Mutex          sync.Mutex
 }
+
+// --- Estructuras de Comunicación y Syscalls ---
 
 type StatusCodePCB int
 
@@ -97,21 +75,38 @@ const (
 	NeedExecuteSyscall StatusCodePCB = 103
 )
 
-type Device struct {
-	Name string `json:"name"`
-	Ip   string `json:"ip"`
-	Port int    `json:"port"`
+type SyscallRequest struct {
+	Pid    uint
+	Type   string
+	Values []string
 }
 
-type ProcessResponse struct {
-	Pid          uint   `json:"pid"`
-	EstadoActual Estado `json:"estadoActual"`
+type PCBExecuteRequest struct {
+	PID            uint
+	PC             int
+	StatusCodePCB  StatusCodePCB
+	SyscallRequest SyscallRequest
 }
 
-type ProcessRequest struct {
-	Pid          uint   `json:"pid"`
-	EstadoActual Estado `json:"estadoActual"`
+type MemoryRequest struct {
+	PID  uint   `json:"pid"`
+	Size int    `json:"size"`
+	Path string `json:"path"`
 }
+
+// DeviceRequest es la estructura que el Kernel envía a un módulo de I/O.
+type DeviceRequest struct {
+	Pid            uint
+	SuspensionTime int
+}
+
+// --- Gestores de Recursos ---
+
+var ConnectedCpuMap = CpuMap{M: make(map[string]*cpuModels.CpuN)}
+var ConnectedDeviceManager = NewDeviceManager()
+var WaitingForDeviceManager = NewWaitingProcessManager()
+
+// --- Canales de Notificación para Planificadores ---
 
 var NotifyReady = make(chan int, 1)
 var NotifyLongScheduler = make(chan int, 1)

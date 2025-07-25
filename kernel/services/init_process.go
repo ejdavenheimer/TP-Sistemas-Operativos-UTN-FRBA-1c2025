@@ -1,18 +1,13 @@
 package services
 
 import (
-	"encoding/json"
-	"fmt"
 	"log/slog"
-	"net/http"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
-	"sync"
-
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
-	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/client"
 )
 
 var (
@@ -20,27 +15,33 @@ var (
 	pidMutex sync.Mutex
 )
 
+// generatePID crea un ID de proceso único de forma segura.
+func generatePID() uint {
+	pidMutex.Lock()
+	defer pidMutex.Unlock()
+	pid := nextPID
+	nextPID++
+	return pid
+}
+
+// InitProcess se encarga de crear la estructura PCB, asignarle un PID único
+// y moverlo al estado NEW para que el Planificador de Largo Plazo lo gestione.
 func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string) (*models.PCB, error) {
-	// Extraigo solo el nombre del archivo, por si viene una ruta
+
 	pseudocodeName := filepath.Base(pseudocodeFile)
 
-	// Ya no verifico existencia local, la verificación será en Memoria
-
-	parentPID := -1 // Valor por defecto (para el primer proceso o proceso raíz)
+	parentPID := -1
 	if len(additionalArgs) > 0 {
 		parentPIDVal, err := strconv.Atoi(additionalArgs[0])
-		if err != nil {
-			slog.Warn("No se pudo parsear ParentPID, utilizando valor por defecto -1")
-			parentPID = -1
-		} else {
+		if err == nil {
 			parentPID = parentPIDVal
+		} else {
+			slog.Warn("No se pudo parsear ParentPID, utilizando valor por defecto -1")
 		}
 	}
 
-	pid := generatePID()
-
 	pcb := &models.PCB{
-		PID:            pid,
+		PID:            generatePID(),
 		ParentPID:      parentPID,
 		PC:             0,
 		ME:             make(map[models.Estado]int),
@@ -50,50 +51,11 @@ func InitProcess(pseudocodeFile string, processSize int, additionalArgs []string
 		RafagaEstimada: float32(models.KernelConfig.InitialEstimate),
 	}
 
-	TransitionState(pcb, models.EstadoNew)
+	// Usamos la nueva función para mover el proceso al estado NEW y a su cola.
+	TransitionProcessState(pcb, models.EstadoNew)
 
-	models.QueueNew.Add(pcb)
-
-	slog.Info(fmt.Sprintf("## PID %d Se crea el proceso - Estado : NEW", pid))
+	// Damos una señal al planificador de largo plazo para que se active y evalúe la cola NEW.
 	StartLongTermScheduler()
+
 	return pcb, nil
-}
-
-// Envía una solicitud a Memoria para asignar espacio y cargar instrucciones
-func requestMemorySpace(pid uint, processSize int) (bool, error) {
-	// Extraigo solo el nombre del archivo, por si viene una ruta
-	//pseudocodeName := filepath.Base(pseudocodePath)
-	request := models.MemoryRequest{
-		PID:  pid,
-		Size: processSize,
-	}
-
-	body, err := json.Marshal(request)
-	if err != nil {
-		return false, fmt.Errorf("error al serializar MemoryRequest: %v", err)
-	}
-
-	resp, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/capacidadUserMemory", body)
-	if err != nil {
-		return false, fmt.Errorf("error enviando request a Memoria: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusOK {
-		return true, nil
-	}
-
-	if resp.StatusCode == http.StatusNoContent {
-		return false, nil
-	}
-
-	return false, fmt.Errorf("respuesta inesperada de Memoria: código %d", resp.StatusCode)
-}
-
-func generatePID() uint {
-	pidMutex.Lock()
-	defer pidMutex.Unlock()
-
-	pid := nextPID
-	nextPID++
-	return pid
 }

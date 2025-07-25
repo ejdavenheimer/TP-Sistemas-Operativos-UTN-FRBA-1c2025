@@ -16,29 +16,31 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
 )
 
-const (
-// TODO: revisar para que se pueda pasar cualquiera de los dos formatos
-// NO borrar el comentario de ConfigPath
-// ConfigPath = "kernel/configs/kernel.json" //"./configs/kernel.json"
-// LogPath    = "./logs/kernel.log"          //"./kernel.log"
-)
-
-//var pcb *models.PCB
-
 func main() {
 	if len(os.Args) < 4 {
-		slog.Error("Faltan los parámetros necesarios [archivo_pseudocódigo], [tamanio_proceso] y [archivo_config]")
+		slog.Error("Faltan los parámetros necesarios: [archivo_pseudocódigo] [tamanio_proceso] [archivo_config]")
 		return
 	}
 
-	ConfigPath := os.Args[3] //"./configs/kernel.json" //config.KernelConfigPath()//
+	// --- 1. Inicialización ---
+	ConfigPath := os.Args[3]
 	LogPath, err := log.BuildLogPath("kernel")
 	if err != nil {
 		slog.Error(fmt.Sprintf("No se pudo preparar el archivo de log: %v", err))
 		return
 	}
 
-	//Parametros
+	config.InitConfig(ConfigPath, &models.KernelConfig)
+	log.InitLogger(LogPath, models.KernelConfig.LogLevel)
+
+	slog.Info(fmt.Sprintf("Kernel escuchando en el puerto: %d", models.KernelConfig.PortKernel))
+
+	// --- 2. Inicio de Planificadores ---
+	go services.StartScheduler()      // Inicia el PLP (esperará el Enter).
+	go services.ShortTermScheduler()  // Inicia el PCP (esperará notificaciones).
+	go services.MediumTermScheduler() // Inicia el PMP (esperará notificaciones y timers).
+
+	// --- 3. Creación del Proceso Inicial ---
 	pseudocodeFile := os.Args[1]
 	processSize, err := strconv.Atoi(os.Args[2])
 	if err != nil {
@@ -47,46 +49,28 @@ func main() {
 	}
 	additionalArgs := os.Args[4:]
 
-	config.InitConfig(ConfigPath, &models.KernelConfig)
-	log.InitLogger(LogPath, models.KernelConfig.LogLevel)
-
-	slog.Info(fmt.Sprintf("Port Kernel: %d", models.KernelConfig.PortKernel))
-
-	go services.MediumTermScheduler()
-	go services.StartShortTermScheduler()
-	go services.StartScheduler()
-
-	// Iniciar el proceso
 	_, err = services.InitProcess(pseudocodeFile, processSize, additionalArgs)
 	if err != nil {
-		slog.Error("Error al iniciar proceso", "err", err)
+		slog.Error("Error al iniciar el primer proceso", "err", err)
 		return
 	}
 
-	/* ----------> ENDPOINTS <----------*/
+	// --- 4. Registro de Endpoints HTTP ---
+	// Handshakes básicos
 	http.HandleFunc("GET /", handlers.HandshakeHandler("Bienvenido al módulo de Kernel"))
-	http.HandleFunc("GET /kernel", handlers.HandshakeHandler("Kernel en funcionamiento 🚀"))
-	http.HandleFunc("GET /kernel/dispositivos-conectados", kernelHandler.GetDevicesMapHandlers())
-	http.HandleFunc("GET /kernel/cpus-conectadas", kernelHandler.GetCpuMapHandlers())
-	http.HandleFunc("GET /kernel/proceso", kernelHandler.GetProcessHandler())
-	http.HandleFunc("GET /kernel/procesos", kernelHandler.GetAllHandler())
-	http.HandleFunc("PUT /kernel/proceso", kernelHandler.UpdateProcessHandler())
-	http.HandleFunc("POST /kernel/proceso", kernelHandler.AddProcessHandler())
-	http.HandleFunc("POST /kernel/dispositivos", kernelHandler.ConnectIoHandler())
-	http.HandleFunc("POST /kernel/dispositivo-finalizado", kernelHandler.FinishDeviceHandler())
-	http.HandleFunc("POST /kernel/syscall", kernelHandler.ExecuteSyscallHandler())
+
+	// Conexión de recursos
 	http.HandleFunc("POST /kernel/cpus", kernelHandler.ConnectCpuHandler())
-	http.HandleFunc("POST /kernel/informar-io-finalizada", kernelHandler.FinishExecIOHandler())
-	http.HandleFunc("POST /kernel/mandar-interrupcion-a-cpu", kernelHandler.SendInterruptionHandler)
+	http.HandleFunc("POST /kernel/dispositivos", kernelHandler.ConnectIoHandler())
 
-	//Planificador de larzo plazo
-	http.HandleFunc("POST /kernel/finalizarProceso", kernelHandler.FinishProcessHandler)
-	http.HandleFunc("POST /kernel/ejecutarProceso", kernelHandler.ExecuteProcessHandler)
+	// Syscalls y notificaciones
+	http.HandleFunc("POST /kernel/syscall/init_proc", kernelHandler.InitProcSyscallHandler())
+	http.HandleFunc("POST /kernel/informar-io-finalizada", kernelHandler.FinishIoHandler())
 
-	//Inicialización del servidor
+	// --- 5. Arranque del Servidor ---
 	err = server.InitServer(models.KernelConfig.PortKernel)
 	if err != nil {
-		slog.Error(fmt.Sprintf("error initializing server: %v", err))
+		slog.Error(fmt.Sprintf("Error al iniciar el servidor del Kernel: %v", err))
 		panic(err)
 	}
 }
