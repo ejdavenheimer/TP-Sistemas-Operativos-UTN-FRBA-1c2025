@@ -66,6 +66,8 @@ func main() {
 	// Syscalls y notificaciones
 	http.HandleFunc("POST /kernel/syscall/init_proc", kernelHandler.InitProcSyscallHandler())
 	http.HandleFunc("POST /kernel/informar-io-finalizada", kernelHandler.FinishIoHandler())
+	// Endpoint para manejar la desconexión de un dispositivo de I/O
+	http.HandleFunc("POST /kernel/dispositivo-finalizado", kernelHandler.DisconnectIoHandler())
 
 	// --- 5. Arranque del Servidor ---
 	err = server.InitServer(models.KernelConfig.PortKernel)

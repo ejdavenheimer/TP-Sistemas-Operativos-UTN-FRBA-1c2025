@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time" // Importa el paquete time
 
 	ioHandler "github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/io/models"
@@ -17,13 +18,6 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/log"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/handlers"
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/utils/web/server"
-)
-
-const (
-// TODO: revisar para que se pueda pasar cualquiera de los dos formatos
-// NO borrar el comentario de ConfigPath
-// ConfigPath = "io/configs/io.json" //"./configs/io.json"
-// LogPath    = "io.log"
 )
 
 func main() {
@@ -46,30 +40,36 @@ func main() {
 	}
 
 	log.InitLogger(logPath, models.IoConfig.LogLevel)
-
 	slog.Info(fmt.Sprintf("Port IO: %d - IO: %s", models.IoConfig.PortIo, models.IoName))
 
-	services.ConnectToKernel(models.IoName, models.IoConfig)
-
-	signal.Notify(models.Shutdown, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-models.Shutdown
-		slog.Debug("Señal recibida, cerrando módulo IO", "signal", sig)
-
-		// Notifica al Kernel que se cierra este módulo
-		services.NotifyDisconnection()
-
-		os.Exit(0)
-	}()
-
+	// 1. Definir los handlers ANTES de iniciar el servidor
 	http.HandleFunc("GET /", handlers.HandshakeHandler(fmt.Sprintf("Bienvenido al módulo de IO - Dispositivo: %s", models.IoName)))
 	http.HandleFunc("GET /io", handlers.HandshakeHandler("IO en funcionamiento 🚀"))
 	http.HandleFunc("POST /io", ioHandler.SleepHandler())
 
-	err = server.InitServer(models.IoConfig.PortIo)
-	if err != nil {
-		slog.Error(fmt.Sprintf("error initializing server: %v", err))
-		panic(err)
-	}
+	// 2. Iniciar el servidor en una goroutine para que no bloquee
+	go func() {
+		err_server := server.InitServer(models.IoConfig.PortIo)
+		if err_server != nil {
+			slog.Error(fmt.Sprintf("error initializing server: %v", err_server))
+			panic(err_server)
+		}
+	}()
+
+	// Damos una pequeña pausa para asegurar que la goroutine del servidor haya iniciado
+	time.Sleep(100 * time.Millisecond)
+
+	// 3. AHORA, con el servidor ya escuchando, nos conectamos al Kernel
+	services.ConnectToKernel(models.IoName, models.IoConfig)
+
+	// 4. Mantenemos el proceso principal vivo para manejar señales de cierre
+	signal.Notify(models.Shutdown, syscall.SIGINT, syscall.SIGTERM)
+
+	sig := <-models.Shutdown
+	slog.Debug("Señal recibida, cerrando módulo IO", "signal", sig)
+
+	// Notifica al Kernel que se cierra este módulo
+	services.NotifyDisconnection()
+
+	os.Exit(0)
 }

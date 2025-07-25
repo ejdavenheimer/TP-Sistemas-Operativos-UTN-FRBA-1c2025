@@ -61,3 +61,37 @@ func FinishIoHandler() func(http.ResponseWriter, *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}
 }
+
+// DisconnectIoHandler maneja la desconexión de un dispositivo de I/O.
+func DisconnectIoHandler() func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var response ioModel.DeviceResponse
+		if err := json.NewDecoder(r.Body).Decode(&response); err != nil {
+			http.Error(w, "Respuesta de dispositivo inválida", http.StatusBadRequest)
+			return
+		}
+
+		slog.Info("## Dispositivo de I/O desconectado", "nombre", response.Name, "puerto", response.Port)
+
+		// Lógica para finalizar procesos si no quedan más instancias del dispositivo
+		_, dispositivoLibre := models.ConnectedDeviceManager.GetFreeByName(response.Name)
+
+		// Si no se encuentra un dispositivo libre del mismo tipo, y el que se desconectó era el último,
+		// se finalizan los procesos en espera para ese dispositivo.
+		if !dispositivoLibre {
+			slog.Info("No quedan más instancias del dispositivo. Finalizando procesos en espera.", "dispositivo", response.Name)
+
+			for {
+				pcb, found := models.WaitingForDeviceManager.Dequeue(response.Name)
+				if !found {
+					break // La cola está vacía
+				}
+				slog.Warn("Finalizando proceso en cola de espera por desconexión de IO", "PID", pcb.PID, "dispositivo", response.Name)
+				services.TransitionProcessState(pcb, models.EstadoExit)
+				services.StartLongTermScheduler()
+			}
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}
+}
