@@ -82,8 +82,6 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 	data := make([]byte, size)
 	copy(data, models.UserMemory[physicalAddress:physicalAddress+size])
 
-	// Actualizar métricas y bits de página fuera del lock de memoria si es posible
-	// para reducir la contención, pero aquí es más simple hacerlo dentro.
 	models.ProcessDataLock.Lock()
 	defer models.ProcessDataLock.Unlock()
 
@@ -92,10 +90,15 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 	}
 
 	pageSize := models.MemoryConfig.PageSize
-	startPage := physicalAddress / pageSize
-	endPage := (physicalAddress + size - 1) / pageSize
-	for page := startPage; page <= endPage; page++ {
-		UpdatePageBit(pid, page, "use")
+	startFrame := physicalAddress / pageSize
+	endFrame := (physicalAddress + size - 1) / pageSize
+
+	// CORRECCIÓN: Iteramos sobre los frames afectados para encontrar el nro de página lógico correspondiente a cada uno.
+	for frame := startFrame; frame <= endFrame; frame++ {
+		pageNumber, found := findPageNumberByFrame(pid, frame)
+		if found {
+			UpdatePageBit(pid, pageNumber, "use")
+		}
 	}
 	IncrementMetric(pid, "reads")
 
@@ -120,18 +123,23 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 	}
 
 	pageSize := models.MemoryConfig.PageSize
-	startPage := physicalAddress / pageSize
-	endPage := (physicalAddress + len(data) - 1) / pageSize
-	for page := startPage; page <= endPage; page++ {
-		UpdatePageBit(pid, page, "use")
-		UpdatePageBit(pid, page, "modified")
+	startFrame := physicalAddress / pageSize
+	endFrame := (physicalAddress + len(data) - 1) / pageSize
+
+	// CORRECCIÓN: Iteramos sobre los frames afectados para encontrar el nro de página lógico correspondiente a cada uno.
+	for frame := startFrame; frame <= endFrame; frame++ {
+		pageNumber, found := findPageNumberByFrame(pid, frame)
+		if found {
+			UpdatePageBit(pid, pageNumber, "use")
+			UpdatePageBit(pid, pageNumber, "modified")
+		}
 	}
 	IncrementMetric(pid, "writes")
 
 	return nil
 }
 
-// UpdatePageBit ahora recibe pageNumber directamente
+// UpdatePageBit ahora recibe el número de página lógico correcto.
 func UpdatePageBit(pid uint, pageNumber int, bit string) {
 	entry, err := FindPageEntry(pid, models.PageTables[pid], pageNumber)
 	if err != nil {
@@ -173,4 +181,22 @@ func IncrementMetric(pid uint, metric string) {
 			slog.Warn(fmt.Sprintf("Métrica desconocida: %s", metric))
 		}
 	}
+}
+
+// **NUEVA FUNCIÓN AUXILIAR**
+// findPageNumberByFrame realiza la búsqueda inversa: dado un frame, encuentra a qué página lógica pertenece para un PID.
+// Esta función debe ser llamada dentro de un lock de ProcessDataLock.
+func findPageNumberByFrame(pid uint, frameIndex int) (int, bool) {
+	process, exists := models.ProcessTable[pid]
+	if !exists {
+		return -1, false
+	}
+	// Esta es una búsqueda lineal, pero dado el bajo número de páginas por proceso en las pruebas,
+	// es suficientemente eficiente y mucho más simple que mantener un mapa inverso.
+	for i, page := range process.Pages {
+		if page.Frame == frameIndex {
+			return i, true
+		}
+	}
+	return -1, false
 }

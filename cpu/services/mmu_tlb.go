@@ -11,17 +11,19 @@ import (
 )
 
 var (
-	tlb          []models.TLBEntry
-	tlbMaxSize   int
-	tlbAlgorithm string // "FIFO" o "LRU"
-	tlbCounter   int64  // para LRU, contador incremental
-	tlbMutex     sync.Mutex
+	tlb            []models.TLBEntry
+	tlbMaxSize     int
+	tlbAlgorithm   string // "FIFO" o "LRU"
+	tlbCounter     int64  // para LRU, contador incremental
+	tlbFifoPointer int    // **NUEVO**: Puntero para FIFO
+	tlbMutex       sync.Mutex
 )
 
 func InitTLB() {
 	tlbMaxSize = models.CpuConfig.TlbEntries
 	tlbAlgorithm = models.CpuConfig.TlbReplacement // "FIFO" o "LRU"
 	tlbCounter = 0
+	tlbFifoPointer = 0 // **NUEVO**: Inicializamos el puntero
 	tlb = make([]models.TLBEntry, 0, tlbMaxSize)
 }
 
@@ -122,7 +124,8 @@ func insert_tlb(pid uint, pagina int, frame int) {
 	var victimIndex int
 	switch tlbAlgorithm {
 	case "FIFO":
-		victimIndex = 0
+		victimIndex = tlbFifoPointer
+		tlbFifoPointer = (tlbFifoPointer + 1) % tlbMaxSize // Avanza el puntero circularmente
 	case "LRU":
 		minUsage := tlb[0].LastUsed
 		victimIndex = 0
