@@ -83,6 +83,7 @@ func selectProcessToExecute() *kernelModels.PCB {
 
 func scheduleFIFO() (*kernelModels.PCB, error) {
 	slog.Debug("PCP (FIFO): Seleccionando primer proceso de la cola READY.")
+	slog.Info(fmt.Sprintf("CANTIDAD DE PROCESOS EN LA COLA READY %v", kernelModels.QueueReady.Size()))
 	return kernelModels.QueueReady.Dequeue()
 }
 
@@ -97,16 +98,32 @@ func scheduleShortestJobFirst() (*kernelModels.PCB, error) {
 		return nil, fmt.Errorf("error al obtener procesos de la cola READY")
 	}
 
-	// Encontramos el índice del proceso con la menor estimación.
+	// Se priorizan los procesos que aún no han ejecutado su primera ráfaga.
+	// Esto previene la inanición (starvation) de procesos nuevos contra procesos
+	// que ya tienen una estimación de ráfaga actualizada.
+	initialEstimate := float32(kernelModels.KernelConfig.InitialEstimate)
+	slog.Info(fmt.Sprintf("CANTIDAD DE PROCESOS EN LA COLA READY %v", kernelModels.QueueReady.Size()))
+	for i, pcb := range allReadyProcesses {
+		if pcb.RafagaEstimada == initialEstimate {
+			slog.Debug("PCP (SJF): Priorizando proceso sin estimación real.", "PID", pcb.PID)
+			shortestPcb := allReadyProcesses[i]
+			kernelModels.QueueReady.Remove(i) // Se saca el proceso priorizado.
+			return shortestPcb, nil
+		}
+	}
+
+	// Si no hay procesos nuevos, se aplica la lógica SJF estándar.
 	shortestIndex := 0
+	shortestEstimate := allReadyProcesses[0].RafagaEstimada
 	for i := 1; i < len(allReadyProcesses); i++ {
-		if allReadyProcesses[i].RafagaEstimada < allReadyProcesses[shortestIndex].RafagaEstimada {
+		if allReadyProcesses[i].RafagaEstimada < shortestEstimate {
+			shortestEstimate = allReadyProcesses[i].RafagaEstimada
 			shortestIndex = i
 		}
 	}
 
 	shortestPcb := allReadyProcesses[shortestIndex]
-	kernelModels.QueueReady.Remove(shortestIndex) // Lo sacamos de la cola.
+	kernelModels.QueueReady.Remove(shortestIndex) // Se saca de la cola.
 
 	slog.Debug("PCP (SJF/SRT): Proceso seleccionado.", "PID", shortestPcb.PID, "Estimación", shortestPcb.RafagaEstimada)
 	return shortestPcb, nil
@@ -120,6 +137,14 @@ func handleCpuExecution(pcb *kernelModels.PCB, cpu *models.CpuN) {
 
 	TransitionProcessState(pcb, kernelModels.EstadoExecuting)
 	result := sendProcessToExecute(pcb, cpu)
+
+	// La CPU se marca como libre inmediatamente después de recibir la respuesta,
+	// permitiendo que el planificador la asigne a otro proceso mientras
+	// el Kernel gestiona el resultado del proceso actual.
+	cpu.PIDExecuting = 0
+	kernelModels.ConnectedCpuMap.MarkAsFree(cpu.Id)
+	slog.Debug("PCP: CPU liberada.", "cpu_id", cpu.Id)
+	// --------------------------
 
 	// La lógica para actualizar la ráfaga estimada ahora depende de si el proceso fue interrumpido o no.
 	if result.StatusCodePCB == kernelModels.NeedInterrupt {
@@ -164,10 +189,6 @@ func handleCpuExecution(pcb *kernelModels.PCB, cpu *models.CpuN) {
 		TransitionProcessState(pcb, kernelModels.EstadoReady)
 		StartShortTermScheduler()
 	}
-
-	cpu.PIDExecuting = 0
-	kernelModels.ConnectedCpuMap.MarkAsFree(cpu.Id)
-	slog.Debug("PCP: CPU liberada.", "cpu_id", cpu.Id)
 
 	StartShortTermScheduler()
 }

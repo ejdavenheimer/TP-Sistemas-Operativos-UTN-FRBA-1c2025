@@ -20,6 +20,11 @@ var ProcessTableLock sync.RWMutex
 
 func GetInstructionHandler(configPath string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// --- CORRECCIÓN APLICADA ---
+		// Se agrega el retardo de memoria para la búsqueda de instrucciones.
+		time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
+		// --------------------------
+
 		queryParams := r.URL.Query()
 		pidStr := queryParams.Get("pid")
 		pcStr := queryParams.Get("pc")
