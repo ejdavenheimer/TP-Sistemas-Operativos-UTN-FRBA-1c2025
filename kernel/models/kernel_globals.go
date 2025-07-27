@@ -65,6 +65,7 @@ type PCB struct {
 	PendingIoRequest *SyscallRequest
 	SwapRequested    bool // Flag para controlar las solicitudes de SWAP
 	Mutex            sync.Mutex
+	SuspensionTimer  *time.Timer
 }
 
 // --- Estructuras de Comunicación y Syscalls ---

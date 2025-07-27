@@ -8,26 +8,10 @@ import (
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/kernel/models"
 )
 
-// StartSuspensionTimer se inicia como una goroutine cuando un proceso entra a BLOCKED.
-func StartSuspensionTimer(pcb *models.PCB) {
-	suspensionTime := time.Duration(models.KernelConfig.SuspensionTime) * time.Millisecond
-	slog.Debug("Timer de suspensión iniciado para proceso en BLOCKED.", "PID", pcb.PID, "Tiempo(ms)", suspensionTime)
-	time.Sleep(suspensionTime)
-
-	// Es crucial volver a bloquear el PCB para leer su estado de forma segura.
-	pcb.Mutex.Lock()
-	defer pcb.Mutex.Unlock()
-
-	// Si el proceso ya no está en BLOCKED (porque terminó su I/O), cancelamos la suspensión.
-	if pcb.EstadoActual != models.EstadoBlocked {
-		slog.Debug("Proceso ya no está bloqueado. Suspensión cancelada.", "PID", pcb.PID, "EstadoActual", pcb.EstadoActual)
-		return
-	}
-
-	// Si sigue bloqueado, lo movemos a SUSPENDED_BLOCKED.
+// suspendProcessLogic contiene la lógica para mover un proceso a SUSPEND_BLOCKED.
+// Se asume que el Mutex del PCB ya fue adquirido antes de llamar a esta función.
+func suspendProcessLogic(pcb *models.PCB) {
 	slog.Info(fmt.Sprintf("## (%d) - Proceso supera tiempo máximo en BLOCKED. Pasa a SUSPEND_BLOCKED.", pcb.PID))
-
-	// Como estamos dentro de un Lock del PCB, hacemos la transición manualmente para evitar deadlocks.
 
 	// 1. Calculamos el tiempo que estuvo en BLOCKED y actualizamos la métrica.
 	oldState := pcb.EstadoActual
@@ -47,4 +31,25 @@ func StartSuspensionTimer(pcb *models.PCB) {
 
 	// Notificamos al PMP que tiene un proceso para mover a SWAP.
 	StartMediumTermScheduler()
+}
+
+// StartSuspensionTimer inicia un temporizador cancelable cuando un proceso entra a BLOCKED.
+func StartSuspensionTimer(pcb *models.PCB) {
+	suspensionTime := time.Duration(models.KernelConfig.SuspensionTime) * time.Millisecond
+	slog.Debug("Timer de suspensión iniciado para proceso en BLOCKED.", "PID", pcb.PID, "Tiempo(ms)", suspensionTime)
+
+	// Creamos un timer que ejecutará la lógica de suspensión después del tiempo especificado.
+	timer := time.AfterFunc(suspensionTime, func() {
+		pcb.Mutex.Lock()
+		defer pcb.Mutex.Unlock()
+
+		// Verificamos si el proceso AÚN está en BLOCKED cuando el timer se dispara.
+		if pcb.EstadoActual == models.EstadoBlocked {
+			suspendProcessLogic(pcb)
+		}
+		// Si ya no está en BLOCKED, no hacemos nada, el timer ya fue detenido.
+	})
+
+	// Guardamos la referencia al timer en el PCB para poder cancelarlo si sale de BLOCKED antes de tiempo.
+	pcb.SuspensionTimer = timer
 }

@@ -58,6 +58,17 @@ func TransitionProcessState(pcb *models.PCB, newState models.Estado) {
 
 	oldState := pcb.EstadoActual
 
+	// --- INICIO DE LA MEJORA ---
+	// Si el proceso está saliendo del estado BLOCKED y tiene un timer de suspensión activo,
+	// lo detenemos para prevenir que se ejecute innecesariamente.
+	if oldState == models.EstadoBlocked && pcb.SuspensionTimer != nil {
+		if pcb.SuspensionTimer.Stop() {
+			slog.Debug("Timer de suspensión detenido para proceso que sale de BLOCKED.", "PID", pcb.PID)
+		}
+		pcb.SuspensionTimer = nil // Limpiamos la referencia
+	}
+	// --- FIN DE LA MEJORA ---
+
 	if oldState != "" {
 		removeProcessFromCurrentQueue(pcb.PID)
 		if !pcb.UltimoCambio.IsZero() {
