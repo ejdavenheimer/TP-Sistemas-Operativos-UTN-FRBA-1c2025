@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -44,7 +45,7 @@ func FinishIoHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		slog.Info("## (%d) - Fin de IO", response.Pid)
+		slog.Info(fmt.Sprintf("## PID: %d - Fin de IO", response.Pid))
 
 		device, found := models.ConnectedDeviceManager.MarkAsFreeByPort(response.Port)
 		if !found {

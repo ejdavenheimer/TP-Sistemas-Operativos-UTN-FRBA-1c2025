@@ -83,7 +83,7 @@ func selectProcessToExecute() *kernelModels.PCB {
 
 func scheduleFIFO() (*kernelModels.PCB, error) {
 	slog.Debug("PCP (FIFO): Seleccionando primer proceso de la cola READY.")
-	slog.Info(fmt.Sprintf("CANTIDAD DE PROCESOS EN LA COLA READY %v", kernelModels.QueueReady.Size()))
+	slog.Debug(fmt.Sprintf("CANTIDAD DE PROCESOS EN LA COLA READY %v", kernelModels.QueueReady.Size()))
 	return kernelModels.QueueReady.Dequeue()
 }
 
@@ -98,35 +98,48 @@ func scheduleShortestJobFirst() (*kernelModels.PCB, error) {
 		return nil, fmt.Errorf("error al obtener procesos de la cola READY")
 	}
 
-	// Se priorizan los procesos que aún no han ejecutado su primera ráfaga.
-	// Esto previene la inanición (starvation) de procesos nuevos contra procesos
-	// que ya tienen una estimación de ráfaga actualizada.
+	// --- LÓGICA ANTI-INANICIÓN (LA TUYA, QUE ES LA CORRECTA) ---
+	shortestEstimate := float32(-1)
+	var firstNewPcb *kernelModels.PCB
 	initialEstimate := float32(kernelModels.KernelConfig.InitialEstimate)
-	slog.Info(fmt.Sprintf("CANTIDAD DE PROCESOS EN LA COLA READY %v", kernelModels.QueueReady.Size()))
-	for i, pcb := range allReadyProcesses {
-		if pcb.RafagaEstimada == initialEstimate {
-			slog.Debug("PCP (SJF): Priorizando proceso sin estimación real.", "PID", pcb.PID)
-			shortestPcb := allReadyProcesses[i]
-			kernelModels.QueueReady.Remove(i) // Se saca el proceso priorizado.
-			return shortestPcb, nil
+
+	for _, pcb := range allReadyProcesses {
+		if pcb.RafagaEstimada != initialEstimate {
+			if shortestEstimate == -1 || pcb.RafagaEstimada < shortestEstimate {
+				shortestEstimate = pcb.RafagaEstimada
+			}
+		} else if firstNewPcb == nil {
+			firstNewPcb = pcb
 		}
 	}
 
-	// Si no hay procesos nuevos, se aplica la lógica SJF estándar.
-	shortestIndex := 0
-	shortestEstimate := allReadyProcesses[0].RafagaEstimada
-	for i := 1; i < len(allReadyProcesses); i++ {
-		if allReadyProcesses[i].RafagaEstimada < shortestEstimate {
-			shortestEstimate = allReadyProcesses[i].RafagaEstimada
-			shortestIndex = i
+	var pcbToExecute *kernelModels.PCB
+
+	if firstNewPcb != nil && (shortestEstimate == -1 || initialEstimate > shortestEstimate) {
+		pcbToExecute = firstNewPcb
+		slog.Debug("PCP (SJF): Priorizando proceso nuevo para evitar inanición.", "PID", pcbToExecute.PID)
+	} else {
+		// Se aplica la lógica SJF estándar sobre toda la lista
+		shortestIndex := 0
+		finalShortestEstimate := allReadyProcesses[0].RafagaEstimada
+		for i := 1; i < len(allReadyProcesses); i++ {
+			if allReadyProcesses[i].RafagaEstimada < finalShortestEstimate {
+				finalShortestEstimate = allReadyProcesses[i].RafagaEstimada
+				shortestIndex = i
+			}
 		}
+		pcbToExecute = allReadyProcesses[shortestIndex]
+		slog.Debug("PCP (SJF/SRT): Proceso seleccionado por ráfaga más corta.", "PID", pcbToExecute.PID, "Estimación", pcbToExecute.RafagaEstimada)
 	}
 
-	shortestPcb := allReadyProcesses[shortestIndex]
-	kernelModels.QueueReady.Remove(shortestIndex) // Se saca de la cola.
+	// --- MEJORA DE SEGURIDAD ---
+	// Se reemplaza la eliminación por índice por una eliminación segura por PID.
+	kernelModels.QueueReady.RemoveWhere(func(p *kernelModels.PCB) bool {
+		return p.PID == pcbToExecute.PID
+	})
+	// -------------------------
 
-	slog.Debug("PCP (SJF/SRT): Proceso seleccionado.", "PID", shortestPcb.PID, "Estimación", shortestPcb.RafagaEstimada)
-	return shortestPcb, nil
+	return pcbToExecute, nil
 }
 
 func handleCpuExecution(pcb *kernelModels.PCB, cpu *models.CpuN) {
