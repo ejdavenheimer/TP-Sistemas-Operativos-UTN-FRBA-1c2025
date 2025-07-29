@@ -155,7 +155,7 @@ func FindPageEntry(pid uint, root *models.PageTableLevel, pageNumber int, increm
 			IncrementMetric(pid, "page_table")
 			slog.Debug(fmt.Sprintf("Acceso a tabla de páginas PID %d - Accesos totales: %d",
 				pid, models.ProcessMetrics[pid].PageTableAccesses))
-			// Delay SOLO para traducciones del CPU
+			// Delay por nivel de tabla de paginas
 			time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 		}
 

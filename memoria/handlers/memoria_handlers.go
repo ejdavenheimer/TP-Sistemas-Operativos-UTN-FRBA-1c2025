@@ -61,6 +61,7 @@ func ReserveMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//slog.Info("Ruta recibida para cargar instrucciones", "path", request.Path)
+	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 
 	err := services.ReserveMemory(request.PID, request.Size, request.Path)
 	if err != nil {
@@ -263,7 +264,7 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Delay de memoria
-	//time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
+	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 
 	pageSize := models.MemoryConfig.PageSize
 	// Calcular el byte 0 del frame (inicio de la página física)
