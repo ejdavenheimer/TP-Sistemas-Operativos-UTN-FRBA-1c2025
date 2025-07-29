@@ -79,19 +79,16 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 		return nil, ErrMemoryViolation
 	}
 
-	data := make([]byte, size)
-	copy(data, models.UserMemory[physicalAddress:physicalAddress+size])
-
 	models.ProcessDataLock.Lock()
 	defer models.ProcessDataLock.Unlock()
 
-	if _, ok := models.ProcessTable[pid]; !ok {
+	process, ok := models.ProcessTable[pid]
+	if !ok {
 		return nil, ErrProcessNotFound
 	}
-	pageTableRoot, exists := models.PageTables[pid]
-	if !exists {
-		return nil, fmt.Errorf("tabla de páginas no encontrada para PID %d", pid)
-	}
+
+	data := make([]byte, size)
+	copy(data, models.UserMemory[physicalAddress:physicalAddress+size])
 
 	pageSize := models.MemoryConfig.PageSize
 	startFrame := physicalAddress / pageSize
@@ -99,20 +96,16 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 
 	// CORRECCIÓN: Iteramos sobre los frames afectados para encontrar el nro de página lógico correspondiente a cada uno.
 	for frame := startFrame; frame <= endFrame; frame++ {
-		// Encontrar el número de página lógico correspondiente al frame
-		pageNumber, found := findPageNumberByFrame(pid, frame)
-		if !found {
-			continue // Skip si no se encuentra la página
+		// Búsqueda DIRECTA en las páginas del proceso
+		for i, page := range process.Pages {
+			if page.Frame == frame {
+				// Acceso directo a la entrada de página - SIN métricas ni delays
+				if pageEntry := getPageEntryDirect(pid, i); pageEntry != nil {
+					UpdatePageBit(pageEntry, "use")
+				}
+				break // Encontrado, siguiente frame
+			}
 		}
-
-		// ÚNICA búsqueda en tablas de páginas para esta página
-		entry, err := FindPageEntry(pid, pageTableRoot, pageNumber, false)
-		if err != nil {
-			continue // Skip si hay error en la búsqueda
-		}
-
-		// Actualizar ambos bits usando la entrada ya encontrada
-		UpdatePageBit(entry, "use")
 	}
 	IncrementMetric(pid, "reads")
 
@@ -127,19 +120,15 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 		return ErrMemoryViolation
 	}
 
-	copy(models.UserMemory[physicalAddress:physicalAddress+len(data)], data)
-
 	models.ProcessDataLock.Lock()
 	defer models.ProcessDataLock.Unlock()
 
-	if _, ok := models.ProcessTable[pid]; !ok {
+	process, ok := models.ProcessTable[pid]
+	if !ok {
 		return ErrProcessNotFound
 	}
 
-	pageTableRoot, exists := models.PageTables[pid]
-	if !exists {
-		return fmt.Errorf("tabla de páginas no encontrada para PID %d", pid)
-	}
+	copy(models.UserMemory[physicalAddress:physicalAddress+len(data)], data)
 
 	pageSize := models.MemoryConfig.PageSize
 	startFrame := physicalAddress / pageSize
@@ -147,23 +136,49 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 
 	// CORRECCIÓN: Iteramos sobre los frames afectados para encontrar el nro de página lógico correspondiente a cada uno.
 	for frame := startFrame; frame <= endFrame; frame++ {
-		// Encontrar el número de página lógico correspondiente al frame
-		pageNumber, found := findPageNumberByFrame(pid, frame)
-		if !found {
-			continue // Skip si no se encuentra la página
+		// Búsqueda DIRECTA en las páginas del proceso
+		for i, page := range process.Pages {
+			if page.Frame == frame {
+				// Acceso directo a la entrada de página - SIN métricas ni delays
+				if pageEntry := getPageEntryDirect(pid, i); pageEntry != nil {
+					UpdatePageBit(pageEntry, "use")
+					UpdatePageBit(pageEntry, "modified")
+				}
+				break // Encontrado, siguiente frame
+			}
 		}
-
-		// ÚNICA búsqueda en tablas de páginas para esta página
-		entry, err := FindPageEntry(pid, pageTableRoot, pageNumber, false)
-		if err != nil {
-			continue // Skip si hay error en la búsqueda
-		}
-
-		// Actualizar ambos bits usando la entrada ya encontrada
-		UpdatePageBit(entry, "use")
-		UpdatePageBit(entry, "modified")
 	}
 	IncrementMetric(pid, "writes")
+
+	return nil
+}
+
+func getPageEntryDirect(pid uint, pageNumber int) *models.PageEntry {
+	pageTableRoot, exists := models.PageTables[pid]
+	if !exists {
+		return nil
+	}
+
+	// Calcular índices pero navegar DIRECTAMENTE sin delays ni métricas
+	indices := getPageIndices(pageNumber, models.MemoryConfig.NumberOfLevels, models.MemoryConfig.EntriesPerPage)
+	currentLevel := pageTableRoot
+
+	// Navegación rápida SIN delays
+	for i, index := range indices {
+		nextLevel, exists := currentLevel.SubTables[index]
+		if !exists {
+			return nil
+		}
+
+		if i == len(indices)-1 {
+			if nextLevel.IsLeaf && nextLevel.Entry != nil && nextLevel.Entry.Presence {
+				return nextLevel.Entry
+			}
+			return nil
+		}
+
+		currentLevel = nextLevel
+	}
 
 	return nil
 }
@@ -209,17 +224,16 @@ func IncrementMetric(pid uint, metric string) {
 // **NUEVA FUNCIÓN AUXILIAR**
 // findPageNumberByFrame realiza la búsqueda inversa: dado un frame, encuentra a qué página lógica pertenece para un PID.
 // Esta función debe ser llamada dentro de un lock de ProcessDataLock.
-func findPageNumberByFrame(pid uint, frameIndex int) (int, bool) {
-	process, exists := models.ProcessTable[pid]
-	if !exists {
-		return -1, false
-	}
-	// Esta es una búsqueda lineal, pero dado el bajo número de páginas por proceso en las pruebas,
-	// es suficientemente eficiente y mucho más simple que mantener un mapa inverso.
-	for i, page := range process.Pages {
-		if page.Frame == frameIndex {
-			return i, true
-		}
-	}
-	return -1, false
-}
+//func findPageNumberByFrame(pid uint, frameIndex int) (int, bool) {
+//	process, exists := models.ProcessTable[pid]
+//	if !exists {
+//		return -1, false
+//	}
+// Esta es una búsqueda lineal, pero dado el bajo número de páginas por proceso en las pruebas,
+// es suficientemente eficiente y mucho más simple que mantener un mapa inverso.
+//		if page.Frame == frameIndex {
+//			return i, true
+//		}
+//	}
+//	return -1, false
+//}

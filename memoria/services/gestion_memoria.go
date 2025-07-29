@@ -123,7 +123,7 @@ func NewProcess(pid uint, size int, pageCount int, assignedFrames []int) {
 }
 
 func SearchFrame(pid uint, pageNumber int) int {
-	slog.Info(fmt.Sprintf("SearchFrame llamado - PID: %d, Página: %d", pid, pageNumber))
+	slog.Debug(fmt.Sprintf("SearchFrame llamado - PID: %d, Página: %d", pid, pageNumber))
 	models.ProcessDataLock.RLock()
 	defer models.ProcessDataLock.RUnlock()
 
@@ -151,12 +151,11 @@ func FindPageEntry(pid uint, root *models.PageTableLevel, pageNumber int, increm
 	slog.Debug(fmt.Sprintf("INDICES: %v", indices))
 
 	for i, index := range indices {
-		if incrementMetrics {
-			slog.Debug(fmt.Sprintf("ACCESO A TABLA DE PAGINAS: %v", models.ProcessMetrics[pid].PageTableAccesses))
-		}
-
 		if !currentLevel.IsLeaf && incrementMetrics {
 			IncrementMetric(pid, "page_table")
+			slog.Debug(fmt.Sprintf("Acceso a tabla de páginas PID %d - Accesos totales: %d",
+				pid, models.ProcessMetrics[pid].PageTableAccesses))
+			// Delay SOLO para traducciones del CPU
 			time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 		}
 
