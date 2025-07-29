@@ -147,6 +147,7 @@ func insert_tlb(pid uint, pagina int, frame int) {
 }
 
 func RequestMemoryFrame(pid uint, pageNumber int) int {
+	slog.Debug(fmt.Sprintf("RequestMemoryFrame llamado - PID: %d, Página: %d", pid, pageNumber))
 	type Request struct {
 		PID        uint `json:"pid"`
 		PageNumber int  `json:"pageNumber"`

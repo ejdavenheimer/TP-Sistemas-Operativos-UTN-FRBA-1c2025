@@ -88,6 +88,10 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 	if _, ok := models.ProcessTable[pid]; !ok {
 		return nil, ErrProcessNotFound
 	}
+	pageTableRoot, exists := models.PageTables[pid]
+	if !exists {
+		return nil, fmt.Errorf("tabla de páginas no encontrada para PID %d", pid)
+	}
 
 	pageSize := models.MemoryConfig.PageSize
 	startFrame := physicalAddress / pageSize
@@ -95,10 +99,20 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 
 	// CORRECCIÓN: Iteramos sobre los frames afectados para encontrar el nro de página lógico correspondiente a cada uno.
 	for frame := startFrame; frame <= endFrame; frame++ {
+		// Encontrar el número de página lógico correspondiente al frame
 		pageNumber, found := findPageNumberByFrame(pid, frame)
-		if found {
-			UpdatePageBit(pid, pageNumber, "use")
+		if !found {
+			continue // Skip si no se encuentra la página
 		}
+
+		// ÚNICA búsqueda en tablas de páginas para esta página
+		entry, err := FindPageEntry(pid, pageTableRoot, pageNumber, false)
+		if err != nil {
+			continue // Skip si hay error en la búsqueda
+		}
+
+		// Actualizar ambos bits usando la entrada ya encontrada
+		UpdatePageBit(entry, "use")
 	}
 	IncrementMetric(pid, "reads")
 
@@ -122,17 +136,32 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 		return ErrProcessNotFound
 	}
 
+	pageTableRoot, exists := models.PageTables[pid]
+	if !exists {
+		return fmt.Errorf("tabla de páginas no encontrada para PID %d", pid)
+	}
+
 	pageSize := models.MemoryConfig.PageSize
 	startFrame := physicalAddress / pageSize
 	endFrame := (physicalAddress + len(data) - 1) / pageSize
 
 	// CORRECCIÓN: Iteramos sobre los frames afectados para encontrar el nro de página lógico correspondiente a cada uno.
 	for frame := startFrame; frame <= endFrame; frame++ {
+		// Encontrar el número de página lógico correspondiente al frame
 		pageNumber, found := findPageNumberByFrame(pid, frame)
-		if found {
-			UpdatePageBit(pid, pageNumber, "use")
-			UpdatePageBit(pid, pageNumber, "modified")
+		if !found {
+			continue // Skip si no se encuentra la página
 		}
+
+		// ÚNICA búsqueda en tablas de páginas para esta página
+		entry, err := FindPageEntry(pid, pageTableRoot, pageNumber, false)
+		if err != nil {
+			continue // Skip si hay error en la búsqueda
+		}
+
+		// Actualizar ambos bits usando la entrada ya encontrada
+		UpdatePageBit(entry, "use")
+		UpdatePageBit(entry, "modified")
 	}
 	IncrementMetric(pid, "writes")
 
@@ -140,13 +169,7 @@ func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
 }
 
 // UpdatePageBit ahora recibe el número de página lógico correcto.
-func UpdatePageBit(pid uint, pageNumber int, bit string) {
-	entry, err := FindPageEntry(pid, models.PageTables[pid], pageNumber)
-	if err != nil {
-		slog.Warn(fmt.Sprintf("No se pudo actualizar bit '%s' para PID %d, página %d: %v", bit, pid, pageNumber, err))
-		return
-	}
-
+func UpdatePageBit(entry *models.PageEntry, bit string) {
 	switch bit {
 	case "presence_on":
 		entry.Presence = true

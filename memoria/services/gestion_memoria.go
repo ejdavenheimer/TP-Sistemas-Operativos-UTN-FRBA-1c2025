@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"runtime/debug"
+	"time"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 )
@@ -121,6 +123,7 @@ func NewProcess(pid uint, size int, pageCount int, assignedFrames []int) {
 }
 
 func SearchFrame(pid uint, pageNumber int) int {
+	slog.Info(fmt.Sprintf("SearchFrame llamado - PID: %d, Página: %d", pid, pageNumber))
 	models.ProcessDataLock.RLock()
 	defer models.ProcessDataLock.RUnlock()
 
@@ -131,7 +134,7 @@ func SearchFrame(pid uint, pageNumber int) int {
 	}
 
 	slog.Debug("SearchFrame recibido", "pid", pid, "pageNumber", pageNumber)
-	entry, err := FindPageEntry(pid, pageTableRoot, pageNumber)
+	entry, err := FindPageEntry(pid, pageTableRoot, pageNumber, true)
 	if err != nil {
 		slog.Warn("No se encontró la entrada de página", "pid", pid, "page", pageNumber, "error", err)
 		return -1
@@ -140,16 +143,28 @@ func SearchFrame(pid uint, pageNumber int) int {
 	return entry.Frame
 }
 
-func FindPageEntry(pid uint, root *models.PageTableLevel, pageNumber int) (*models.PageEntry, error) {
+func FindPageEntry(pid uint, root *models.PageTableLevel, pageNumber int, incrementMetrics bool) (*models.PageEntry, error) {
+	slog.Debug("Se accedio a FIND PAGE ENTRY")
+	slog.Debug(fmt.Sprintf("Stack trace: %s", debug.Stack()))
 	currentLevel := root
 	indices := getPageIndices(pageNumber, models.MemoryConfig.NumberOfLevels, models.MemoryConfig.EntriesPerPage)
+	slog.Debug(fmt.Sprintf("INDICES: %v", indices))
 
 	for i, index := range indices {
-		IncrementMetric(pid, "page_table")
+		if incrementMetrics {
+			slog.Debug(fmt.Sprintf("ACCESO A TABLA DE PAGINAS: %v", models.ProcessMetrics[pid].PageTableAccesses))
+		}
+
+		if !currentLevel.IsLeaf && incrementMetrics {
+			IncrementMetric(pid, "page_table")
+			time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
+		}
+
 		nextLevel, exists := currentLevel.SubTables[index]
 		if !exists {
 			return nil, fmt.Errorf("nivel intermedio no encontrado")
 		}
+
 		if i == len(indices)-1 {
 			if nextLevel.IsLeaf && nextLevel.Entry != nil && nextLevel.Entry.Presence {
 				return nextLevel.Entry, nil

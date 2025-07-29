@@ -148,7 +148,7 @@ func SearchFrameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delay de memoria
-	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
+	//time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 
 	//buscar frame
 	frame := services.SearchFrame(request.PID, request.PageNumber)
@@ -231,7 +231,7 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Write failed", http.StatusInternalServerError)
 		return
 	}
-	services.IncrementMetric(request.Pid, "writes")
+	//services.IncrementMetric(request.Pid, "writes")
 	dataBytes := []byte(request.Data)
 	if idx := bytes.IndexByte(dataBytes, 0); idx != -1 {
 		dataBytes = dataBytes[:idx]
@@ -263,7 +263,7 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Delay de memoria
-	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
+	//time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 
 	// Validar existencia del proceso
 	ProcessTableLock.RLock()
@@ -283,7 +283,7 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry, err := services.FindPageEntry(request.PID, models.PageTables[request.PID], request.PageNumber)
+	entry, err := services.FindPageEntry(request.PID, models.PageTables[request.PID], request.PageNumber, false)
 	if err != nil {
 		slog.Warn(fmt.Sprintf("Página %d no está presente en memoria para PID %d: %v", request.PageNumber, request.PID, err))
 		http.Error(w, "Page Not Present", http.StatusConflict)
@@ -296,10 +296,10 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 
 	// **INICIO DE LA CORRECCIÓN**
 	// Se pasa el número de página lógico (request.PageNumber) a UpdatePageBit, no la dirección física.
-	services.UpdatePageBit(request.PID, request.PageNumber, "use")
+	services.UpdatePageBit(entry, "use")
 	// **FIN DE LA CORRECCIÓN**
 
-	services.IncrementMetric(request.PID, "reads")
+	//services.IncrementMetric(request.PID, "reads")
 	// Usar la función centralizada de lectura
 	content, err := services.Read(request.PID, frameStart, pageSize)
 	if err != nil {
