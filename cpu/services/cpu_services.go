@@ -73,12 +73,16 @@ func DecodeAndExecute(pid uint, instruction string, cpuConfig *models.Config, is
 		syscallRequest.Pid = pid
 		syscallRequest.Type = instructionType
 		syscallRequest.Values = parts[1:]
+		Cache.RemoveProcessFromCache(pid)
+		RemoveTLBEntriesByPID(pid)
 		*isBlocked = true
 		*isSyscall = true
 		increase_PC()
 
 	case "EXIT":
 		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", pid, instruction))
+		RemoveTLBEntriesByPID(pid)
+		Cache.RemoveProcessFromCache(pid)
 		*isFinished = true
 
 	default:
