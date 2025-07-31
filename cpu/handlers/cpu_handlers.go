@@ -100,6 +100,7 @@ func InterruptProcessHandler() func(http.ResponseWriter, *http.Request) {
 		}
 
 		slog.Debug("Interrupción recibida", slog.Int("pid", pid))
+		slog.Info("##Llega interrupción al puerto Interrupt")
 
 		if pid == models.InterruptControl.PID {
 			slog.Debug("Interrupción informada al cpu", slog.Int("pid", pid))
