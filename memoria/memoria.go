@@ -64,8 +64,8 @@ func main() {
 	http.HandleFunc("GET /memoria/metrics", memoryHandler.MetricsHandler)
 
 	//Manejo de swap
-	http.HandleFunc("POST /memoria/swapOut", memoryHandler.PutProcessInSwapHandler)
-	http.HandleFunc("POST /memoria/swapIn", memoryHandler.RemoveProcessInSwapHandler)
+	http.HandleFunc("POST /memoria/putSwap", memoryHandler.PutProcessInSwapHandler)
+	http.HandleFunc("POST /memoria/removeSwap", memoryHandler.RemoveProcessInSwapHandler)
 
 	//Ocupar o Liberar espacio de memoria de un PCB
 	http.HandleFunc("POST /memoria/cargarpcb", memoryHandler.ReserveMemoryHandler)

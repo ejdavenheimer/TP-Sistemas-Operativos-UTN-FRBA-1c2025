@@ -23,12 +23,22 @@ func ExecuteDumpMemory(pid uint, size int) error {
 
 	// Adquirimos un lock de lectura, ya que no vamos a modificar las estructuras, solo leerlas.
 	models.ProcessDataLock.RLock()
-	defer models.ProcessDataLock.RUnlock()
-
 	process, exists := models.ProcessTable[pid]
 	if !exists {
 		return fmt.Errorf("proceso PID %d no existe para realizar DUMP", pid)
 	}
+	models.ProcessDataLock.RUnlock()
+	entrySwap, exists := models.ProcessSwapTable[pid]
+	if exists {
+		err := fmt.Errorf("el proceso con PID %d no se encuentra en SWAP - ENTRY SWAP: %v", pid, entrySwap)
+		slog.Error(err.Error())
+		return err
+	}
+	slog.Debug(fmt.Sprintf("PID %d está en memoria, realizando dump desde UserMemory", pid))
+	return dumpFromMemory(pid, process, file)
+}
+
+func dumpFromMemory(pid uint, process *models.Process, file *os.File) error {
 
 	// El tamaño del dump debe ser el tamaño real del proceso.
 	actualSize := process.Size
@@ -37,11 +47,11 @@ func ExecuteDumpMemory(pid uint, size int) error {
 	numberPages := (actualSize + models.MemoryConfig.PageSize - 1) / models.MemoryConfig.PageSize
 
 	// Para leer de la memoria de usuario, necesitamos su lock.
-	models.UMemoryLock.RLock()
-	defer models.UMemoryLock.RUnlock()
+	models.UMemoryLock.Lock()
+	defer models.UMemoryLock.Unlock()
 
 	for page := 0; page < numberPages; page++ {
-		frame := SearchFrame(pid, page) // SearchFrame ya está protegido con su propio lock
+		frame := SearchFrameWithoutLock(pid, page) // SearchFrame ya está protegido con su propio lock
 		if frame == -1 {
 			slog.Warn("Página no encontrada en memoria durante dump, rellenando con ceros", "pid", pid, "page", page)
 			emptyPage := make([]byte, models.MemoryConfig.PageSize)
@@ -65,12 +75,31 @@ func ExecuteDumpMemory(pid uint, size int) error {
 	}
 
 	if _, err := file.Write(dumpData); err != nil {
-		slog.Error(fmt.Sprintf("Fallo al escribir contenido en el archivo de dump '%s'", dumpFilePath))
+		slog.Error("Fallo al escribir contenido en el archivo de dump")
 		return fmt.Errorf("fallo al escribir datos al archivo de dump: %w", err)
 	}
 
-	slog.Debug(fmt.Sprintf("Memoria: Memory Dump completado para PID %d. Archivo: %s", pid, dumpFilePath))
+	slog.Info(fmt.Sprintf("Memoria: Memory Dump completado desde memoria para PID %d", pid))
 	return nil
+}
+
+func SearchFrameWithoutLock(pid uint, pageNumber int) int {
+	slog.Debug(fmt.Sprintf("SearchFrame llamado - PID: %d, Página: %d", pid, pageNumber))
+
+	pageTableRoot, exists := models.PageTables[pid]
+	if !exists {
+		slog.Warn("Tabla de páginas no encontrada para PID", "pid", pid)
+		return -1
+	}
+
+	slog.Debug("SearchFrame recibido", "pid", pid, "pageNumber", pageNumber)
+	entry, err := FindPageEntry(pid, pageTableRoot, pageNumber, true)
+	if err != nil {
+		slog.Warn("No se encontró la entrada de página", "pid", pid, "page", pageNumber, "error", err)
+		return -1
+	}
+
+	return entry.Frame
 }
 
 // CollectFramesFromTableV2 es una función recursiva para recolectar frames.

@@ -10,6 +10,7 @@ import (
 
 // executeDumpMemorySyscall maneja la petición de DUMP de un proceso.
 func executeDumpMemorySyscall(pcb *kernelModels.PCB) {
+	previousState := pcb.EstadoActual
 	TransitionProcessState(pcb, kernelModels.EstadoBlocked)
 	slog.Debug("Proceso bloqueado por DUMP_MEMORY.", "PID", pcb.PID)
 
@@ -41,8 +42,26 @@ func executeDumpMemorySyscall(pcb *kernelModels.PCB) {
 			StartLongTermScheduler()
 		} else {
 			slog.Debug("DUMP: Operación completada con éxito. Desbloqueando proceso.", "PID", pcb.PID)
-			TransitionProcessState(pcb, kernelModels.EstadoReady)
-			StartShortTermScheduler()
+
+			currentState := pcb.EstadoActual
+			slog.Debug("DUMP: Verificando estado del proceso.", "PID", pcb.PID, "EstadoAnterior", previousState, "EstadoActual", currentState)
+
+			if currentState == kernelModels.EstadoSuspendidoBlocked {
+				// El proceso fue suspendido mientras hacía DUMP - ahora que terminó DUMP debe ir a SUSP_READY
+				slog.Debug("Proceso fue suspendido durante DUMP, como terminó pasa a SUSP_READY.", "PID", pcb.PID)
+				TransitionProcessState(pcb, kernelModels.EstadoSuspendidoReady)
+				StartMediumTermScheduler()
+			} else if previousState == kernelModels.EstadoSuspendidoReady {
+				// El proceso venía de SUSP_READY - volver a ese estado
+				slog.Debug("Proceso venía de SUSP_READY, regresando a ese estado.", "PID", pcb.PID)
+				TransitionProcessState(pcb, kernelModels.EstadoSuspendidoReady)
+				StartMediumTermScheduler()
+			} else {
+				// Proceso normal - ir a READY
+				slog.Debug("Proceso no estaba suspendido, va a READY.", "PID", pcb.PID)
+				TransitionProcessState(pcb, kernelModels.EstadoReady)
+				StartShortTermScheduler()
+			}
 		}
 	}()
 }

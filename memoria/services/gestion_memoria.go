@@ -98,11 +98,16 @@ func MapPageToFrame(pid uint, pageNumber int, frame int) {
 	}
 }
 
+// DEBUGUEAR
 func initializePageTables(pid uint) {
+	slog.Debug(fmt.Sprintf("initializePageTables llamada para PID %d", pid))
 	if _, exists := models.PageTables[pid]; !exists {
 		models.PageTables[pid] = &models.PageTableLevel{
 			SubTables: make(map[int]*models.PageTableLevel),
 		}
+		slog.Debug(fmt.Sprintf("Nueva tabla de páginas creada para PID %d", pid))
+	} else {
+		slog.Debug(fmt.Sprintf("Tabla de páginas ya existe para PID %d", pid))
 	}
 }
 

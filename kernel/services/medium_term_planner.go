@@ -35,7 +35,7 @@ func MediumTermScheduler() {
 	}
 }
 
-// --- Lógica de Suspensión (SWAP-OUT) ---
+// --- Lógica de Suspensión (SWAP-IN) ---
 
 func handleSuspendedBlocked() {
 	var pcbToSwap *models.PCB = nil
@@ -67,21 +67,21 @@ func handleSuspendedBlocked() {
 		}{PID: p.PID}
 		body, _ := json.Marshal(req)
 
-		_, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/swapOut", body)
+		_, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/putSwap", body)
 
 		if err != nil {
-			slog.Error("PMP: Error al solicitar SWAP OUT a Memoria. Se reintentará.", "PID", p.PID, "error", err)
+			slog.Error("PMP: Error al solicitar SWAP IN a Memoria. Se reintentará.", "PID", p.PID, "error", err)
 			p.Mutex.Lock()
 			p.SwapRequested = false
 			p.Mutex.Unlock()
 		} else {
-			slog.Debug("PMP: Memoria confirmó SWAP OUT. El proceso espera en SUSP_BLOCKED.", "PID", p.PID)
+			slog.Debug("PMP: Memoria confirmó SWAP IN. El proceso espera en SUSP_BLOCKED.", "PID", p.PID)
 			StartLongTermScheduler()
 		}
 	}(pcbToSwap)
 }
 
-// --- Lógica de Desuspensión (SWAP-IN) ---
+// --- Lógica de Desuspensión (SWAP-OUT) ---
 
 func handleSuspendedReady() {
 	switch models.KernelConfig.NewAlgorithm {
@@ -117,20 +117,20 @@ func desuspendProcess(pcb *models.PCB) {
 		return
 	}
 
-	requestSwapIn(pcb)
+	requestSwapOut(pcb)
 }
 
-func requestSwapIn(pcb *models.PCB) {
-	slog.Debug("PMP: Solicitando a Memoria SWAP IN.", "PID", pcb.PID)
+func requestSwapOut(pcb *models.PCB) {
+	slog.Debug("PMP: Solicitando a Memoria SWAP OUT.", "PID", pcb.PID)
 	req := struct {
 		PID uint `json:"pid"`
 	}{PID: pcb.PID}
 	body, _ := json.Marshal(req)
 
-	_, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/swapIn", body)
+	_, err := client.DoRequest(models.KernelConfig.PortMemory, models.KernelConfig.IpMemory, "POST", "memoria/removeSwap", body)
 
 	if err != nil {
-		slog.Error("PMP: Error al solicitar SWAP IN a Memoria. Finalizando proceso.", "PID", pcb.PID, "error", err)
+		slog.Error("PMP: Error al solicitar SWAP OUT a Memoria. Finalizando proceso.", "PID", pcb.PID, "error", err)
 		TransitionProcessState(pcb, models.EstadoExit)
 		StartLongTermScheduler()
 		return
