@@ -242,8 +242,6 @@ func (cache *PageCache) findVictimIndexClock() int {
 // findVictimIndexClockM implementa el algoritmo CLOCK-M.
 func (cache *PageCache) findVictimIndexClockM() int {
 	for {
-		startIndex := cache.ClockPointer
-
 		//Primer pasada: busca (0,0)
 		for i := 0; i < cache.MaxEntries; i++ {
 			entry := &cache.Entries[cache.ClockPointer]
@@ -261,28 +259,38 @@ func (cache *PageCache) findVictimIndexClockM() int {
 			}
 
 			// Si es (1,X), poner U=0
-			if entry.UseBit {
-				entry.UseBit = false
-			}
+			//if entry.UseBit {
+			//	entry.UseBit = false
+			//}
 
 			cache.advancePointer()
 		}
 
 		// Segunda pasada: Buscar (0,1)
 		// Todas las páginas (1,X) se han convertido en (0,X) en la primera pasada.
-		cache.ClockPointer = startIndex
 		for i := 0; i < cache.MaxEntries; i++ {
 			entry := &cache.Entries[cache.ClockPointer]
+
+			if entry.LockerBit {
+				cache.advancePointer()
+				continue
+			}
+
 			if !entry.UseBit && entry.ModifiedBit {
 				//encontro (0,1)
 				ptr := cache.ClockPointer
 				return ptr
 			}
+			if entry.UseBit {
+				entry.UseBit = false
+				slog.Debug(fmt.Sprintf("CLOCK-M: Reseteando UseBit - PID %d, Page %d ahora es (0,%t)", entry.PID, entry.PageNumber, entry.ModifiedBit))
+			}
 			cache.advancePointer()
 		}
 
 		// Si llegamos aquí, no se encontró (0,0) ni (0,1).
-		return cache.ClockPointer
+		slog.Debug("CLOCK-M: Completadas ambas pasadas sin encontrar víctima, reintentando...")
+		//return cache.ClockPointer
 	}
 }
 
