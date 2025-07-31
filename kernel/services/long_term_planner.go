@@ -118,7 +118,7 @@ func admitProcess(pcb *models.PCB) bool {
 
 	err := CheckUserMemoryCapacity(pcb.PID, pcb.Size)
 	if err != nil {
-		slog.Info(fmt.Sprintf("Memoria no tiene espacio para PID %d (tamaño %d). Permanece en NEW.", pcb.PID, pcb.Size))
+		slog.Debug(fmt.Sprintf("Memoria no tiene espacio para PID %d (tamaño %d). Permanece en NEW.", pcb.PID, pcb.Size))
 		return false
 	}
 
