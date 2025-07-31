@@ -73,16 +73,24 @@ func DecodeAndExecute(pid uint, instruction string, cpuConfig *models.Config, is
 		syscallRequest.Pid = pid
 		syscallRequest.Type = instructionType
 		syscallRequest.Values = parts[1:]
-		Cache.RemoveProcessFromCache(pid)
-		RemoveTLBEntriesByPID(pid)
+		if IsEnabled() {
+			Cache.RemoveProcessFromCache(pid)
+		}
+		if IsEnabledTLB() {
+			RemoveTLBEntriesByPID(pid)
+		}
 		*isBlocked = true
 		*isSyscall = true
 		increase_PC()
 
 	case "EXIT":
 		slog.Info(fmt.Sprintf("## PID: <%d> - Ejecutando: <%s>", pid, instruction))
-		RemoveTLBEntriesByPID(pid)
-		Cache.RemoveProcessFromCache(pid)
+		if IsEnabled() {
+			Cache.RemoveProcessFromCache(pid)
+		}
+		if IsEnabledTLB() {
+			RemoveTLBEntriesByPID(pid)
+		}
 		*isFinished = true
 
 	default:
@@ -148,6 +156,7 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 	if err != nil {
 		slog.Error("Fallo la escritura en Memoria", "error", err)
 	}
+	slog.Info(fmt.Sprintf("## PID: <%d> - ACCIÓN: <ESCRIBIR> - DIRECCIÓN FISICA: <%d> - Valor: <%s>", request.Pid, physicalAddress, value))
 	increase_PC()
 }
 

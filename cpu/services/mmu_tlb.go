@@ -45,6 +45,10 @@ func RequestMemoryConfig() error {
 	return nil
 }
 
+func IsEnabledTLB() bool {
+	return tlbMaxSize > 0
+}
+
 func TranslateAddress(pid uint, logicalAddress int) int {
 	pageSize := models.MemConfig.PageSize
 	pageNumber := logicalAddress / pageSize
@@ -53,7 +57,7 @@ func TranslateAddress(pid uint, logicalAddress int) int {
 	slog.Debug("Traducción de dirección", "pid", pid, "logical", logicalAddress, "pageNumber", pageNumber, "pageSize", pageSize)
 
 	//Verifica que la tlb no este desactivada
-	if tlbMaxSize > 0 {
+	if IsEnabledTLB() {
 		if frame, ok := searchTLB(pid, pageNumber); ok {
 			//si la encuentra imprime TLB HIT y traduce
 			slog.Info(fmt.Sprintf("PID: <%d> - TLB HIT - Pagina: <%d>", pid, pageNumber))
