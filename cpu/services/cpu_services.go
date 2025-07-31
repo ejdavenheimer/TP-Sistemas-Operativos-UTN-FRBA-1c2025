@@ -20,7 +20,7 @@ import (
 
 func Fetch(request memoriaModel.InstructionRequest, cpuConfig *models.Config) memoriaModel.InstructionResponse {
 	query := fmt.Sprintf("memoria/instruccion?pid=%d&pc=%d", request.Pid, request.PC)
-	slog.Info(fmt.Sprintf("## PID: %d - FETCH - %d", request.Pid, request.PC))
+	slog.Info(fmt.Sprintf("## PID: <%d> - FETCH - <%d>", request.Pid, request.PC))
 	response, err := client.DoRequest(cpuConfig.PortMemory, cpuConfig.IpMemory, "GET", query, nil)
 
 	var instructionResponse memoriaModel.InstructionResponse
@@ -55,7 +55,7 @@ func DecodeAndExecute(pid uint, instruction string, cpuConfig *models.Config, is
 	case "GOTO":
 		ExecuteGoto(executeReq)
 	case "INIT_PROC":
-		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s %s %s", pid, parts[0], parts[1], parts[2]))
+		slog.Info(fmt.Sprintf("## PID: <%d> - Ejecutando: <%s> - <%s> <%s>", pid, parts[0], parts[1], parts[2]))
 		syncSyscallReq := kernelModel.SyscallRequest{
 			Pid:    pid,
 			Type:   "INIT_PROC",
@@ -69,7 +69,7 @@ func DecodeAndExecute(pid uint, instruction string, cpuConfig *models.Config, is
 		increase_PC()
 
 	case "IO", "DUMP_MEMORY":
-		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", pid, instruction))
+		slog.Info(fmt.Sprintf("## PID: <%d> - Ejecutando: <%s>", pid, instruction))
 		syscallRequest.Pid = pid
 		syscallRequest.Type = instructionType
 		syscallRequest.Values = parts[1:]
@@ -80,7 +80,7 @@ func DecodeAndExecute(pid uint, instruction string, cpuConfig *models.Config, is
 		increase_PC()
 
 	case "EXIT":
-		slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", pid, instruction))
+		slog.Info(fmt.Sprintf("## PID: <%d> - Ejecutando: <%s>", pid, instruction))
 		RemoveTLBEntriesByPID(pid)
 		Cache.RemoveProcessFromCache(pid)
 		*isFinished = true
@@ -94,12 +94,12 @@ func DecodeAndExecute(pid uint, instruction string, cpuConfig *models.Config, is
 // --- Implementación de Instrucciones ---
 
 func ExecuteNoop(request models.ExecuteInstructionRequest) {
-	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s", request.Pid, request.Values[0]))
+	slog.Info(fmt.Sprintf("## PID: <%d> - Ejecutando: <%s>", request.Pid, request.Values[0]))
 	increase_PC()
 }
 
 func ExecuteWrite(request models.ExecuteInstructionRequest) {
-	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s %s", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
+	slog.Info(fmt.Sprintf("## PID: <%d> - Ejecutando: <%s> - <%s> <%s>", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
 	logicalAddress, err := strconv.Atoi(request.Values[1])
 	if err != nil {
 		slog.Error("Dirección lógica inválida en WRITE", "error", err)
@@ -132,7 +132,8 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 		entry := &Cache.Entries[idx]
 		copy(entry.Content[offset:], []byte(value))
 		entry.ModifiedBit = true
-		slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: ESCRIBIR - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, value))
+		entry.UseBit = true
+		slog.Info(fmt.Sprintf("## PID: <%d> - ACCIÓN: <ESCRIBIR> - DIRECCIÓN FISICA: <%d> - Valor: <%s>", request.Pid, physicalAddress, value))
 		increase_PC()
 		return
 	}
@@ -151,7 +152,7 @@ func ExecuteWrite(request models.ExecuteInstructionRequest) {
 }
 
 func ExecuteRead(request models.ExecuteInstructionRequest) {
-	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s %s", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
+	slog.Info(fmt.Sprintf("## PID: <%d> - Ejecutando: <%s> - <%s> <%s>", request.Pid, request.Values[0], request.Values[1], request.Values[2]))
 	logicalAddress, err := strconv.Atoi(request.Values[1])
 	if err != nil {
 		slog.Error("Dirección lógica inválida en READ", "error", err)
@@ -187,7 +188,7 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 		}
 		data := content[offset : offset+size]
 		cleanData := bytes.Trim(data, "\x00")
-		slog.Info(fmt.Sprintf("## PID: %d - ACCIÓN: LEER - DIRECCIÓN FISICA: %d - Valor: %s", request.Pid, physicalAddress, string(cleanData)))
+		slog.Info(fmt.Sprintf("## PID: <%d> - ACCIÓN: <LEER> - DIRECCIÓN FISICA: <%d> - Valor: <%s>", request.Pid, physicalAddress, string(cleanData)))
 		increase_PC()
 		return
 	}
@@ -221,7 +222,7 @@ func ExecuteRead(request models.ExecuteInstructionRequest) {
 }
 
 func ExecuteGoto(request models.ExecuteInstructionRequest) {
-	slog.Info(fmt.Sprintf("## PID: %d - Ejecutando: %s - %s", request.Pid, request.Values[0], request.Values[1]))
+	slog.Info(fmt.Sprintf("## PID: <%d> - Ejecutando: <%s> - <%s>", request.Pid, request.Values[0], request.Values[1]))
 	value, _ := strconv.Atoi(request.Values[1])
 	if value > 0 {
 		models.CpuRegisters.PC = uint(value - 1)

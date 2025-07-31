@@ -238,7 +238,7 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 		dataBytes = dataBytes[:idx]
 	}
 
-	slog.Info(fmt.Sprintf("## PID: <%d> - <Escritura> - Dir. Física: <%d> - Tamaño: <%d> - Dato: <%s>", request.Pid, request.PhysicalAddress, len(dataBytes), string(dataBytes)))
+	slog.Info(fmt.Sprintf("## PID: <%d> - <Escritura> - Dir. Física: <%d> - Tamaño: <%d> - Dato: <%s>", request.Pid, request.PhysicalAddress, len(request.Data), string(dataBytes)))
 	w.WriteHeader(http.StatusOK) //RESPUESTA
 }
 
@@ -290,9 +290,9 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch request.Operacion {
 	case "Lectura":
-		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página por LECTURA> - Dir. Física: <%d> - Tamaño: <%d> - VALOR:<%s>", request.PID, frameStart, pageSize, string(content)))
+		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página por LECTURA> - Dir. Física: <%d> - Tamaño: <%d> ", request.PID, frameStart, pageSize))
 	case "Escritura":
-		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página por ESCRITURA> - Dir. Física: <%d> - Tamaño: <%d> - VALOR:<%s>", request.PID, frameStart, pageSize, string(content)))
+		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página por ESCRITURA> - Dir. Física: <%d> - Tamaño: <%d>", request.PID, frameStart, pageSize))
 	default:
 		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página por OPERACIÓN DESCONOCIDA> - Dir. Física: <%d> - Tamaño: <%d> - VALOR:<%s>", request.PID, frameStart, pageSize, string(content)))
 	}

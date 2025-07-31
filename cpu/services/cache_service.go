@@ -98,7 +98,7 @@ func (cache *PageCache) Get(pid uint, page int) ([]byte, bool) {
 
 	//Cache HIT
 	cache.Entries[index].UseBit = true
-	slog.Info(fmt.Sprintf("PID: %d - Cache Hit - Pagina: %d", pid, page))
+	slog.Info(fmt.Sprintf("PID: <%d> - Cache Hit - Pagina: <%d>", pid, page))
 	slog.Debug(fmt.Sprintf("Cache HIT: PID %d, Page %d (slot %d). Content: %s", pid, page, index, cache.Entries[index].Content))
 	return cache.Entries[index].Content, true
 }
@@ -140,13 +140,14 @@ func (cache *PageCache) Put(pid uint, pageNumber int, frameAsignado int, content
 		PageNumber:  pageNumber,
 		Content:     content,
 		Frame:       frameAsignado,
-		ModifiedBit: true,
+		ModifiedBit: false,
 		UseBit:      true,
 		LockerBit:   false,
 	}
 	cache.Entries = append(cache.Entries, newCacheEntry)
 	cache.PageMap[key] = len(cache.Entries) - 1
-	slog.Info(fmt.Sprintf("PID: %d - Cache Add - Pagina: %d", pid, pageNumber))
+	slog.Info(fmt.Sprintf("PID: <%d> - Cache Add - Pagina: <%d>", pid, pageNumber))
+	slog.Debug(fmt.Sprintf("ENTRADAS DE DACHE %v", cache.Entries))
 	slog.Debug(fmt.Sprintf("Cache Add: PID %d, Page %d en nuevo slot %d. Total: %d/%d", pid, pageNumber, len(cache.Entries)-1, len(cache.Entries), cache.MaxEntries))
 }
 
@@ -188,7 +189,8 @@ func (cache *PageCache) replaceVictim(newPID uint, newPage int, newFrame int, ne
 			slog.Error(fmt.Sprintf("Fallo la escritura en Memoria para PID %d página %d: %v", victim.PID, victim.PageNumber, err))
 			return
 		}
-		slog.Info(fmt.Sprintf("PID: %d - Memory Update - Página: %d - Frame: %d", victim.PID, victim.PageNumber, victim.Frame))
+		slog.Debug(fmt.Sprintf("Contenido en victim.Content - len: %d - PID: %d - Página: %d", len(victim.Content), victim.PID, victim.PageNumber))
+		slog.Info(fmt.Sprintf("PID: <%d> - Memory Update - Página: <%d> - Frame: <%d>", victim.PID, victim.PageNumber, victim.Frame))
 	}
 
 	// Eliminar de pageMap antes de reemplazar en Entries
@@ -201,13 +203,15 @@ func (cache *PageCache) replaceVictim(newPID uint, newPage int, newFrame int, ne
 		PageNumber:  newPage,
 		Content:     newContent,
 		Frame:       newFrame,
-		ModifiedBit: true,
+		ModifiedBit: false,
 		UseBit:      true,
 		LockerBit:   false,
 	}
 
 	cache.PageMap[getEntryKey(newPID, newPage)] = victimIndex
 
+	slog.Info(fmt.Sprintf("PID: <%d> - Cache Add - Pagina: <%d>", newPID, newPage))
+	slog.Debug(fmt.Sprintf("ENTRADAS DE DACHE %v", cache.Entries))
 	slog.Debug(fmt.Sprintf("Nueva página (PID %d, Page %d) cargada en slot %d de caché.", newPID, newPage, victimIndex))
 	cache.advancePointer()
 }
@@ -337,7 +341,7 @@ func (cache *PageCache) RemoveProcessFromCache(pid uint) {
 				return
 			}
 
-			slog.Info(fmt.Sprintf("PID: %d - Memory Update - Página: %d - Frame: %d", pid, entry.PageNumber, entry.Frame))
+			slog.Info(fmt.Sprintf("PID: <%d> - Memory Update - Página: <%d> - Frame: <%d>", pid, entry.PageNumber, entry.Frame))
 		}
 	}
 
