@@ -45,6 +45,7 @@ func UserMemoryCapacityHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Verifico que haya frames libres suficientes
 	models.UMemoryLock.Lock()
+	slog.Debug("UMemoryLock lockeado Hand Capacity")
 	freeFramesCount := services.CountFreeFrames()
 	models.UMemoryLock.Unlock()
 

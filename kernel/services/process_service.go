@@ -31,6 +31,7 @@ func UnblockProcessAfterIO(pid uint) {
 
 		TransitionProcessState(pcb, models.EstadoSuspendidoReady)
 		StartMediumTermScheduler() // Notificamos al PMP que tiene un proceso para evaluar SWAP-IN.
+		slog.Debug("Se notifica al algortimo de mediano plazo")
 		return
 	}
 

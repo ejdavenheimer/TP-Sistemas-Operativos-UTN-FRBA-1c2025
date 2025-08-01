@@ -5,43 +5,82 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/sisoputnfrba/tp-2025-1c-Los-magiOS/memoria/models"
 )
 
+var memorySwapMutex sync.Mutex
+
+func IsProcessInSwap(pid uint) bool {
+	models.ProcessDataLock.RLock()
+	defer models.ProcessDataLock.RUnlock()
+	_, inSwap := models.ProcessSwapTable[pid]
+	return inSwap
+}
+
 func PutProcessInSwap(pid uint) error {
-	models.ProcessDataLock.Lock()
-	defer models.ProcessDataLock.Unlock()
+	memorySwapMutex.Lock()
+	defer memorySwapMutex.Unlock()
+
+	swapDelay := time.Duration(models.MemoryConfig.SwapDelay) * time.Millisecond
+	pageSize := models.MemoryConfig.PageSize
 
 	slog.Debug("Inicia PUT PROCESS IN SWAP")
-	time.Sleep(time.Duration(models.MemoryConfig.SwapDelay) * time.Millisecond)
+	time.Sleep(swapDelay)
 
-	// **INICIO DE LA CORRECCIÓN**
-	// Verificar si el proceso ya fue swapeado. Si es así, la operación es exitosa.
+	var processFrames *models.ProcessFrames
+	var processExists bool
+	var framesToProcess []int
+
+	// VALIDACIÓN 1: Verificar si el proceso ya fue swapeado
+	models.ProcessDataLock.Lock()
 	if _, inSwap := models.ProcessSwapTable[pid]; inSwap {
-		slog.Debug("Proceso ya se encuentra en SWAP, omitiendo SWAP OUT.", "PID", pid)
+		models.ProcessDataLock.Unlock()
+		slog.Debug("Memoria: Proceso ya se encuentra en SWAP, operación exitosa.", "PID", pid)
 		return nil
 	}
-	// **FIN DE LA CORRECCIÓN**
+	if pf, exists := models.ProcessFramesTable[pid]; exists {
+		processFrames = &models.ProcessFrames{
+			PID:    pf.PID,
+			Frames: make([]int, len(pf.Frames)),
+		}
+		copy(processFrames.Frames, pf.Frames)
+		framesToProcess = make([]int, len(pf.Frames))
+		copy(framesToProcess, pf.Frames)
+		processExists = true
+	}
+	models.ProcessDataLock.Unlock()
 
-	processFrames, exists := models.ProcessFramesTable[pid]
-	if !exists {
-		// Ahora este error solo ocurrirá si el proceso realmente no existe o nunca tuvo frames.
+	// VALIDACIÓN 2: Verificar que el proceso existe en la tabla de frames
+	if !processExists {
 		err := fmt.Errorf("proceso PID %d no encontrado en tabla de frames para swapear", pid)
 		slog.Error(err.Error())
 		return err
 	}
 
-	slog.Debug("Iniciando suspensión de proceso", "PID", pid)
+	slog.Debug("Memoria: Iniciando suspensión de proceso", "PID", pid)
 
-	if len(processFrames.Frames) == 0 {
-		slog.Debug(fmt.Sprintf("Proceso PID %d tiene 0 frames, moviendo a swap conceptualmente", pid))
+	// CASO ESPECIAL: Proceso con 0 frames
+	if len(framesToProcess) == 0 {
+		models.ProcessDataLock.Lock()
 		models.ProcessSwapTable[pid] = models.SwapEntry{Offset: 0, Size: 0}
 		delete(models.ProcessFramesTable, pid)
-		updatePageTablePresenceBits(pid, false) // Marcar páginas como no presentes
+		models.ProcessDataLock.Unlock()
+
+		if err := updatePageTablePresenceBitsSafe(pid, false); err != nil {
+			slog.Warn("Error actualizando bits de presencia", "PID", pid, "error", err)
+		}
 		IncrementMetric(pid, "swap_out")
 		return nil
+	}
+
+	// VALIDACIÓN 4: Verificar integridad de frames
+	if !validateFrameIntegrity(framesToProcess) {
+		err := fmt.Errorf("frames del proceso PID %d tienen problemas de integridad", pid)
+		slog.Error(err.Error())
+		return err
 	}
 
 	file, err := os.OpenFile(models.MemoryConfig.SwapFilePath, os.O_RDWR|os.O_CREATE, 0644)
@@ -57,65 +96,123 @@ func PutProcessInSwap(pid uint) error {
 		return err
 	}
 
-	var totalSize int64 = 0
-	frameSize := int64(models.MemoryConfig.PageSize)
+	totalFrames := len(framesToProcess)
+	allFramesData := make([]byte, 0, totalFrames*pageSize)
 
 	models.UMemoryLock.Lock()
+	slog.Debug("UMemoryLock lockeado SWAP IN")
+	// VALIDACIÓN 5: Re-verificar que los frames siguen siendo válidos
 	for _, frameIndex := range processFrames.Frames {
-		start := int64(frameIndex) * frameSize
-		end := start + frameSize
-		data := models.UserMemory[start:end]
-		n, err := file.Write(data)
-		if err != nil {
+		if frameIndex < 0 || frameIndex >= len(models.FreeFrames) {
 			models.UMemoryLock.Unlock()
-			slog.Error(fmt.Sprintf("error escribiendo frame %d en swapfile: %v", frameIndex, err))
-			return err
+			return fmt.Errorf("frame index inválido: %d para PID %d", frameIndex, pid)
 		}
-		totalSize += int64(n)
+		start := frameIndex * pageSize
+		end := start + pageSize
+
+		if end > len(models.UserMemory) {
+			models.UMemoryLock.Unlock()
+			return fmt.Errorf("acceso fuera de bounds en memoria para frame %d", frameIndex)
+		}
+
+		frameData := make([]byte, pageSize)
+		copy(frameData, models.UserMemory[start:end])
+		allFramesData = append(allFramesData, frameData...)
+
 		models.FreeFrames[frameIndex] = true
 	}
 	models.UMemoryLock.Unlock()
-
+	n, err := file.Write(allFramesData)
+	if err != nil {
+		slog.Error("Memoria: Error escribiendo frames en swapfile", "error", err)
+		return err
+	}
+	totalSize := int64(n)
+	models.ProcessDataLock.Lock()
 	models.ProcessSwapTable[pid] = models.SwapEntry{Offset: offset, Size: totalSize}
 	delete(models.ProcessFramesTable, pid)
-	updatePageTablePresenceBits(pid, false) // Marcar páginas como no presentes
+	models.ProcessDataLock.Unlock()
+
+	if err := updatePageTablePresenceBitsSafe(pid, false); err != nil {
+		slog.Warn("Memoria: Error actualizando bits de presencia durante SWAP OUT", "PID", pid, "error", err)
+	}
+
 	slog.Debug("SE ACTUALIZAN BITS DE PRESENCIA EN TABLAS DE PAGINA (SWAP OUT)")
-	IncrementMetric(pid, "swap_out")
+	IncrementMetric(pid, "swap_in")
 
 	slog.Info(fmt.Sprintf("PID <%d> movido a swap - Offset: %d, Tamaño: %d", pid, offset, totalSize))
 	return nil
 }
 
 func RemoveProcessInSwap(pid uint) error {
-	models.ProcessDataLock.Lock()
-	defer models.ProcessDataLock.Unlock()
-
+	memorySwapMutex.Lock()
+	defer memorySwapMutex.Unlock()
+	swapDelay := time.Duration(models.MemoryConfig.SwapDelay) * time.Millisecond
+	pageSize := models.MemoryConfig.PageSize
+	frameSize := int64(pageSize)
 	slog.Debug("INICIA REMOVE PROCESS IN SWAP")
-	time.Sleep(time.Duration(models.MemoryConfig.SwapDelay) * time.Millisecond)
+	time.Sleep(swapDelay)
 
-	swapEntry, exists := models.ProcessSwapTable[pid]
-	if !exists {
+	var swapEntry models.SwapEntry
+	var swapExists bool
+	var alreadyInFrames bool
+
+	// VALIDACIÓN 1: Verificar que el proceso está en swap
+	models.ProcessDataLock.Lock()
+	if entry, exists := models.ProcessSwapTable[pid]; exists {
+		swapEntry = models.SwapEntry{
+			Offset: entry.Offset,
+			Size:   entry.Size,
+		}
+		swapExists = true
+	}
+
+	if _, inFrames := models.ProcessFramesTable[pid]; inFrames {
+		alreadyInFrames = true
+	}
+	models.ProcessDataLock.Unlock()
+
+	if !swapExists {
 		err := fmt.Errorf("el proceso con PID %d no se encuentra en SWAP", pid)
 		slog.Error(err.Error())
 		return err
 	}
 
-	slog.Debug(fmt.Sprintf("Inicio RemoveProcessInSwap para PID %d", pid))
-
-	if swapEntry.Size == 0 {
-		slog.Debug(fmt.Sprintf("Proceso PID %d (0 frames) removido de swap conceptualmente", pid))
-		models.ProcessFramesTable[pid] = &models.ProcessFrames{PID: pid, Frames: []int{}}
+	// VALIDACIÓN 2: Verificar que el proceso no está ya en frames
+	if alreadyInFrames {
+		slog.Warn("Memoria: Proceso ya está en frames, removiendo de swap conceptualmente", "PID", pid)
+		models.ProcessDataLock.Lock()
 		delete(models.ProcessSwapTable, pid)
-		// EActualizar bit de presencia
-		updatePageTablePresenceBits(pid, true)
+		models.ProcessDataLock.Unlock()
 		return nil
 	}
 
-	frameSize := int64(models.MemoryConfig.PageSize)
+	// VALIDACIÓN 3: Verificar estado del proceso
+	if !validateProcessExists(pid) {
+		err := fmt.Errorf("proceso PID %d no existe en tabla de procesos", pid)
+		slog.Error(err.Error())
+		return err
+	}
+
+	// CASO ESPECIAL: Proceso con 0 frames
+	if swapEntry.Size == 0 {
+		models.ProcessDataLock.Lock()
+		models.ProcessFramesTable[pid] = &models.ProcessFrames{PID: pid, Frames: []int{}}
+		delete(models.ProcessSwapTable, pid)
+		models.ProcessDataLock.Unlock()
+
+		if err := updatePageTablePresenceBitsSafe(pid, true); err != nil {
+			slog.Warn("Error actualizando bits de presencia", "PID", pid, "error", err)
+		}
+		return nil
+	}
+
 	framesNeeded := int(swapEntry.Size / frameSize)
+	var freeFrames []int
 
 	models.UMemoryLock.Lock()
-	freeFrames := []int{}
+	slog.Debug("UMemoryLock lockeado SWAP OUT - buscar frames")
+
 	for idx, free := range models.FreeFrames {
 		if free {
 			freeFrames = append(freeFrames, idx)
@@ -130,6 +227,7 @@ func RemoveProcessInSwap(pid uint) error {
 		return fmt.Errorf("no hay suficientes frames libres para des-suspender el proceso PID %d", pid)
 	}
 
+	//Reservar frames
 	for _, frameIdx := range freeFrames {
 		models.FreeFrames[frameIdx] = false
 	}
@@ -137,8 +235,10 @@ func RemoveProcessInSwap(pid uint) error {
 
 	file, err := os.Open(models.MemoryConfig.SwapFilePath)
 	if err != nil {
-		slog.Error(fmt.Sprintf("no se pudo abrir el archivo de swap: %v", err))
+		slog.Error("Memoria: Error abriendo archivo de swap", "error", err)
+		// Rollback: liberar frames reservados
 		models.UMemoryLock.Lock()
+		slog.Debug("UMemoryLock lockeado ROLLBACK SWAP OUT")
 		for _, frameIdx := range freeFrames {
 			models.FreeFrames[frameIdx] = true
 		}
@@ -150,8 +250,10 @@ func RemoveProcessInSwap(pid uint) error {
 	processData := make([]byte, swapEntry.Size)
 	_, err = file.ReadAt(processData, swapEntry.Offset)
 	if err != nil {
-		slog.Error(fmt.Sprintf("error al leer contenido del proceso desde SWAP: %v", err))
+		slog.Error("Memoria: Error leyendo contenido desde SWAP", "error", err)
+		// Rollback: liberar frames reservados
 		models.UMemoryLock.Lock()
+		slog.Debug("UMemoryLock lockeado SWAP OUT FRAMES")
 		for _, frameIdx := range freeFrames {
 			models.FreeFrames[frameIdx] = true
 		}
@@ -160,46 +262,85 @@ func RemoveProcessInSwap(pid uint) error {
 	}
 
 	models.UMemoryLock.Lock()
+	slog.Debug("UMemoryLock lockeado FREE FRAMES")
 	for i, frameIdx := range freeFrames {
 		start := frameIdx * models.MemoryConfig.PageSize
-		copy(models.UserMemory[start:start+models.MemoryConfig.PageSize], processData[i*models.MemoryConfig.PageSize:(i+1)*models.MemoryConfig.PageSize])
+		end := start + models.MemoryConfig.PageSize
+
+		// VALIDACIÓN 6: Verificar bounds
+		if end > len(models.UserMemory) {
+			models.UMemoryLock.Unlock()
+			// Rollback frames
+			for _, frameIdx := range freeFrames {
+				models.FreeFrames[frameIdx] = true
+			}
+			return fmt.Errorf("acceso fuera de bounds al restaurar frame %d", frameIdx)
+		}
+
+		dataStart := i * models.MemoryConfig.PageSize
+		dataEnd := dataStart + models.MemoryConfig.PageSize
+		copy(models.UserMemory[start:end], processData[dataStart:dataEnd])
 	}
 	models.UMemoryLock.Unlock()
 
-	if _, exists := models.PageTables[pid]; !exists {
-		slog.Error(fmt.Sprintf("FALLO CRÍTICO: No existe tabla de páginas para PID %d al restaurar desde swap", pid))
+	// VALIDACIÓN 7: Verificar tabla de páginas antes de mapear
+	models.ProcessDataLock.RLock()
+	_, tableExists := models.PageTables[pid]
+	models.ProcessDataLock.RUnlock()
+	if !tableExists {
+		slog.Error("Memoria: Tabla de páginas no encontrada", "PID", pid)
+		// Rollback: liberar frames
+		models.UMemoryLock.Lock()
+		slog.Debug("UMemoryLock lockeado ROLLBACK 2")
+		for _, frameIdx := range freeFrames {
+			models.FreeFrames[frameIdx] = true
+		}
+		models.UMemoryLock.Unlock()
 		return fmt.Errorf("tabla de páginas no encontrada para PID %d", pid)
 	}
+
+	// Mapear páginas a frames de forma segura
 	for pageNumber := 0; pageNumber < len(freeFrames); pageNumber++ {
 		frame := freeFrames[pageNumber]
-		slog.Debug(fmt.Sprintf("Mapeando página %d al frame %d para PID %d", pageNumber, frame, pid))
+		slog.Debug("Memoria: Mapeando página a frame", "PID", pid, "page", pageNumber, "frame", frame)
 		MapPageToFrame(pid, pageNumber, frame)
-
-		// Verificar que el mapeo funcionó
-		if _, exists := models.PageTables[pid]; !exists {
-			slog.Error(fmt.Sprintf("FALLO CRÍTICO: Tabla de páginas desapareció durante mapeo de página %d para PID %d", pageNumber, pid))
-			return fmt.Errorf("tabla de páginas perdida durante mapeo para PID %d", pid)
-		}
 	}
-
-	updatePageTablePresenceBits(pid, true) // Marcar páginas como presentes
-	slog.Debug("SE ACTUALIZAN BITS DE PRESENCIA EN TABLAS DE PAGINA (SWAP IN)")
-
+	models.ProcessDataLock.Lock()
 	models.ProcessFramesTable[pid] = &models.ProcessFrames{PID: pid, Frames: freeFrames}
 	delete(models.ProcessSwapTable, pid)
-	IncrementMetric(pid, "swap_in")
+	models.ProcessDataLock.Unlock()
 
-	slog.Info(fmt.Sprintf("PID <%d> removido de swap - Se restauran %d frames", pid, len(freeFrames)))
+	// Actualizar bits de presencia de forma segura
+	if err := updatePageTablePresenceBitsSafe(pid, true); err != nil {
+		slog.Warn("Memoria: Error actualizando bits de presencia durante SWAP IN", "PID", pid, "error", err)
+	}
+
+	slog.Debug("Memoria: Bits de presencia actualizados (SWAP IN)")
+
+	IncrementMetric(pid, "swap_out")
+
+	slog.Info(fmt.Sprintf("Memoria: PID <%d> removido de swap - Se restauran %d frames", pid, len(freeFrames)))
 	return nil
 }
+func validateProcessExists(pid uint) bool {
+	_, exists := models.ProcessTable[pid]
+	return exists
+}
 
-func updatePageTablePresenceBits(pid uint, present bool) {
+func validateFrameIntegrity(frames []int) bool {
+	for _, frame := range frames {
+		if frame < 0 || frame >= len(models.FreeFrames) {
+			slog.Error("Frame inválido detectado", "frame", frame, "max_frames", len(models.FreeFrames))
+			return false
+		}
+	}
+	return true
+}
+func updatePageTablePresenceBitsSafe(pid uint, present bool) error {
 	// Obtener el proceso de la tabla de procesos
-
 	process, exists := models.ProcessTable[pid]
 	if !exists && present {
-		slog.Warn(fmt.Sprintf("No se encontró proceso PID %d al actualizar bits de presencia", pid))
-		return
+		return fmt.Errorf("proceso PID %d no encontrado al actualizar bits de presencia", pid)
 	}
 
 	// Si estamos marcando como no presente (swap out), iteramos sobre todas las páginas del proceso
@@ -209,7 +350,7 @@ func updatePageTablePresenceBits(pid uint, present bool) {
 			for pageNumber := range process.Pages {
 				if pageEntry := getPageEntryDirect(pid, pageNumber); pageEntry != nil {
 					UpdatePageBit(pageEntry, "presence_off")
-					slog.Debug(fmt.Sprintf("PID %d: Página %d marcada como NO presente (swap out)", pid, pageNumber))
+					slog.Debug("Memoria: Página marcada como NO presente (swap out)", "PID", pid, "page", pageNumber)
 				}
 			}
 		}
@@ -219,7 +360,7 @@ func updatePageTablePresenceBits(pid uint, present bool) {
 			for pageNumber := range process.Pages {
 				if pageEntry := getPageEntryDirect(pid, pageNumber); pageEntry != nil {
 					UpdatePageBit(pageEntry, "presence_on")
-					slog.Debug(fmt.Sprintf("PID %d: Página %d marcada como presente (swap in)", pid, pageNumber))
+					slog.Debug("Memoria: Página marcada como presente (swap in)", "PID", pid, "page", pageNumber)
 				}
 			}
 		}
@@ -229,5 +370,6 @@ func updatePageTablePresenceBits(pid uint, present bool) {
 	if !present {
 		presentStr = "no presentes"
 	}
-	slog.Debug(fmt.Sprintf("Bits de presencia actualizados para PID %d: páginas marcadas como %s", pid, presentStr))
+	slog.Debug("Memoria: Bits de presencia actualizados", "PID", pid, "estado", presentStr)
+	return nil
 }

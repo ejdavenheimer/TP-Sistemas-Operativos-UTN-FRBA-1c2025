@@ -8,47 +8,48 @@ import (
 )
 
 func ClearMemoryProcess(pid uint) error {
-	models.ProcessDataLock.Lock()
-	defer models.ProcessDataLock.Unlock()
+	var processExists, inSwap, inFrames bool
+	var frameData *models.ProcessFrames
+	var metrics *models.Metrics
 
-	if _, exists := models.ProcessTable[pid]; !exists {
-		// Si no está en la tabla de procesos, puede que solo esté en swap.
-		if _, inSwap := models.ProcessSwapTable[pid]; !inSwap {
-			err := fmt.Errorf("proceso PID %d no existe para ser eliminado", pid)
-			slog.Error(err.Error())
-			return err
-		}
+	models.ProcessDataLock.RLock()
+	_, processExists = models.ProcessTable[pid]
+	_, inSwap = models.ProcessSwapTable[pid]
+	frameData, inFrames = models.ProcessFramesTable[pid]
+	metrics = models.ProcessMetrics[pid]
+	models.ProcessDataLock.RUnlock()
+
+	if !processExists && !inSwap {
+		err := fmt.Errorf("proceso PID %d no existe para ser eliminado", pid)
+		slog.Error(err.Error())
+		return err
 	}
 
-	// Si está en swap, sus datos de memoria principal ya fueron liberados.
-	// Solo necesitamos eliminar su entrada de la tabla de swap.
-	if _, inSwap := models.ProcessSwapTable[pid]; inSwap {
-		slog.Debug("Proceso encontrado en swap, eliminando entrada de swap", "pid", pid)
-		delete(models.ProcessSwapTable, pid)
-	}
-
-	// Liberar frames si el proceso estaba en memoria
-	models.UMemoryLock.Lock()
-	if frameData, inFrames := models.ProcessFramesTable[pid]; inFrames {
+	// LIBERACIÓN DE FRAMES (sección crítica mínima)
+	if inFrames && frameData != nil && len(frameData.Frames) > 0 {
+		models.UMemoryLock.Lock()
+		slog.Debug("UMemoryLock lockeado CLEAR PROCESS")
+		// Liberación batch de frames
 		for _, frame := range frameData.Frames {
-			if frame < len(models.FreeFrames) {
+			if frame >= 0 && frame < len(models.FreeFrames) {
 				models.FreeFrames[frame] = true
 			}
 		}
+		models.UMemoryLock.Unlock() // Liberar inmediatamente
+
+		slog.Debug("Frames liberados", "pid", pid, "count", len(frameData.Frames))
 	}
-	models.UMemoryLock.Unlock()
-
-	// Obtener métricas ANTES de eliminar el proceso
-	metrics, metricsExist := models.ProcessMetrics[pid]
-
-	// Eliminar todas las estructuras de metadatos
+	models.ProcessDataLock.Lock()
+	// Eliminación batch de todas las estructuras
+	delete(models.ProcessSwapTable, pid)
 	delete(models.PageTables, pid)
 	delete(models.InstructionsMap, pid)
 	delete(models.ProcessTable, pid)
 	delete(models.ProcessMetrics, pid)
 	delete(models.ProcessFramesTable, pid)
+	models.ProcessDataLock.Unlock()
 
-	if metricsExist {
+	if metrics != nil {
 		slog.Info(fmt.Sprintf("## PID: %d - Proceso Destruido - Métricas - Acc.T.Pag: %d; Inst.Sol.: %d; SWAP: %d; Mem.Prin.: %d; Lec.Mem.: %d; Esc.Mem.: %d",
 			pid, metrics.PageTableAccesses, metrics.InstructionFetches, metrics.SwapsOut, metrics.SwapsIn, metrics.Reads, metrics.Writes))
 	} else {
@@ -56,6 +57,5 @@ func ClearMemoryProcess(pid uint) error {
 	}
 
 	slog.Debug("Proceso finalizado y recursos liberados correctamente", "pid", pid)
-
 	return nil
 }

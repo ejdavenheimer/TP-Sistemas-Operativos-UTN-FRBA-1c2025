@@ -19,12 +19,11 @@ var (
 
 func GeInstruction(pid uint, pc uint) (string, bool, error) {
 	models.ProcessDataLock.RLock()
-	defer models.ProcessDataLock.RUnlock()
-
 	instructions, exists := models.InstructionsMap[pid]
 	if !exists || pc >= uint(len(instructions)) {
 		return "", false, errors.New("instruction not found or PC out of bounds")
 	}
+	defer models.ProcessDataLock.RUnlock()
 	instruction := instructions[pc]
 	isLast := pc == uint(len(instructions))-1
 	IncrementMetric(pid, "fetch")
@@ -72,83 +71,112 @@ func Read(pid uint, physicalAddress int, size int) ([]byte, error) {
 		return nil, ErrInvalidRead
 	}
 
-	models.UMemoryLock.RLock()
-	defer models.UMemoryLock.RUnlock()
-
-	if physicalAddress < 0 || physicalAddress+size > len(models.UserMemory) {
-		return nil, ErrMemoryViolation
-	}
-
-	models.ProcessDataLock.Lock()
-	defer models.ProcessDataLock.Unlock()
-
-	process, ok := models.ProcessTable[pid]
-	if !ok {
-		return nil, ErrProcessNotFound
-	}
-
-	data := make([]byte, size)
-	copy(data, models.UserMemory[physicalAddress:physicalAddress+size])
-
 	pageSize := models.MemoryConfig.PageSize
 	startFrame := physicalAddress / pageSize
 	endFrame := (physicalAddress + size - 1) / pageSize
 
-	// CORRECCIÓN: Iteramos sobre los frames afectados para encontrar el nro de página lógico correspondiente a cada uno.
+	models.ProcessDataLock.RLock()
+	process, processExists := models.ProcessTable[pid]
+	if !processExists {
+		models.ProcessDataLock.RUnlock()
+		return nil, ErrProcessNotFound
+	}
+	pagesCopy := make([]models.PageEntry, len(process.Pages))
+	copy(pagesCopy, process.Pages)
+	models.ProcessDataLock.RUnlock()
+
+	var data []byte
+	models.UMemoryLock.RLock()
+	if physicalAddress < 0 || physicalAddress+size > len(models.UserMemory) {
+		models.UMemoryLock.RUnlock()
+		return nil, ErrMemoryViolation
+	}
+
+	// Lectura inmediata - operación más crítica
+	data = make([]byte, size)
+	copy(data, models.UserMemory[physicalAddress:physicalAddress+size])
+	models.UMemoryLock.RUnlock()
+
+	affectedPages := make([]int, 0, endFrame-startFrame+1)
+
+	// Buscar páginas afectadas usando la copia local (sin locks)
 	for frame := startFrame; frame <= endFrame; frame++ {
-		// Búsqueda DIRECTA en las páginas del proceso
-		for i, page := range process.Pages {
+		for i, page := range pagesCopy {
 			if page.Frame == frame {
-				// Acceso directo a la entrada de página - SIN métricas ni delays
-				if pageEntry := getPageEntryDirect(pid, i); pageEntry != nil {
-					UpdatePageBit(pageEntry, "use")
-				}
-				break // Encontrado, siguiente frame
+				affectedPages = append(affectedPages, i)
+				break // Encontrado, continuar con siguiente frame
 			}
 		}
 	}
+
+	// Actualizar bits de uso para todas las páginas afectadas
+	for _, pageNumber := range affectedPages {
+		if pageEntry := getPageEntryDirect(pid, pageNumber); pageEntry != nil {
+			UpdatePageBit(pageEntry, "use")
+		}
+	}
+
+	models.ProcessDataLock.Lock()
 	IncrementMetric(pid, "reads")
+	models.ProcessDataLock.Unlock()
 
 	return data, nil
 }
 
 func WriteToMemory(pid uint, physicalAddress int, data []byte) error {
-	models.UMemoryLock.Lock()
-	defer models.UMemoryLock.Unlock()
-
-	if physicalAddress < 0 || physicalAddress+len(data) > len(models.UserMemory) {
-		return ErrMemoryViolation
+	if len(data) == 0 {
+		return nil // Nada que escribir
 	}
-
-	models.ProcessDataLock.Lock()
-	defer models.ProcessDataLock.Unlock()
-
-	process, ok := models.ProcessTable[pid]
-	if !ok {
-		return ErrProcessNotFound
-	}
-
-	copy(models.UserMemory[physicalAddress:physicalAddress+len(data)], data)
-
 	pageSize := models.MemoryConfig.PageSize
 	startFrame := physicalAddress / pageSize
 	endFrame := (physicalAddress + len(data) - 1) / pageSize
 
-	// CORRECCIÓN: Iteramos sobre los frames afectados para encontrar el nro de página lógico correspondiente a cada uno.
+	models.UMemoryLock.Lock()
+	slog.Debug("UMemoryLock lockeado WRITE")
+	if physicalAddress < 0 || physicalAddress+len(data) > len(models.UserMemory) {
+		models.UMemoryLock.Unlock()
+		return ErrMemoryViolation
+	}
+	// Escritura inmediata - operación más crítica
+	copy(models.UserMemory[physicalAddress:physicalAddress+len(data)], data)
+	models.UMemoryLock.Unlock()
+
+	models.ProcessDataLock.RLock() // Solo lectura para verificar existencia
+	process, ok := models.ProcessTable[pid]
+	if !ok {
+		models.ProcessDataLock.RUnlock()
+		return ErrProcessNotFound
+	}
+
+	// Copiar páginas localmente para minimizar tiempo con lock
+	pagesCopy := make([]models.PageEntry, len(process.Pages))
+	copy(pagesCopy, process.Pages)
+	models.ProcessDataLock.RUnlock()
+
+	affectedPages := make([]int, 0, endFrame-startFrame+1)
+
+	// Buscar páginas afectadas usando la copia local
 	for frame := startFrame; frame <= endFrame; frame++ {
-		// Búsqueda DIRECTA en las páginas del proceso
-		for i, page := range process.Pages {
+		for i, page := range pagesCopy {
 			if page.Frame == frame {
-				// Acceso directo a la entrada de página - SIN métricas ni delays
-				if pageEntry := getPageEntryDirect(pid, i); pageEntry != nil {
-					UpdatePageBit(pageEntry, "use")
-					UpdatePageBit(pageEntry, "modified")
-				}
-				break // Encontrado, siguiente frame
+				affectedPages = append(affectedPages, i)
+				break
 			}
 		}
 	}
+
+	// 5. ACTUALIZAR BITS DE PÁGINAS (operaciones rápidas)
+	for _, pageNumber := range affectedPages {
+		if pageEntry := getPageEntryDirect(pid, pageNumber); pageEntry != nil {
+			UpdatePageBit(pageEntry, "use")
+			UpdatePageBit(pageEntry, "modified")
+		}
+	}
+
+	// 6. ACTUALIZAR MÉTRICAS (lock mínimo)
+	models.ProcessDataLock.Lock()
 	IncrementMetric(pid, "writes")
+	models.ProcessDataLock.Unlock()
 
 	return nil
 }

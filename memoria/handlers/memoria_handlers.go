@@ -214,17 +214,6 @@ func WriteHandler(w http.ResponseWriter, r *http.Request) {
 	// Delay de memoria
 	time.Sleep(time.Duration(models.MemoryConfig.MemoryDelay) * time.Millisecond)
 
-	// Validar existencia del proceso
-	ProcessTableLock.RLock()
-	_, ok := models.ProcessTable[request.Pid]
-	slog.Debug(fmt.Sprintf("Busca a proceso %d en ProcessTable con dirección fisica %d", request.Pid, request.PhysicalAddress))
-	ProcessTableLock.RUnlock()
-	if !ok {
-		slog.Warn(fmt.Sprintf("PID %d no encontrado en memoria", request.Pid))
-		http.Error(w, "Process Not Found", http.StatusNotFound)
-		return
-	}
-
 	//EJECUCION ESCRITURA
 	//slog.Debug("Antes de llamar WriteToMemory", "PID", request.Pid, "PhysicalAddress", request.PhysicalAddress, "DataLen", len(dataBytes))
 	if err := services.WriteToMemory(request.Pid, request.PhysicalAddress, []byte(request.Data)); err != nil {

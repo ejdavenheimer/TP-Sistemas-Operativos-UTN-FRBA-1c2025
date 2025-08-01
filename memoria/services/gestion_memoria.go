@@ -18,26 +18,23 @@ func ReserveMemory(pid uint, size int, path string) error {
 	pageSize := models.MemoryConfig.PageSize
 	pageCount := int(math.Ceil(float64(size) / float64(pageSize)))
 
+	if err := GetInstructionsByName(pid, path, models.InstructionsMap, models.MemoryConfig.ScriptsPath); err != nil {
+		slog.Error("Error al cargar instrucciones", "error", err)
+		return fmt.Errorf("falló la carga de instrucciones para el PID %d", pid)
+	}
+
 	models.UMemoryLock.RLock()
+	slog.Debug("UMemoryLock lockeado RESERVE MEMORY")
 	freeFramesCount := CountFreeFrames()
 	models.UMemoryLock.RUnlock()
 
 	if freeFramesCount < pageCount {
 		return fmt.Errorf("no hay suficientes frames libres para el proceso PID %d", pid)
 	}
-
-	if err := GetInstructionsByName(pid, path, models.InstructionsMap, models.MemoryConfig.ScriptsPath); err != nil {
-		slog.Error("Error al cargar instrucciones", "error", err)
-		return fmt.Errorf("falló la carga de instrucciones para el PID %d", pid)
-	}
-
-	models.ProcessDataLock.Lock()
-	defer models.ProcessDataLock.Unlock()
+	assignedFrames := make([]int, 0, pageCount)
 
 	models.UMemoryLock.Lock()
-	defer models.UMemoryLock.Unlock()
-
-	assignedFrames := make([]int, 0, pageCount)
+	slog.Debug("UMemoryLock lockeado RESERVE MEMORY 2")
 	// Re-verificamos la disponibilidad de frames dentro del lock de escritura
 	if CountFreeFrames() < pageCount {
 		return fmt.Errorf("condición de carrera detectada: no hay suficientes frames libres para el proceso PID %d", pid)
@@ -53,12 +50,25 @@ func ReserveMemory(pid uint, size int, path string) error {
 		}
 		assignedFrames = append(assignedFrames, frame)
 	}
-
+	models.UMemoryLock.Unlock()
+	models.ProcessDataLock.Lock()
+	if _, exists := models.ProcessTable[pid]; exists {
+		models.ProcessDataLock.Unlock()
+		// Rollback frames asignados
+		models.UMemoryLock.Lock()
+		for _, frame := range assignedFrames {
+			models.FreeFrames[frame] = true
+		}
+		models.UMemoryLock.Unlock()
+		return fmt.Errorf("proceso PID %d ya existe", pid)
+	}
 	initializePageTables(pid)
+	NewProcess(pid, size, pageCount, assignedFrames)
+	models.ProcessDataLock.Unlock()
+
 	for i, frame := range assignedFrames {
 		MapPageToFrame(pid, i, frame)
 	}
-	NewProcess(pid, size, pageCount, assignedFrames)
 
 	slog.Debug("PCB registrado", slog.Int("pid", int(pid)), slog.Int("pages", pageCount), slog.Int("size", size))
 	return nil

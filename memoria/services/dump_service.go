@@ -48,6 +48,7 @@ func dumpFromMemory(pid uint, process *models.Process, file *os.File) error {
 
 	// Para leer de la memoria de usuario, necesitamos su lock.
 	models.UMemoryLock.Lock()
+	slog.Debug("UMemoryLock lockeado DUMP MEMORY")
 	defer models.UMemoryLock.Unlock()
 
 	for page := 0; page < numberPages; page++ {
