@@ -94,7 +94,7 @@ func DisconnectIoHandler() func(http.ResponseWriter, *http.Request) {
 
 		// 4. Si no quedan más instancias, finalizar todos los procesos en espera para este dispositivo
 		if !exists {
-			slog.Warn("No quedan más instancias del dispositivo. Finalizando todos los procesos en espera.", "dispositivo", response.Name)
+			slog.Debug("No quedan más instancias del dispositivo. Finalizando todos los procesos en espera.", "dispositivo", response.Name)
 
 			// Limpiar cola de espera específica del dispositivo
 			for {
