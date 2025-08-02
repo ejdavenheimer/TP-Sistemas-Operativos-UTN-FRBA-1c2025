@@ -80,7 +80,7 @@ func DisconnectIoHandler() func(http.ResponseWriter, *http.Request) {
 		if executingPID != 0 {
 			pcb, found := services.FindPCBInAnyQueue(executingPID)
 			if found {
-				slog.Warn("Finalizando proceso en ejecución por desconexión de IO", "PID", pcb.PID, "dispositivo", response.Name)
+				slog.Debug("Finalizando proceso en ejecución por desconexión de IO", "PID", pcb.PID, "dispositivo", response.Name)
 				services.TransitionProcessState(pcb, models.EstadoExit)
 				services.StartLongTermScheduler()
 			}

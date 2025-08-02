@@ -36,7 +36,7 @@ func checkForPreemption(newPcb *kernelModels.PCB) {
 	}
 
 	if victimPcb == nil {
-		slog.Warn("SRT: No se pudo determinar una víctima para desalojo.")
+		slog.Debug("SRT: No se pudo determinar una víctima para desalojo.")
 		return // No se encontró una víctima válida.
 	}
 
