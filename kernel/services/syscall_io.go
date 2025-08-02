@@ -69,6 +69,7 @@ func dispatchToDevice(pcb *kernelModels.PCB, device *ioModel.Device, time int) {
 		_, err = client.DoRequest(device.Port, device.Ip, "POST", "io", body)
 		if err != nil {
 			slog.Error("Error de comunicación con el módulo de I/O. Finalizando proceso.", "dispositivo", device.Name, "PID", pcb.PID)
+			kernelModels.ConnectedDeviceManager.MarkAsFreeByPort(device.Port)
 			TransitionProcessState(pcb, kernelModels.EstadoExit)
 			StartLongTermScheduler()
 		}

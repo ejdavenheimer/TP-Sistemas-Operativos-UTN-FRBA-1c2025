@@ -103,12 +103,13 @@ func InterruptProcessHandler() func(http.ResponseWriter, *http.Request) {
 		slog.Info("##Llega interrupción al puerto Interrupt")
 
 		if pid == models.InterruptControl.PID {
-			slog.Debug("Interrupción informada al cpu", slog.Int("pid", pid))
+			slog.Debug("Interrupción necesaria. Marcando para desalojo.", slog.Int("pid", pid))
 			models.InterruptControl.InterruptPending = true
 			w.WriteHeader(http.StatusOK)
 		} else {
-			slog.Error("No existe ese proceso ejecutandose en esta cpu para interrumpirlo", slog.Int("pid", pid))
-			w.WriteHeader(http.StatusBadRequest)
+			//slog.Error("No existe ese proceso ejecutandose en esta cpu para interrumpirlo", slog.Int("pid", pid))
+			slog.Warn("Se recibió interrupción para un proceso que ya no está en ejecución. Ignorando.", "pid_a_interrumpir", pid, "pid_actual", models.InterruptControl.PID)
+			w.WriteHeader(http.StatusOK)
 		}
 
 	}
