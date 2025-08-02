@@ -10,7 +10,7 @@ import (
 )
 
 func ExecuteDumpMemory(pid uint, size int) error {
-	slog.Info(fmt.Sprintf("## PID: %d - Memory Dump solicitado", pid))
+	slog.Info(fmt.Sprintf("## PID: <%d> - Memory Dump solicitado", pid))
 	dumpName := helpers.GetDumpName(pid)
 	dumpFilePath := models.MemoryConfig.DumpPath + dumpName
 

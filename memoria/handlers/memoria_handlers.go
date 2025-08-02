@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,7 +44,25 @@ func GetInstructionHandler(configPath string) func(http.ResponseWriter, *http.Re
 			Instruction: instructionResult,
 			IsLast:      isLast,
 		}
-		slog.Info(fmt.Sprintf("## PID: <%d> - Obtener instrucción: <%d> - Instrucción: %s", pid, pc, instruction.Instruction))
+		parts := strings.Fields(instructionResult)
+		var command string
+		var args []string
+
+		if len(parts) > 0 {
+			command = parts[0]
+			if len(parts) > 1 {
+				args = parts[1:]
+			}
+		}
+		// Log con argumentos incluidos
+		if len(args) > 0 {
+			argsStr := strings.Join(args, ", ")
+			slog.Info(fmt.Sprintf("## PID: <%d> - Obtener instrucción: <%d> - Instrucción: <%s> <%s>",
+				pid, pc, command, argsStr))
+		} else {
+			slog.Info(fmt.Sprintf("## PID: <%d> - Obtener instrucción: <%d> - Instrucción: <%s>",
+				pid, pc, command))
+		}
 		server.SendJsonResponse(w, instruction)
 	}
 }
@@ -279,9 +298,11 @@ func ReadPageHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch request.Operacion {
 	case "Lectura":
-		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página por LECTURA> - Dir. Física: <%d> - Tamaño: <%d> ", request.PID, frameStart, pageSize))
+		slog.Debug(fmt.Sprintf("## PID: <%d> - <Lectura Página por LECTURA> - Dir. Física: <%d> - Tamaño: <%d> ", request.PID, frameStart, pageSize))
+		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d> ", request.PID, frameStart, pageSize))
 	case "Escritura":
-		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página por ESCRITURA> - Dir. Física: <%d> - Tamaño: <%d>", request.PID, frameStart, pageSize))
+		slog.Debug(fmt.Sprintf("## PID: <%d> - <Lectura Página por ESCRITURA> - Dir. Física: <%d> - Tamaño: <%d>", request.PID, frameStart, pageSize))
+		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d> ", request.PID, frameStart, pageSize))
 	default:
 		slog.Info(fmt.Sprintf("## PID: <%d> - <Lectura Página por OPERACIÓN DESCONOCIDA> - Dir. Física: <%d> - Tamaño: <%d> - VALOR:<%s>", request.PID, frameStart, pageSize, string(content)))
 	}

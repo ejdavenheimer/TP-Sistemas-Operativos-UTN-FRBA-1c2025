@@ -250,7 +250,7 @@ func desuspendProcess(pcb *models.PCB) {
 		pcb.Mutex.Unlock()
 
 		// Pasar directamente a READY
-		slog.Info(fmt.Sprintf("## (%d) - Pasa de SUSPENDED_READY a READY (no estaba en swap)", pcb.PID))
+		slog.Debug(fmt.Sprintf("## (%d) - Pasa de SUSPENDED_READY a READY (no estaba en swap)", pcb.PID))
 		TransitionProcessState(pcb, models.EstadoReady)
 		StartShortTermScheduler()
 		return
@@ -296,7 +296,7 @@ func requestSwapOut(pcb *models.PCB) {
 	pcb.SwapRequested = false
 	pcb.Mutex.Unlock()
 
-	slog.Info(fmt.Sprintf("## (%d) - Pasa de SUSPENDED_READY a READY", pcb.PID))
+	slog.Debug(fmt.Sprintf("## (%d) - Pasa de SUSPENDED_READY a READY", pcb.PID))
 	TransitionProcessState(pcb, models.EstadoReady)
 	StartShortTermScheduler()
 }

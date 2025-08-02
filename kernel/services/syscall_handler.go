@@ -11,7 +11,7 @@ import (
 func handleBlockingSyscall(result kernelModels.PCBExecuteRequest, pcb *kernelModels.PCB) {
 	syscallType := result.SyscallRequest.Type
 
-	slog.Info(fmt.Sprintf("## (%d) Solicitó syscall bloqueante: %s", pcb.PID, syscallType))
+	slog.Info(fmt.Sprintf("## (<%d>) Solicitó syscall: <%s>", pcb.PID, syscallType))
 	switch syscallType {
 	case "DUMP_MEMORY":
 		executeDumpMemorySyscall(pcb)

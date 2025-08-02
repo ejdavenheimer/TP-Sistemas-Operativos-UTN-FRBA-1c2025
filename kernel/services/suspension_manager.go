@@ -11,7 +11,7 @@ import (
 // suspendProcessLogic contiene la lógica para mover un proceso a SUSPEND_BLOCKED.
 // Se asume que el Mutex del PCB ya fue adquirido antes de llamar a esta función.
 func suspendProcessLogic(pcb *models.PCB) {
-	slog.Info(fmt.Sprintf("## (%d) - Proceso supera tiempo máximo en BLOCKED. Pasa a SUSPEND_BLOCKED.", pcb.PID))
+	slog.Debug(fmt.Sprintf("## (%d) - Proceso supera tiempo máximo en BLOCKED. Pasa a SUSPEND_BLOCKED.", pcb.PID))
 
 	// 1. Calculamos el tiempo que estuvo en BLOCKED y actualizamos la métrica.
 	oldState := pcb.EstadoActual

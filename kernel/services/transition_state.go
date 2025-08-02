@@ -90,9 +90,9 @@ func TransitionProcessState(pcb *models.PCB, newState models.Estado) {
 	}
 
 	if oldState == "" {
-		slog.Info(fmt.Sprintf("## (%d) Se crea el proceso - Estado : NEW", pcb.PID))
+		slog.Info(fmt.Sprintf("## (<%d>) Se crea el proceso - Estado : NEW", pcb.PID))
 	} else {
-		slog.Info(fmt.Sprintf("## (%d) Pasa del estado %s al estado %s", pcb.PID, oldState, newState))
+		slog.Info(fmt.Sprintf("## (<%d>) Pasa del estado <%s> al estado <%s>", pcb.PID, oldState, newState))
 	}
 
 	// Si el proceso está entrando al estado BLOCKED, iniciamos el timer de suspensión.

@@ -45,7 +45,7 @@ func FinishIoHandler() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		slog.Info(fmt.Sprintf("## PID: %d - Fin de IO", response.Pid))
+		slog.Info(fmt.Sprintf("## PID: (<%d>) finalizó IO y pasa a READY", response.Pid))
 
 		device, found := models.ConnectedDeviceManager.MarkAsFreeByPort(response.Port)
 		if !found {

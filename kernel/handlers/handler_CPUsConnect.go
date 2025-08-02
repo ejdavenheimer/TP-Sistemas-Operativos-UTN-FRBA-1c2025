@@ -24,7 +24,7 @@ func ConnectCpuHandler() func(http.ResponseWriter, *http.Request) {
 
 		cpuConnected.IsFree = true
 
-		slog.Info(fmt.Sprintf("CPU conectada: ID=%d en %s:%d", cpuConnected.Id, cpuConnected.Ip, cpuConnected.Port))
+		slog.Debug(fmt.Sprintf("CPU conectada: ID=%d en %s:%d", cpuConnected.Id, cpuConnected.Ip, cpuConnected.Port))
 
 		// Usamos nuestro helper seguro para guardar la nueva CPU.
 		key := strconv.Itoa(cpuConnected.Id)

@@ -50,10 +50,10 @@ func ClearMemoryProcess(pid uint) error {
 	models.ProcessDataLock.Unlock()
 
 	if metrics != nil {
-		slog.Info(fmt.Sprintf("## PID: %d - Proceso Destruido - Métricas - Acc.T.Pag: %d; Inst.Sol.: %d; SWAP: %d; Mem.Prin.: %d; Lec.Mem.: %d; Esc.Mem.: %d",
+		slog.Info(fmt.Sprintf("## PID: <%d> - Proceso Destruido - Métricas - Acc.T.Pag: <%d>; Inst.Sol.: <%d>; SWAP: <%d>; Mem.Prin.: <%d>; Lec.Mem.: <%d>; Esc.Mem.: <%d>",
 			pid, metrics.PageTableAccesses, metrics.InstructionFetches, metrics.SwapsOut, metrics.SwapsIn, metrics.Reads, metrics.Writes))
 	} else {
-		slog.Info(fmt.Sprintf("## PID: %d - Proceso Destruido", pid))
+		slog.Info(fmt.Sprintf("## PID: <%d> - Proceso Destruido", pid))
 	}
 
 	slog.Debug("Proceso finalizado y recursos liberados correctamente", "pid", pid)

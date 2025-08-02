@@ -44,8 +44,8 @@ func FinishProcess() {
 	}
 
 	// 3. Loguea las métricas finales, como pide el enunciado.
-	slog.Info(fmt.Sprintf("## (%d) - Finaliza el proceso", pcb.PID))
-	slog.Info(fmt.Sprintf("## PID: (%d) - Métricas de estado - NEW_COUNT: %d; NEW_TIME_MS: %d; READY_COUNT: %d; READY_TIME_MS: %d; BLOCKED_COUNT: %d; BLOCKED_TIME_MS: %d; EXEC_COUNT: %d; EXEC_TIME_MS: %d; SUSP_BLOCKED_COUNT: %d; SUSP_BLOCKED_TIME_MS: %d; SUSP_READY_COUNT: %d; SUSP_READY_TIME_MS: %d",
+	slog.Info(fmt.Sprintf("## (<%d>) - Finaliza el proceso", pcb.PID))
+	slog.Info(fmt.Sprintf("## PID: (<%d>) - Métricas de estado - NEW_COUNT: %d; NEW_TIME_MS: %d; READY_COUNT: %d; READY_TIME_MS: %d; BLOCKED_COUNT: %d; BLOCKED_TIME_MS: %d; EXEC_COUNT: %d; EXEC_TIME_MS: %d; SUSP_BLOCKED_COUNT: %d; SUSP_BLOCKED_TIME_MS: %d; SUSP_READY_COUNT: %d; SUSP_READY_TIME_MS: %d",
 		pcb.PID,
 		pcb.ME[models.EstadoNew],
 		pcb.MT[models.EstadoNew].Milliseconds(),

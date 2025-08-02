@@ -44,7 +44,7 @@ func checkForPreemption(newPcb *kernelModels.PCB) {
 
 	// 2. Comparar la ráfaga del nuevo proceso con el tiempo restante de la víctima.
 	if newPcb.RafagaEstimada < maxRemainingTime {
-		slog.Info(fmt.Sprintf("SRT: Desalojo necesario. PID %d (est: %.2f) es más corto que el tiempo restante de PID %d (rest: %.2f).", newPcb.PID, newPcb.RafagaEstimada, victimPcb.PID, maxRemainingTime))
+		slog.Debug(fmt.Sprintf("SRT: Desalojo necesario. PID %d (est: %.2f) es más corto que el tiempo restante de PID %d (rest: %.2f).", newPcb.PID, newPcb.RafagaEstimada, victimPcb.PID, maxRemainingTime))
 
 		cpu := kernelModels.ConnectedCpuMap.GetCPUByPid(victimPcb.PID)
 		if cpu != nil {
@@ -71,4 +71,5 @@ func SendInterruption(pid uint, cpu *models.CpuN) {
 	if err != nil {
 		slog.Error("Error enviando la interrupción a la CPU.", "cpu_id", cpu.Id, "error", err)
 	}
+	slog.Info(fmt.Sprintf("## (<%d>) - Desalojado por algoritmo SJF/SRT", pid))
 }

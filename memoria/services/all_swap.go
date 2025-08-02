@@ -140,7 +140,7 @@ func PutProcessInSwap(pid uint) error {
 	slog.Debug("SE ACTUALIZAN BITS DE PRESENCIA EN TABLAS DE PAGINA (SWAP OUT)")
 	IncrementMetric(pid, "swap_in")
 
-	slog.Info(fmt.Sprintf("PID <%d> movido a swap - Offset: %d, Tamaño: %d", pid, offset, totalSize))
+	slog.Info(fmt.Sprintf("PID <%d> Movido a swap - Offset: %d, Tamaño: %d", pid, offset, totalSize))
 	return nil
 }
 
@@ -319,7 +319,7 @@ func RemoveProcessInSwap(pid uint) error {
 
 	IncrementMetric(pid, "swap_out")
 
-	slog.Info(fmt.Sprintf("Memoria: PID <%d> removido de swap - Se restauran %d frames", pid, len(freeFrames)))
+	slog.Info(fmt.Sprintf("Memoria: PID <%d> Removido de swap - Se restauran %d frames", pid, len(freeFrames)))
 	return nil
 }
 func validateProcessExists(pid uint) bool {

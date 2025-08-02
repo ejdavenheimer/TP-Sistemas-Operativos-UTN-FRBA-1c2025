@@ -111,7 +111,7 @@ func (cache *PageCache) Put(pid uint, pageNumber int, frameAsignado int, content
 	defer cache.Mutex.Unlock()
 
 	if !IsEnabled() {
-		slog.Info("CACHE DESHABILIDA - Operación ignorada.")
+		slog.Debug("CACHE DESHABILIDA - Operación ignorada.")
 		return
 	}
 

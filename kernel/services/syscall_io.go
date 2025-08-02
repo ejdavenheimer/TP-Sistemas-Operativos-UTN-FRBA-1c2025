@@ -23,7 +23,7 @@ func executeIOSyscall(pcb *kernelModels.PCB, request kernelModels.SyscallRequest
 	}
 
 	TransitionProcessState(pcb, kernelModels.EstadoBlocked)
-	slog.Info(fmt.Sprintf("## (%d) - Bloqueado por IO: %s", pcb.PID, deviceName))
+	slog.Info(fmt.Sprintf("## (<%d>) - Bloqueado por IO: <%s>", pcb.PID, deviceName))
 
 	device, exists := kernelModels.ConnectedDeviceManager.GetFreeByName(deviceName)
 
@@ -35,12 +35,12 @@ func executeIOSyscall(pcb *kernelModels.PCB, request kernelModels.SyscallRequest
 	}
 
 	if device == nil {
-		slog.Info("Dispositivo ocupado. Proceso encolado.", "dispositivo", deviceName, "PID", pcb.PID)
+		slog.Debug("Dispositivo ocupado. Proceso encolado.", "dispositivo", deviceName, "PID", pcb.PID)
 		// Guardamos la request en el PCB antes de encolarlo.
 		pcb.PendingIoRequest = &request
 		kernelModels.WaitingForDeviceManager.Enqueue(deviceName, pcb)
 	} else {
-		slog.Info("Dispositivo libre encontrado. Enviando proceso a I/O.", "dispositivo", deviceName, "PID", pcb.PID)
+		slog.Debug("Dispositivo libre encontrado. Enviando proceso a I/O.", "dispositivo", deviceName, "PID", pcb.PID)
 		dispatchToDevice(pcb, device, time)
 	}
 }
@@ -91,7 +91,7 @@ func TryToDispatchNextIO(deviceName string) {
 		return
 	}
 
-	slog.Info("Despachando proceso en espera a I/O.", "PID", pcb.PID, "dispositivo", deviceName)
+	slog.Debug("Despachando proceso en espera a I/O.", "PID", pcb.PID, "dispositivo", deviceName)
 
 	// Recuperamos el tiempo correcto desde el PCB.
 	if pcb.PendingIoRequest == nil {
