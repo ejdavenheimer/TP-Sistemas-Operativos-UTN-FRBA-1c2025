@@ -28,7 +28,7 @@ func executeIOSyscall(pcb *kernelModels.PCB, request kernelModels.SyscallRequest
 	device, exists := kernelModels.ConnectedDeviceManager.GetFreeByName(deviceName)
 
 	if !exists {
-		slog.Error("Syscall IO para un tipo de dispositivo inexistente. Finalizando proceso.", "dispositivo", deviceName, "PID", pcb.PID)
+		slog.Debug("Syscall IO para un tipo de dispositivo inexistente. Finalizando proceso.", "dispositivo", deviceName, "PID", pcb.PID)
 		TransitionProcessState(pcb, kernelModels.EstadoExit)
 		StartLongTermScheduler()
 		return
